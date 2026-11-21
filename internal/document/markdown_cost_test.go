@@ -71,6 +71,48 @@ func TestLargeButOrdinaryMarkdownIsStillParsed(t *testing.T) {
 	}
 }
 
+// A fence must be longer than every run of backticks inside it. Finding that length must take
+// one pass over the text, however long the run is.
+func TestLongRunsOfBackticksAreWrittenAsMarkdownInLinearTime(t *testing.T) {
+	text := "a" + strings.Repeat("`", 256<<10) + "a"
+	fence := strings.Repeat("`", 256<<10+1)
+	for name, test := range map[string]struct {
+		block Node
+		want  string
+	}{
+		"in a code block": {Node{Type: TypeCodeBlock, Content: textNode(text, nil)}, fence + "\n" + text + "\n" + fence + "\n"},
+		"in inline code":  {Node{Type: TypeParagraph, Content: textNode(text, []Mark{{Type: MarkCode}})}, fence + text + fence + "\n"},
+	} {
+		start := time.Now()
+		got := ToMarkdown(Node{Type: TypeDoc, Content: []Node{test.block}}, nil)
+		if took := time.Since(start); took > 2*time.Second {
+			t.Errorf("%s took %s", name, took)
+		}
+		if got != test.want {
+			t.Errorf("%s: the fence is not one backtick longer than the run", name)
+		}
+	}
+}
+
+func TestAFenceIsOneLongerThanTheLongestRunOfBackticks(t *testing.T) {
+	for name, test := range map[string]struct {
+		doc  Node
+		want string
+	}{
+		"code without backticks":   {Node{Type: TypeCodeBlock, Content: textNode("x", nil)}, "```\nx\n```\n"},
+		"code with a short run":    {Node{Type: TypeCodeBlock, Content: textNode("a``b", nil)}, "```\na``b\n```\n"},
+		"code with three":          {Node{Type: TypeCodeBlock, Content: textNode("a```b`", nil)}, "````\na```b`\n````\n"},
+		"code with runs apart":     {Node{Type: TypeCodeBlock, Content: textNode("``a````b```", nil)}, "`````\n``a````b```\n`````\n"},
+		"inline without backticks": {Node{Type: TypeParagraph, Content: textNode("x", []Mark{{Type: MarkCode}})}, "`x`\n"},
+		"inline with one":          {Node{Type: TypeParagraph, Content: textNode("a`b", []Mark{{Type: MarkCode}})}, "``a`b``\n"},
+		"inline with runs apart":   {Node{Type: TypeParagraph, Content: textNode("`a```b``", []Mark{{Type: MarkCode}})}, "````" + "`a```b``" + "````\n"},
+	} {
+		if got := ToMarkdown(Node{Type: TypeDoc, Content: []Node{test.doc}}, nil); got != test.want {
+			t.Errorf("%s: got %q, want %q", name, got, test.want)
+		}
+	}
+}
+
 // Blank lines end a block, so many hard blocks must not add up to minutes either.
 func TestManyHardBlocksStayCheap(t *testing.T) {
 	hard := strings.Repeat("[", maxMarkdownBlockMarks-1) + "\n\n"

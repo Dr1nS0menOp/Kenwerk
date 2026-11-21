@@ -3,6 +3,10 @@
 Plain-language notes per release. Every entry has an "Upgrade impact" line.
 
 ## Unreleased
+### Changed: Markdown with long runs of backticks is written in linear time (wave FZ1)
+- When a page or space is exported as Markdown, the fence around code is found in one pass over the code: one backtick longer than the longest run of backticks inside it, and at least three for a code block, as before. A code block of 256 KiB of backticks is written in milliseconds
+- The fuzz corpus of the Markdown reader starts from a code block that holds a long run of backticks
+- Upgrade impact: none. The Markdown written is the same as before, byte for byte
 ### Changed: the settings of a space, as blueprint 03 arranges them (spec 083, wave SC5)
 - The sidebar of space settings starts with a head that stays in place: an arrow **Back to the space** with **Space settings** in bold, the space's badge and name, and the search field. Under it four entries with icons, **Automation** (while automation is on, marked Experimental), **People**, **Content** and **Details**, a short line, then five groups that fold: **General** (Features, Archive the space, Delete the space, Export, Import, Picture of the space, Statuses and approvals, Workflows, Insights), **Access** (Permissions, Public site, Audit of the space), **Pages and files** (Pages still to write, Files, Trash, Archived pages, Labels, Shortcuts, Published space), **Look** (Templates, Layout, PDF design) and **Connections** (Webhooks). All groups are open at first; the ones you fold stay folded for you, and folding never reaches the administration
 - Content, Trash, Automation, Webhooks, Templates, Insights, Public site, Permissions and Audit of the space keep their addresses and now open beside the settings sidebar for whoever may open space settings; everyone else sees them in the space as before. Files and Archived pages are also entries of the settings, and still open from the space menu in the space. The space menu's People opens the People entry for those who manage access

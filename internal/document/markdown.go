@@ -500,10 +500,7 @@ func (w *mdWriter) block(n Node, prefix string) {
 	case TypeCodeBlock:
 		lang, _ := n.Attrs["language"].(string)
 		code := BlockText(n)
-		fence := "```"
-		for strings.Contains(code, fence) {
-			fence += "`"
-		}
+		fence := strings.Repeat("`", max(3, longestBacktickRun(code)+1))
 		w.line(prefix, fence+lang)
 		w.line(prefix, code)
 		w.line(prefix, fence)
@@ -646,10 +643,7 @@ func inlineMarkdown(nodes []Node) string {
 			continue
 		}
 		if _, code := hasMark(n, MarkCode); code {
-			fence := "`"
-			for strings.Contains(n.Text, fence) {
-				fence += "`"
-			}
+			fence := strings.Repeat("`", longestBacktickRun(n.Text)+1)
 			s := fence + n.Text + fence
 			if link, ok := hasMark(n, MarkLink); ok {
 				s = "[" + s + "](" + hrefOf(link) + ")"
@@ -682,6 +676,22 @@ func inlineMarkdown(nodes []Node) string {
 		b.WriteString(lead + s + trail)
 	}
 	return b.String()
+}
+
+// longestBacktickRun returns the length of the longest run of backticks in s. A fence one
+// longer than it cannot close early. It reads s once: growing a fence until s no longer
+// contains it reads s once per backtick of the run.
+func longestBacktickRun(s string) int {
+	longest, run := 0, 0
+	for i := 0; i < len(s); i++ {
+		if s[i] != '`' {
+			run = 0
+			continue
+		}
+		run++
+		longest = max(longest, run)
+	}
+	return longest
 }
 
 func hrefOf(m Mark) string {

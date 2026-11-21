@@ -1114,6 +1114,10 @@ mutate "guesses from many addresses have no limit" internal/httpapi/handlers.go 
   's.replace(" || !s.loginByAllIPs.allow(allAddressesKey)", "")' $app -run TestGuessesFromManyAddressesStillStopAtALimit
 mutate "any Markdown goes to the parser" internal/document/markdown.go \
   's.replace("if tooHardToParse(source) {", "if false {")' ./internal/document -run TestTheLimitOfOneBlockIsExact
+mutate "a fence grows one backtick at a time" internal/document/markdown.go \
+  's.replace("fence := strings.Repeat(\"`\", longestBacktickRun(n.Text)+1)", "fence := \"`\"; for strings.Contains(n.Text, fence) { fence += \"`\" }")' ./internal/document -run TestLongRunsOfBackticksAreWrittenAsMarkdownInLinearTime
+mutate "a code fence may be shorter than three backticks" internal/document/markdown.go \
+  's.replace("max(3, longestBacktickRun(code)+1)", "longestBacktickRun(code)+1")' ./internal/document -run TestAFenceIsOneLongerThanTheLongestRunOfBackticks
 mutate "pastes have no slots" internal/httpapi/handlers_organising.go \
   's.replace("case s.markdownBusy <- struct{}{}:\n\t\tdefer func() { <-s.markdownBusy }()\n\tdefault:\n\t\twriteError(w, http.StatusTooManyRequests, \"rate_limited\", \"Too much text is being converted right now. Try again shortly.\")\n\t\treturn\n\t}", "default:\n\t}")' ./internal/httpapi -run TestPastesWaitForAFreeSlot
 mutate "an event too large stops the relay" internal/outbox/outbox.go \
