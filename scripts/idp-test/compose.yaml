@@ -14,7 +14,7 @@ services:
       interval: 2s
       retries: 30
   ak-redis:
-    image: redis:7-alpine
+    image: redis:8-alpine
   ak-server:
     image: ghcr.io/goauthentik/server:${AK_TAG:-2026.8.5}
     command: server
