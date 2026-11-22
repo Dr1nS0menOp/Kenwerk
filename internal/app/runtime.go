@@ -60,9 +60,9 @@ func (a *App) thresholds() health.Thresholds {
 // runningLevel is the log level this node runs at.
 func (a *App) runningLevel() slog.Level { return slog.Level(a.runtime.running.Load()) }
 
-// ApplyRuntime rereads the log level and the disk thresholds, and applies them as they hold
-// at now: a log level whose time ended gives way to the configured one without anyone
-// asking. It is exported for tests, which pass their own clock.
+// ApplyRuntime rereads the log level, the disk thresholds and the mail server, and applies
+// them as they hold at now: a log level whose time ended gives way to the configured one
+// without anyone asking. It is exported for tests, which pass their own clock.
 func (a *App) ApplyRuntime(ctx context.Context, now time.Time) error {
 	rt, err := settings.ReadRuntime(ctx, a.pool)
 	if err != nil {
@@ -78,7 +78,9 @@ func (a *App) ApplyRuntime(ctx context.Context, now time.Time) error {
 	}
 	t := rt.Health.Thresholds()
 	a.runtime.thresholds.Store(&t)
-	return nil
+	// The mail server of the administration, so a change on another node holds here within
+	// runtimeEvery (spec 098, D5).
+	return a.mail.Reload(ctx)
 }
 
 // runRuntime applies the settings every runtimeEvery until ctx ends. A failed read keeps what
@@ -86,7 +88,7 @@ func (a *App) ApplyRuntime(ctx context.Context, now time.Time) error {
 func (a *App) runRuntime(ctx context.Context) {
 	for {
 		if err := a.ApplyRuntime(ctx, time.Now()); err != nil && ctx.Err() == nil {
-			a.log.Warn("rereading the log level and the disk thresholds failed", "error", err)
+			a.log.Warn("rereading the log level, the disk thresholds and the mail server failed", "error", err)
 		}
 		select {
 		case <-ctx.Done():

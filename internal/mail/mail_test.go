@@ -33,6 +33,8 @@ type fakeServer struct {
 	authWhile []bool // whether each AUTH came over TLS
 	password  string
 	data      string
+	// refuse answers a command that starts with a key with its line, as a server that says no.
+	refuse map[string]string
 }
 
 func testCertificate(t *testing.T) (*tls.Config, *x509.CertPool) {
@@ -59,13 +61,19 @@ func testCertificate(t *testing.T) (*tls.Config, *x509.CertPool) {
 
 func startServer(t *testing.T, offerTLS bool) (*fakeServer, *tls.Config) {
 	t.Helper()
+	return startRefusingServer(t, offerTLS, nil)
+}
+
+// startRefusingServer is startServer whose answers to the commands in refuse are refusals.
+func startRefusingServer(t *testing.T, offerTLS bool, refuse map[string]string) (*fakeServer, *tls.Config) {
+	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = ln.Close() })
 	serverTLS, pool := testCertificate(t)
-	s := &fakeServer{t: t, listener: ln, certs: serverTLS}
+	s := &fakeServer{t: t, listener: ln, certs: serverTLS, refuse: refuse}
 	go func() {
 		for {
 			conn, err := ln.Accept()
@@ -90,6 +98,10 @@ func (s *fakeServer) serve(conn net.Conn, offerTLS bool) {
 			return
 		}
 		command := strings.ToUpper(strings.TrimSpace(line))
+		if answer, refused := s.refusal(command); refused {
+			say(answer)
+			continue
+		}
 		switch {
 		case strings.HasPrefix(command, "EHLO"):
 			if offerTLS && !secured {
@@ -141,6 +153,15 @@ func (s *fakeServer) serve(conn net.Conn, offerTLS bool) {
 }
 
 func (s *fakeServer) port() int { return s.listener.Addr().(*net.TCPAddr).Port }
+
+func (s *fakeServer) refusal(command string) (string, bool) {
+	for prefix, answer := range s.refuse {
+		if strings.HasPrefix(command, prefix) {
+			return answer, true
+		}
+	}
+	return "", false
+}
 
 func message() Message {
 	return Message{To: "anna@example.com", Subject: "Hello", Text: "plain", HTML: "<p>html</p>", Reason: "mentioned",

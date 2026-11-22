@@ -826,6 +826,46 @@ test.describe('the look of every kind of screen', () => {
     await picture(page, 'admin-settings');
   });
 
+  /** The answer of the mail server route while the environment sets the server (spec 098). */
+  const lockedServer = {
+    host: 'smtp.example.com',
+    port: 587,
+    tls: 'starttls',
+    username: 'wiki',
+    password_set: true,
+    from_address: 'wiki@example.com',
+    from_name: 'The wiki',
+    reply_to: '',
+    source: 'environment',
+    locked: { setting: 'KENWERK_SMTP_HOST', source: 'environment' },
+    updated_at: null,
+  };
+
+  test('MailServerPart: the mail server, open, locked and after a failed test', async ({ page }) => {
+    await login(page, ADMIN.email, ADMIN.password);
+    await page.goto('/admin/mail');
+    await expect(page.getByRole('heading', { name: 'Mail server', level: 2 })).toBeVisible();
+    await picture(page, 'admin-mail-server');
+
+    await page.route('**/api/v1/admin/mail/server', (route) => route.fulfill({ json: lockedServer }));
+    await page.route('**/api/v1/admin/mail/test', (route) =>
+      route.fulfill({
+        json: {
+          delivered: false,
+          to: ADMIN.email,
+          step: 'login',
+          error: '535 5.7.8 Authentication credentials invalid',
+        },
+      }),
+    );
+    await page.reload();
+    await expect(page.getByText('The mail server is set by KENWERK_SMTP_HOST (environment).')).toBeVisible();
+    await picture(page, 'admin-mail-locked');
+    await page.getByRole('button', { name: 'Send a test mail' }).click();
+    await expect(page.getByText('535 5.7.8 Authentication credentials invalid')).toBeVisible();
+    await picture(page, 'admin-mail-test-failed');
+  });
+
   test('HistoryView: version history', async ({ browser }) => {
     const page = await newReaderPage(browser, 'light');
     await page.goto(`/pages/${pageId}/history`);

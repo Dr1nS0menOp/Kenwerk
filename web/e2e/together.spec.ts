@@ -667,7 +667,7 @@ test('an administrator sees that no mail server is set', async ({ page }) => {
   await login(page, ADMIN.email, ADMIN.password);
   await page.goto('/admin/mail');
   await expect(page.getByText('No mail server is set.')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Send a test mail to yourself' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Send a test mail' })).toBeDisabled();
   await checkAccessibility(page);
 });
 

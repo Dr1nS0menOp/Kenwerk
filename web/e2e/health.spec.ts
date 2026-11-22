@@ -23,9 +23,9 @@ test('System health shows every check, and the summary repeats what needs a look
   ]) {
     await expect(checks.getByRole('rowheader', { name, exact: true })).toBeVisible();
   }
-  // The test server has no mail server, so its check says what to set.
+  // The test server has no mail server, so its check says where to set one.
   await expect(checks.getByRole('row', { name: /^Mail/ })).toContainText(
-    'Set KENWERK_SMTP_HOST and KENWERK_SMTP_FROM',
+    'Set one under Administration, Mail, or in KENWERK_SMTP_HOST and KENWERK_SMTP_FROM',
   );
   // The worker of the test server seals audit events within a second (ADR-041).
   await expect(checks.getByRole('row', { name: /^Audit log/ })).toContainText(

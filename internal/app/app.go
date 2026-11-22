@@ -231,13 +231,18 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 	a.mail = mail.NewService(a.pool, mailSender(cfg), log)
 	a.mail.SetRenderer(a.renderMail)
 	a.mail.HoldWhile(a.inMaintenance)
-	var backupMailer backups.Mailer
-	a.identity.SetPublicOrigin(cfg.PublicOrigin())
-	if a.mail.Configured() {
-		a.identity.SetMailer(accountMailer{keyring: a.keyring}, cfg.PublicOrigin())
-		backupMailer = accountMailer{keyring: a.keyring}
+	a.mail.UseStoredServer(mail.StoredOptions{Sealer: a.keyring, ListID: listID(cfg),
+		Outward: outward.Options{AllowPrivate: cfg.OutwardAllowPrivate}, Environment: cfg.SMTP, Lock: smtpLock(cfg, a.startedWith)})
+	// A stored server that cannot be read, such as a password sealed with a key this node lacks,
+	// leaves mail off rather than the node down; the reread of runRuntime tries again and logs it.
+	if err := a.mail.Reload(ctx); err != nil {
+		log.Warn("reading the mail server of the administration failed; mail waits", "error", err)
 	}
-	a.backups = backups.NewService(a.pool, a.settings, backupMailer, cfg.PublicOrigin()+"/admin/backups")
+	// The mail server can be set while the process runs (spec 098), so account mail asks the
+	// queue each time whether one is in force.
+	mailer := accountMailer{keyring: a.keyring, ready: a.mail.Configured}
+	a.identity.SetMailer(mailer, cfg.PublicOrigin())
+	a.backups = backups.NewService(a.pool, a.settings, mailer, cfg.PublicOrigin()+"/admin/backups")
 	a.sharing = sharing.NewService(a.pool, a.perms, a.identity, a.settings, a.notify, a.spaces)
 	a.search = search.NewService(a.pool)
 	a.analytics = analytics.NewService(a.pool, a.perms, a.features)
@@ -367,7 +372,39 @@ func mailSender(cfg config.Config) mail.Sender {
 	if cfg.SMTP.Host == "" {
 		return nil
 	}
-	return mail.SMTP{Config: cfg.SMTP, ListID: cfg.InstanceName + " <notifications." + cfg.PublicURL.Hostname() + ">"}
+	return mail.SMTP{Config: cfg.SMTP, ListID: listID(cfg)}
+}
+
+// listID names the mail of this instance for filters (RFC 2919).
+func listID(cfg config.Config) string {
+	return cfg.InstanceName + " <notifications." + cfg.PublicURL.Hostname() + ">"
+}
+
+// smtpHostSetting is the setting that, when set, holds the mail server in the environment.
+const smtpHostSetting = "SMTP_HOST"
+
+// smtpLock names what holds the mail server outside the administration, or nil when nothing
+// does: the environment's server wins as a whole (spec 098, D1).
+func smtpLock(cfg config.Config, started []config.Setting) *mail.Lock {
+	if cfg.SMTP.Host == "" {
+		return nil
+	}
+	lock := &mail.Lock{Setting: "KENWERK_" + smtpHostSetting, Source: mail.SourceEnvironment}
+	for _, s := range started {
+		if s.Name == smtpHostSetting && s.Source != "default" {
+			lock.Source = s.Source
+		}
+	}
+	return lock
+}
+
+// mailBackupFailures mails failed backups while a mail server is in force; without one they
+// wait, marked as not yet mailed, until one is.
+func (a *App) mailBackupFailures(ctx context.Context) error {
+	if !a.mail.Configured() {
+		return nil
+	}
+	return a.backups.MailFailures(ctx)
 }
 
 // migrate applies migrations, as the owner of the tables when one is configured.
@@ -744,7 +781,7 @@ func (a *App) PeriodicTasks() []jobs.Task {
 		{Name: "check-helpers", Every: time.Minute, Run: a.checkHelpers},
 		{Name: "sample-database-size", Every: time.Hour, Run: a.sampleDatabaseSize},
 		{Name: "purge-finished-work", Every: 24 * time.Hour, Run: a.purgeFinishedWork},
-		{Name: "mail-backup-failures", Every: 5 * time.Minute, Run: a.backups.MailFailures},
+		{Name: "mail-backup-failures", Every: 5 * time.Minute, Run: a.mailBackupFailures},
 		// The check of draft and published spaces runs once a week, and once after the part
 		// was turned on again; asking every hour finds both (spec 073, PUB-343, PUB-1305).
 		{Name: "check-publishing", Every: time.Hour, Run: a.publishing.SelfCheck},

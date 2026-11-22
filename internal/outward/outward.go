@@ -81,21 +81,29 @@ func isSharedOrReserved(a netip.Addr) bool {
 	return false
 }
 
-// newClient checks the address at the moment of connecting: a name that changes
-// between a check and the call gains nothing, and every address a name gives passes
-// through here.
-func newClient(o Options) *http.Client {
-	dialer := &net.Dialer{Timeout: callTimeout, Control: func(_, address string, _ syscall.RawConn) error {
+// Allows reports whether these options let a connection reach a.
+func (o Options) Allows(a netip.Addr) bool { return o.AllowPrivate || isPublic(a) }
+
+// Dialer connects only to an address these options allow. It checks the address at the
+// moment of connecting: a name that changes between a check and the call gains nothing,
+// and every address a name gives passes through here. Other ways out, such as the mail
+// server an administrator sets, use it too (spec 098).
+func (o Options) Dialer(timeout time.Duration) *net.Dialer {
+	return &net.Dialer{Timeout: timeout, Control: func(_, address string, _ syscall.RawConn) error {
 		host, _, err := net.SplitHostPort(address)
 		if err != nil {
 			return ErrRefused
 		}
 		a, err := netip.ParseAddr(host)
-		if err != nil || (!o.AllowPrivate && !isPublic(a)) {
+		if err != nil || !o.Allows(a) {
 			return fmt.Errorf("%w: address not allowed", ErrRefused)
 		}
 		return nil
 	}}
+}
+
+func newClient(o Options) *http.Client {
+	dialer := o.Dialer(callTimeout)
 	return &http.Client{
 		Timeout: callTimeout,
 		Transport: &http.Transport{

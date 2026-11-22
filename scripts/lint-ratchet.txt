@@ -46,7 +46,7 @@ internal/identity gosec 8
 internal/keys funlen 1
 internal/keys gocyclo 4
 internal/keys gosec 12
-internal/mail funlen 3
+internal/mail funlen 2
 internal/mail gocyclo 2
 internal/notify funlen 3
 internal/notify gocyclo 8

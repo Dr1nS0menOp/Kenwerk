@@ -1120,6 +1120,34 @@ mutate "a fence grows one backtick at a time" internal/document/markdown.go \
   's.replace("fence := strings.Repeat(\"`\", longestBacktickRun(n.Text)+1)", "fence := \"`\"; for strings.Contains(n.Text, fence) { fence += \"`\" }")' ./internal/document -run TestLongRunsOfBackticksAreWrittenAsMarkdownInLinearTime
 mutate "a code fence may be shorter than three backticks" internal/document/markdown.go \
   's.replace("max(3, longestBacktickRun(code)+1)", "longestBacktickRun(code)+1")' ./internal/document -run TestAFenceIsOneLongerThanTheLongestRunOfBackticks
+# Spec 098, wave ML1: the mail server of the administration. Only a system administrator with a
+# fresh login and a second factor changes it, the environment locks it, its password is kept
+# sealed and never written to the audit, it reaches only allowed addresses, every node reads it
+# again, and tests are limited.
+mutate "an administrator changes the mail server" internal/httpapi/handlers_mail.go \
+  's.replace("Sensitive(Permission(identity.PermSystemAdministrator)), s.handleMailServerSet", "Permission(identity.PermAdministrator), s.handleMailServerSet")' $app -run TestNobodyButASystemAdministratorChangesTheMailServer
+mutate "the mail server changes without a second factor" internal/httpapi/handlers_mail.go \
+  's.replace("if !s.confirmSecondFactor(w, r, in.Code) {", "if false {")' $app -run TestOnlyASystemAdministratorWithASecondFactorChangesTheMailServer
+mutate "the browser overrules the environment's mail server" internal/mail/server.go \
+  's.replace("\tif s.Locked() {\n\t\treturn apperr.Conflict(", "\tif false {\n\t\treturn apperr.Conflict(")' $app -run TestTheEnvironmentLocksTheMailServer
+mutate "keeping the mail password drops it" internal/mail/server.go \
+  's.replace("case PasswordKeep:\n\t\treturn stored, nil", "case PasswordKeep:\n\t\treturn nil, nil")' $app -run TestThePasswordIsSealedAndAuditedWithoutItsValue
+mutate "the audit keeps the mail password" internal/mail/server.go \
+  's.replace("settings.SafeFields{\"host\",", "settings.SafeFields{\"password\", \"host\",")' $app -run TestThePasswordIsSealedAndAuditedWithoutItsValue
+mutate "a stored mail password goes over a plain connection" internal/mail/server.go \
+  's.replace("if clean.TLS == config.SMTPTLSNone && sealed != nil {", "if false {")' $app -run TestAStoredPasswordIsNeverSentWithoutEncryption
+mutate "a mail server on an inside address is saved" internal/mail/server.go \
+  's.replace("inside = !s.stored.Outward.Allows(a)", "inside = !s.stored.Outward.Allows(a) \x26\x26 !a.IsValid()")' ./internal/mail -run TestAMailServerOnAnInsideAddressIsRefused
+mutate "a stored mail server reaches any address" internal/mail/server.go \
+  's.replace(", Dialer: s.stored.Outward.Dialer(smtpTimeout)}", "}")' $app -run TestAStoredServerReachesOnlyAllowedAddresses
+mutate "another node never reads the mail server again" internal/app/runtime.go \
+  's.replace("return a.mail.Reload(ctx)", "return nil")' $app -run TestAChangedMailServerIsUsedWithoutARestart
+mutate "account mail goes while no mail server is in force" internal/identity/lifecycle.go \
+  's.replace("\t\treturn r.Ready()", "\t\treturn r.Ready() || true")' $app -run TestAnEmptyHostTurnsMailOffOnEveryNode
+mutate "test mails have no limit" internal/httpapi/handlers_mail.go \
+  's.replace("if !s.mailTests.allow(", "if false && !s.mailTests.allow(")' $app -run TestTestMailsAreLimited
+mutate "a failed test mail hides the answer of the server" internal/mail/server.go \
+  's.replace("return fmt.Sprintf(\"%03d %s\", answer.Code, strings.ReplaceAll(answer.Msg, \"\\n\", \" \"))", "return fmt.Sprint(\"The mail could not be delivered.\")")' ./internal/mail -run TestTheSenderNamesTheStepAndTheAnswerOfTheServer
 mutate "pastes have no slots" internal/httpapi/handlers_organising.go \
   's.replace("case s.markdownBusy <- struct{}{}:\n\t\tdefer func() { <-s.markdownBusy }()\n\tdefault:\n\t\twriteError(w, http.StatusTooManyRequests, \"rate_limited\", \"Too much text is being converted right now. Try again shortly.\")\n\t\treturn\n\t}", "default:\n\t}")' ./internal/httpapi -run TestPastesWaitForAFreeSlot
 mutate "an event too large stops the relay" internal/outbox/outbox.go \

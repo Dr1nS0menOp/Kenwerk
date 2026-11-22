@@ -414,7 +414,7 @@ var Sentences = map[string]string{
 	"audit_stuck":       "{count} audit event(s) have waited {seconds} seconds to be sealed, so no checkpoint covers them. Start a worker now.",
 	"witness_failed":    "The last comparison of the audit chain with the witness in the log store did not match. Run kenwerk audit verify --witness and follow the incident steps.",
 	"witness_old":       "The audit chain was last compared with the witness {days} days ago. Check the timer that runs kenwerk audit verify --witness --report.",
-	"mail_off":          "No mail server is set, so nobody gets mail. Set KENWERK_SMTP_HOST and KENWERK_SMTP_FROM.",
+	"mail_off":          "No mail server is set, so nobody gets mail. Set one under Administration, Mail, or in KENWERK_SMTP_HOST and KENWERK_SMTP_FROM.",
 	"mail_ok":           "Mail is set up.",
 	"mail_failed":       "{count} mail(s) failed in the last day. Check the mail server.",
 	"login_ok":          "Logging in works as set up.",

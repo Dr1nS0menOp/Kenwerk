@@ -75,11 +75,26 @@ func (s *Service) SetMailer(m Mailer, publicOrigin string) {
 // it is still needed for a reset link an administrator copies to the person.
 func (s *Service) SetPublicOrigin(publicOrigin string) { s.origin = publicOrigin }
 
-// MailReady says whether account mail can be sent.
-func (s *Service) MailReady() bool { return s.mailer != nil }
+// ReadyMailer is a Mailer whose mail server can come and go while the process runs, such as
+// one set in the administration (spec 098): account mail is sent only while Ready says so.
+type ReadyMailer interface {
+	Mailer
+	Ready() bool
+}
+
+// MailReady says whether account mail can be sent now.
+func (s *Service) MailReady() bool {
+	if s.mailer == nil {
+		return false
+	}
+	if r, ok := s.mailer.(ReadyMailer); ok {
+		return r.Ready()
+	}
+	return true
+}
 
 func (s *Service) send(ctx context.Context, q db.Querier, m AccountMail) error {
-	if s.mailer == nil {
+	if !s.MailReady() {
 		return nil
 	}
 	return s.mailer.Send(ctx, q, m)

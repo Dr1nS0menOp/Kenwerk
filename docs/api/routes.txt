@@ -82,6 +82,7 @@ GET /api/v1/admin/invitations                                  session-only perm
 GET /api/v1/admin/jobs                                         session-only permission:administrator
 GET /api/v1/admin/log-level                                    session-only permission:administrator
 GET /api/v1/admin/mail                                         permission:administrator
+GET /api/v1/admin/mail/server                                  permission:administrator
 GET /api/v1/admin/monitoring                                   session-only permission:administrator
 GET /api/v1/admin/monitoring/{kind}                            session-only permission:administrator
 GET /api/v1/admin/organising                                   permission:administrator
@@ -536,6 +537,7 @@ PUT /api/v1/admin/groups/{id}/owners                           session-only perm
 PUT /api/v1/admin/groups/{id}/permissions                      session-only permission:administrator
 PUT /api/v1/admin/log-level                                    session-only permission:administrator
 PUT /api/v1/admin/log-level/confirmed                          sensitive permission:system_administrator
+PUT /api/v1/admin/mail/server                                  sensitive permission:system_administrator
 PUT /api/v1/admin/maintenance                                  sensitive permission:system_administrator
 PUT /api/v1/admin/organising                                   session-only permission:administrator
 PUT /api/v1/admin/outgoing-hosts                               session-only permission:administrator

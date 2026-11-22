@@ -70,7 +70,7 @@ test('every placeholder in the administration fits its field', async ({ page }) 
 
 test('a button on its own in a settings screen keeps the size of its words', async ({ page }) => {
   await page.goto('/admin/mail');
-  const mail = await page.getByRole('button', { name: 'Send a test mail to yourself' }).boundingBox();
+  const mail = await page.getByRole('button', { name: 'Send a test mail' }).boundingBox();
   expect(mail?.width ?? 0).toBeLessThan(400);
   await page.goto('/admin/settings');
   const example = await page.getByRole('button', { name: 'Add example space' }).boundingBox();

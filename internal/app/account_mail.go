@@ -21,7 +21,13 @@ const accountMailContext = "account mail"
 // only ever holds it sealed, and drops it once the mail has left.
 type accountMailer struct {
 	keyring *keys.Keyring
+	// ready says whether a mail server is in force now; nil means always.
+	ready func() bool
 }
+
+// Ready says whether account mail can go now. A server set in the administration can come
+// and go while the process runs (spec 098).
+func (m accountMailer) Ready() bool { return m.ready == nil || m.ready() }
 
 // Send queues one mail about an account.
 func (m accountMailer) Send(ctx context.Context, q db.Querier, a identity.AccountMail) error {

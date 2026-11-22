@@ -107,7 +107,7 @@ From `internal/config/config.go`: each is a variable `KENWERK_<NAME>`, a key of 
 | CSL-187 | `OIDC_AUTO_CREATE` | Make an account at a first login |
 | CSL-188 | `OIDC_ALLOW_UNVERIFIED_EMAIL` | Accept an address the provider does not mark verified |
 | CSL-189 | `OIDC_GROUPS_CLAIM` | The claim that lists groups |
-| CSL-190 | `SMTP_HOST` | The mail server |
+| CSL-190 | `SMTP_HOST` | The mail server. When set, it holds the whole server and Administration, Mail shows it read-only; without it a system administrator sets the server there (spec 098) |
 | CSL-191 | `SMTP_PORT` | Its port |
 | CSL-192 | `SMTP_USERNAME` | Its user |
 | CSL-193 | `SMTP_PASSWORD` | Its password (secret) |

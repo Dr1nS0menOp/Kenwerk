@@ -56,6 +56,7 @@ import { EmptyState } from '../components/empty-state';
 import { Notice } from '../components/notice';
 import { differs, SaveReset } from '../components/save-reset';
 import { ControlTab } from './admin-control';
+import { MailServerPart } from './admin-mail';
 import { TableBox, TableEmpty } from '../components/table-box';
 import { pageTitle } from '../page-name';
 import {
@@ -1144,9 +1145,8 @@ function MailSwitches({ stored }: { stored: MailSettings }) {
   );
 }
 
-function MailTab() {
+function MailTab({ me }: { me: Me }) {
   const { t } = useTranslation();
-  const client = useQueryClient();
   const settings = useQuery({
     queryKey: ['settings'],
     queryFn: () => api.get<MailSettings>('/admin/settings'),
@@ -1154,10 +1154,6 @@ function MailTab() {
   const mail = useQuery({
     queryKey: ['mail-queue'],
     queryFn: () => api.get<{ configured: boolean; queue: MailEntry[] }>('/admin/mail'),
-  });
-  const test = useMutation({
-    mutationFn: () => api.post('/admin/mail/test'),
-    onSettled: () => client.invalidateQueries({ queryKey: ['mail-queue'] }),
   });
   if (settings.error || mail.error) return <ErrorNote error={settings.error ?? mail.error} />;
   if (!settings.data || !mail.data) return <Loading />;
@@ -1169,16 +1165,10 @@ function MailTab() {
           {t('admin.mailOff')}
         </Notice>
       )}
+      <MailServerPart isSystem={me.global_permissions.includes('system_administrator')} />
       <MailSwitches key={JSON.stringify(stored)} stored={stored} />
       <section className="settings-unit">
         <h2>{t('admin.mailQueue')}</h2>
-        <ErrorNote error={test.error} />
-        <p>
-          <button type="button" disabled={!mail.data.configured} onClick={() => test.mutate()}>
-            {t('admin.mailTest')}
-          </button>
-        </p>
-        {test.isSuccess && <Notice kind="info">{t('admin.mailTestQueued')}</Notice>}
         <MailQueue entries={mail.data.queue} />
       </section>
     </>
@@ -1439,7 +1429,7 @@ function SectionContent({ id, me }: { id: string; me: Me }) {
     case 'organising':
       return <OrganisingTab />;
     case 'mail':
-      return <MailTab />;
+      return <MailTab me={me} />;
     case 'templates':
       return <TemplatesTab />;
     case 'control':

@@ -55,6 +55,7 @@ func (s *Server) registerRoutes() {
 	s.registerWorkflowRoutes()
 	s.registerTemplateRoutes()
 	s.registerTogetherRoutes()
+	s.registerMailRoutes()
 	s.registerSavedBlockRoutes()
 	s.registerIdentityRoutes()
 	s.registerAppearanceRoutes()

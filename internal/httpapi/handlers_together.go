@@ -96,7 +96,6 @@ func (s *Server) registerTogetherRoutes() {
 
 	admin := Permission(identity.PermAdministrator)
 	r.HandleFunc("GET /api/v1/admin/mail", admin, s.handleMailQueue)
-	r.HandleFunc("POST /api/v1/admin/mail/test", admin, s.handleMailTest)
 	// RFC 8058: the mail client sends no session, so the sealed token is the proof.
 	// It can only reduce mail, and a bad token does nothing.
 	r.HandleFunc("POST /api/v1/mail/unsubscribe/{token}", Public, s.handleUnsubscribe)
@@ -623,18 +622,6 @@ func (s *Server) handleMailQueue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"configured": s.deps.Mail.Configured(), "queue": list})
-}
-
-func (s *Server) handleMailTest(w http.ResponseWriter, r *http.Request) {
-	if !s.deps.Mail.Configured() {
-		s.fail(w, r, apperr.Conflict("mail_off", "No mail server is set."))
-		return
-	}
-	if err := s.deps.Mail.EnqueueTest(r.Context(), s.caller(r).UserID); err != nil {
-		s.fail(w, r, err)
-		return
-	}
-	w.WriteHeader(http.StatusAccepted)
 }
 
 func (s *Server) handleUnsubscribe(w http.ResponseWriter, r *http.Request) {

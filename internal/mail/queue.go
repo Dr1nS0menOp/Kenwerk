@@ -5,6 +5,7 @@ package mail
 import (
 	"context"
 	"log/slog"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -59,16 +60,34 @@ type Renderer func(ctx context.Context, j Job) (Rendered, error)
 
 // Service works through the queue.
 type Service struct {
-	pool   *pgxpool.Pool
-	sender Sender
+	pool *pgxpool.Pool
+	// fixed is the sender this process started with, from the environment; it wins over a
+	// stored server (spec 098, D1).
+	fixed  Sender
 	render Renderer
 	log    *slog.Logger
 	held   func(context.Context) (bool, error)
+	// stored connects the queue to the server of the administration; nil means none.
+	stored *StoredOptions
+	// state is the stored server as this node last read it.
+	state atomic.Pointer[storedState]
 }
 
-// NewService creates the service. Without a sender, mail waits in the queue.
+// NewService creates the service. Without a sender, mail waits in the queue until a server
+// is stored in the administration, if UseStoredServer connected one.
 func NewService(pool *pgxpool.Pool, sender Sender, log *slog.Logger) *Service {
-	return &Service{pool: pool, sender: sender, log: log}
+	return &Service{pool: pool, fixed: sender, log: log}
+}
+
+// current is the sender in force: the environment's, else the stored one, else none.
+func (s *Service) current() Sender {
+	if s.fixed != nil {
+		return s.fixed
+	}
+	if st := s.state.Load(); st != nil {
+		return st.sender
+	}
+	return nil
 }
 
 // SetRenderer connects the module that knows what a mail says.
@@ -77,8 +96,8 @@ func (s *Service) SetRenderer(r Renderer) { s.render = r }
 // HoldWhile makes mail wait for as long as the check says so: maintenance mode.
 func (s *Service) HoldWhile(check func(context.Context) (bool, error)) { s.held = check }
 
-// Configured reports whether a mail server is set.
-func (s *Service) Configured() bool { return s.sender != nil }
+// Configured reports whether a mail server is in force on this node.
+func (s *Service) Configured() bool { return s.current() != nil }
 
 // EnqueueInstant adds a notification to the person's next mail.
 func EnqueueInstant(ctx context.Context, q db.Querier, user, notification uuid.UUID) error {
@@ -100,12 +119,6 @@ func EnqueueDigest(ctx context.Context, q db.Querier, user uuid.UUID, notificati
 // EnqueueAccount queues a sealed account mail.
 func EnqueueAccount(ctx context.Context, q db.Querier, sealed []byte) error {
 	_, err := q.Exec(ctx, "INSERT INTO mail_queue (id, kind, sealed) VALUES ($1, $2, $3)", ids.New(), KindAccount, sealed)
-	return err
-}
-
-// EnqueueTest queues a test mail to the person who asked for it.
-func (s *Service) EnqueueTest(ctx context.Context, user uuid.UUID) error {
-	_, err := s.pool.Exec(ctx, "INSERT INTO mail_queue (id, user_id, kind) VALUES ($1, $2, 'test')", ids.New(), user)
 	return err
 }
 
@@ -160,7 +173,7 @@ func (s *Service) retry(ctx context.Context, id uuid.UUID, sendErr error) error 
 	return err
 }
 
-func (s *Service) deliver(ctx context.Context, j Job) error {
+func (s *Service) deliver(ctx context.Context, sender Sender, j Job) error {
 	out, err := s.render(ctx, j)
 	if err != nil {
 		return s.retry(ctx, j.ID, err)
@@ -171,7 +184,7 @@ func (s *Service) deliver(ctx context.Context, j Job) error {
 	if !out.Hold.IsZero() {
 		return s.hold(ctx, j.ID, out.Hold)
 	}
-	if err := s.sender.Send(ctx, out.Message); err != nil {
+	if err := sender.Send(ctx, out.Message); err != nil {
 		return s.retry(ctx, j.ID, err)
 	}
 	return s.finish(ctx, j.ID, "sent")
@@ -180,7 +193,8 @@ func (s *Service) deliver(ctx context.Context, j Job) error {
 // RunOnce sends what is due, and returns how many mails it handled. Without a mail
 // server everything simply stays in the queue.
 func (s *Service) RunOnce(ctx context.Context) (int, error) {
-	if s.sender == nil || s.render == nil {
+	sender := s.current()
+	if sender == nil || s.render == nil {
 		return 0, nil
 	}
 	if s.held != nil {
@@ -198,7 +212,7 @@ func (s *Service) RunOnce(ctx context.Context) (int, error) {
 		return 0, err
 	}
 	for _, j := range jobs {
-		if err := s.deliver(ctx, j); err != nil {
+		if err := s.deliver(ctx, sender, j); err != nil {
 			return 0, err
 		}
 	}

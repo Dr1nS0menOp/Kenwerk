@@ -160,6 +160,8 @@ type Server struct {
 	accountLinkWork chan struct{}
 	// appearanceCalls limits the appearance answer per address for those without a login.
 	appearanceCalls *limiter
+	// mailTests limits the test mails of one person (spec 098, D6).
+	mailTests *limiter
 }
 
 // New builds the API.
@@ -185,6 +187,7 @@ func New(d Deps) (*Server, error) {
 
 		accountLinkWork: make(chan struct{}, accountLinkWorkers),
 		appearanceCalls: newLimiter(appearanceCallsPerWindow, appearanceWindow),
+		mailTests:       newLimiter(mailTestsPerPerson, mailTestWindow),
 	}
 	if d.Config.SecureCookies() {
 		// The __Host- prefix makes browsers refuse the cookie unless it is

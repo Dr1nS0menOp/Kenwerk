@@ -17,6 +17,7 @@ import (
 	"github.com/kenwerk/kenwerk/internal/audit"
 	"github.com/kenwerk/kenwerk/internal/identity"
 	"github.com/kenwerk/kenwerk/internal/keys"
+	"github.com/kenwerk/kenwerk/internal/mail"
 	"github.com/kenwerk/kenwerk/internal/storage"
 	"github.com/kenwerk/kenwerk/internal/webhooks"
 )
@@ -61,6 +62,10 @@ var sealedColumns = []sealedColumn{
 		readPage: `SELECT id::text, sealed FROM mail_queue
 			WHERE sealed IS NOT NULL AND id::text > $1 ORDER BY id::text LIMIT $2`,
 		reseal: `UPDATE mail_queue SET sealed = $2 WHERE id::text = $1 AND sealed = $3`},
+	{table: "mail_server", column: "password_sealed", id: "id", context: fixedContext(mail.PasswordContext),
+		readPage: `SELECT id::text, password_sealed FROM mail_server
+			WHERE password_sealed IS NOT NULL AND id::text > $1 ORDER BY id::text LIMIT $2`,
+		reseal: `UPDATE mail_server SET password_sealed = $2 WHERE id::text = $1 AND password_sealed = $3`},
 }
 
 // keyPageSize is how many rows a check or reseal reads at once, so memory stays flat.

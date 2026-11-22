@@ -1303,6 +1303,40 @@
         "x-access": "permission:administrator"
       }
     },
+    "/api/v1/admin/mail/server": {
+      "get": {
+        "operationId": "get /api/v1/admin/mail/server",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Done. Most routes answer with JSON."
+          },
+          "default": {
+            "description": "An error, as {\"error\": {\"code\", \"message\"}}."
+          }
+        },
+        "tags": [
+          "admin"
+        ],
+        "x-access": "permission:administrator"
+      },
+      "put": {
+        "operationId": "put /api/v1/admin/mail/server",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Done. Most routes answer with JSON."
+          },
+          "default": {
+            "description": "An error, as {\"error\": {\"code\", \"message\"}}."
+          }
+        },
+        "tags": [
+          "admin"
+        ],
+        "x-access": "sensitive permission:system_administrator"
+      }
+    },
     "/api/v1/admin/mail/test": {
       "post": {
         "operationId": "post /api/v1/admin/mail/test",

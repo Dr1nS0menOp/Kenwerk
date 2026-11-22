@@ -141,7 +141,11 @@ Any page can hold special categories of personal data: health, union membership,
 
 ## Mail
 
-Kenwerk works without mail: notifications show in the app, and mail waits in the queue. Any SMTP server works, whether your own or one from a provider. Set these:
+Kenwerk works without mail: notifications show in the app, and mail waits in the queue. Any SMTP server works, whether your own or one from a provider.
+
+**In the administration.** A system administrator sets the server under Administration, Instance, Mail: host, port, encryption, user name, password, sender address and name, and reply-to address. Each change asks for a code from the authenticator app. The password is stored encrypted with `master.key` and is never shown again; every node uses a change within 5 seconds, without a restart. **Send a test mail** sends one to you at once and shows what the server answered when it fails. A server set here only reaches public addresses; for a relay on your own network, set `KENWERK_OUTWARD_ALLOW_PRIVATE=true` or use the settings below (spec 098). The same is open through the API: `GET` and `PUT /api/v1/admin/mail/server`, `POST /api/v1/admin/mail/test`.
+
+**In the environment.** Set these, and the server is in force as before; the administration then shows it read-only. Remove `KENWERK_SMTP_HOST` and restart to set the server in the administration instead.
 
 | Setting | Means |
 |---|---|
@@ -151,7 +155,7 @@ Kenwerk works without mail: notifications show in the app, and mail waits in the
 | `KENWERK_SMTP_REPLY_TO` | Optional |
 | `KENWERK_SMTP_TLS` | `starttls` (default), `implicit` for port 465, or `none` for a relay on the same machine |
 
-With `starttls`, a server that does not offer encryption gets nothing: there is no quiet fall back to plain text. Administration, Instance, Mail shows the queue and has a Send test.
+With `starttls`, a server that does not offer encryption gets nothing: there is no quiet fall back to plain text. With `none`, the administration takes no user name or password, because they would cross the network unencrypted.
 
 Mail is not signed by Kenwerk. Let your mail server sign with DKIM, and publish SPF and DMARC records for the sender's domain: providers trust one-click unsubscribe only on mail whose DKIM signature covers those headers (RFC 8058), and unsigned mail tends to land in spam. The link in every mail works either way (SEC-423).
 

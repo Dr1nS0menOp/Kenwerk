@@ -21,6 +21,7 @@ import (
 	"github.com/kenwerk/kenwerk/internal/config"
 	"github.com/kenwerk/kenwerk/internal/identity"
 	"github.com/kenwerk/kenwerk/internal/keys"
+	"github.com/kenwerk/kenwerk/internal/mail"
 )
 
 // keyEnv is an instance with one uploaded file and one sealed TOTP seed.
@@ -254,6 +255,44 @@ func TestTheKeyIsReplacedWhileTheInstanceKeepsServing(t *testing.T) {
 		t.Fatalf("retiring must be audited once: %d", steps)
 	}
 }
+
+// The password of the mail server set in the administration is a sealed value like the
+// others: the check counts it and a new key reaches it (spec 098, D2).
+func TestResealReachesTheMailServerPassword(t *testing.T) {
+	k := newKeyEnv(t)
+	ctx := context.Background()
+	tools := k.tools()
+	sealed, err := tools.Keyring.Seal([]byte("the mail password"), mail.PasswordContext)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tools.Pool.Exec(ctx, `INSERT INTO mail_server (id, host, from_address, password_sealed)
+		VALUES (true, 'smtp.example.com', 'wiki@example.com', $1)`, sealed); err != nil {
+		t.Fatal(err)
+	}
+	tools.Close()
+	oldID := k.check(false).CurrentKey
+	k.newKey()
+	if rep := k.check(false); rep.Values[oldID] != 2 {
+		t.Fatalf("the check does not count the mail password: %+v", rep)
+	}
+	if rep := k.resealAll(); rep.Values != 2 || rep.Skipped != 0 {
+		t.Fatalf("the TOTP seed and the mail password must be sealed again: %+v", rep)
+	}
+	if after := k.check(false); !after.AllCurrent() {
+		t.Fatalf("after resealing: %+v", after)
+	}
+	tools = k.tools()
+	defer tools.Close()
+	var again []byte
+	if err := tools.Pool.QueryRow(ctx, "SELECT password_sealed FROM mail_server").Scan(&again); err != nil {
+		t.Fatal(err)
+	}
+	if plain, err := tools.Keyring.Open(again, mail.PasswordContext); err != nil || string(plain) != "the mail password" {
+		t.Fatalf("the resealed password: %q %v", plain, err)
+	}
+}
+
 func TestAValueChangedWhileItIsSealedAgainKeepsTheNewValue(t *testing.T) {
 	k := newKeyEnv(t)
 	k.newKey()
@@ -353,6 +392,7 @@ func TestEverySealedColumnIsKnown(t *testing.T) {
 		"identity/factors.go":   "totp_credentials.secret_sealed",
 		"webhooks/webhooks.go":  "webhook_endpoints.secret and old_secret",
 		"app/account_mail.go":   "mail_queue.sealed",
+		"mail/server.go":        "mail_server.password_sealed",
 		"notify/unsubscribe.go": "not stored: the token is in a mail, and stops working once its key is retired",
 		"storage/encrypted.go":  "stored files, which CheckKeys and ResealKeys walk",
 		"app/keyrotation.go":    "seals the places above again with a new key",
