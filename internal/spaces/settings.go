@@ -90,13 +90,8 @@ func (s *Service) ChangeKey(ctx context.Context, c identity.Caller, id uuid.UUID
 		}
 		if strings.EqualFold(sp.Key, key) {
 			out = sp
-		} else if _, err := tx.Exec(ctx, "INSERT INTO space_key_aliases (alias, space_id) VALUES (lower($1), $2) ON CONFLICT DO NOTHING", sp.Key, id); err != nil {
-			if db.IsUniqueViolation(err) {
-				return apperr.Conflict("key_taken", "This key is already in use.")
-			}
-			return err
 		}
-		if _, err := tx.Exec(ctx, "DELETE FROM space_key_aliases WHERE alias = lower($1) AND space_id = $2", key, id); err != nil {
+		if err := moveKeyAliases(ctx, tx, id, sp.Key, key); err != nil {
 			return err
 		}
 		out, err = scan(tx.QueryRow(ctx, "UPDATE spaces SET key = $2, updated_at = now() WHERE id = $1 RETURNING "+columns, id, key))
@@ -109,6 +104,22 @@ func (s *Service) ChangeKey(ctx context.Context, c identity.Caller, id uuid.UUID
 		return record(ctx, tx, c, "space.key_changed", out, map[string]any{"from": sp.Key})
 	})
 	return out, err
+}
+
+// moveKeyAliases keeps the space's current key as an old key, unless only its case changes, and
+// drops the new key from the old keys, so the key belongs to this space alone.
+func moveKeyAliases(ctx context.Context, tx pgx.Tx, id uuid.UUID, oldKey, newKey string) error {
+	if !strings.EqualFold(oldKey, newKey) {
+		_, err := tx.Exec(ctx, "INSERT INTO space_key_aliases (alias, space_id) VALUES (lower($1), $2) ON CONFLICT DO NOTHING", oldKey, id)
+		if db.IsUniqueViolation(err) {
+			return apperr.Conflict("key_taken", "This key is already in use.")
+		}
+		if err != nil {
+			return err
+		}
+	}
+	_, err := tx.Exec(ctx, "DELETE FROM space_key_aliases WHERE alias = lower($1) AND space_id = $2", newKey, id)
+	return err
 }
 
 // ReleaseKey lets go of an old key, so someone else can use it.
