@@ -230,7 +230,7 @@ func (s *Service) Export(ctx context.Context, c identity.Caller, id uuid.UUID) (
 func (s *Service) hiddenInRun(ctx context.Context, c identity.Caller, id uuid.UUID) (int, error) {
 	var hidden int
 	err := s.pool.QueryRow(ctx, `SELECT count(*) FROM export_run_pages e
-		WHERE e.run_id = $1 AND e.page_id NOT IN (SELECT page_id FROM perm_visible_pages($2))`, id, c.UserID).Scan(&hidden)
+		WHERE e.run_id = $1 AND e.page_id NOT IN (SELECT page_id FROM perm_visible_pages($2, $3))`, id, c.UserID, permissions.CredentialSpaces(ctx)).Scan(&hidden)
 	return hidden, err
 }
 

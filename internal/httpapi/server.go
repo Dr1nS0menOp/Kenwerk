@@ -10,7 +10,6 @@ import (
 	"log/slog"
 	"net/http"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -144,6 +143,8 @@ type Server struct {
 	// loginByAllIPs counts tries on one account from every address together.
 	loginByAllIPs *limiter
 	tokenCalls    *limiter
+	// credentialLimits are the limits of spec 096 on top of tokenCalls.
+	credentialLimits credentialLimits
 	// setupTries limits tries at the first setup per address (spec 038).
 	setupTries *limiter
 	// mailsTo limits account mail per recipient, whoever asks for it (SEC-190).
@@ -170,13 +171,14 @@ func New(d Deps) (*Server, error) {
 		d.Log = slog.New(slog.DiscardHandler)
 	}
 	s := &Server{
-		deps:       d,
-		cookieName: "kenwerk_session",
-		flowCookie: oidcCookie,
-		loginByIP:  newLimiter(50, loginWindow),
-		loginByAcc: newLimiter(10, loginWindow),
-		tokenCalls: newLimiter(tokenCallsPerMinute, time.Minute),
-		requests:   metrics.NewRequests(),
+		deps:             d,
+		cookieName:       "kenwerk_session",
+		flowCookie:       oidcCookie,
+		loginByIP:        newLimiter(50, loginWindow),
+		loginByAcc:       newLimiter(10, loginWindow),
+		tokenCalls:       newLimiter(tokenCallsPerMinute, time.Minute),
+		credentialLimits: newCredentialLimits(),
+		requests:         metrics.NewRequests(),
 
 		loginByAllIPs: newLimiter(100, loginWindow),
 		setupTries:    newLimiter(setupTriesPerAddress, setupWindow),
@@ -197,7 +199,7 @@ func New(d Deps) (*Server, error) {
 		// makes a browser take it only from a secure page (SEC-153).
 		s.flowCookie = "__Secure-" + oidcCookie
 	}
-	s.router = newRouter(s.enforce)
+	s.router = newRouter(s.enforce, routeScopes)
 	s.registerRoutes()
 
 	cop := http.NewCrossOriginProtection()
@@ -276,7 +278,7 @@ func (s *Server) allowedByCredential(w http.ResponseWriter, r *http.Request, a A
 	switch {
 	case p.ViaToken && a.sessionOnly:
 		writeError(w, http.StatusForbidden, "session_only", "This needs a login in the browser, not a token.")
-	case p.ViaToken && !s.tokenMayGoOn(w, r, p):
+	case p.ViaToken && !s.tokenMayGoOn(w, r, a, p):
 		return false
 	case p.NeedsSecondFactor && !slices.Contains(secondFactorRoutes, r.Pattern):
 		writeError(w, http.StatusForbidden, "second_factor_required", "Set up a second factor first.")
@@ -285,62 +287,6 @@ func (s *Server) allowedByCredential(w http.ResponseWriter, r *http.Request, a A
 	default:
 		return true
 	}
-	return false
-}
-
-// exportRoutes hand out content in bulk, so a token needs the export scope for them
-// (spec 015, H9). They are named by route pattern, so an address that only contains the
-// word, such as the pages of a label called export, needs no more than its own scope.
-var exportRoutes = []string{
-	"GET /api/v1/export-formats",
-	"GET /api/v1/exports/{id}",
-	"GET /api/v1/exports/{id}/file",
-	"GET /api/v1/pages/{id}/export.md",
-	"GET /api/v1/pages/{id}/export.zip",
-	"GET /api/v1/spaces/{id}/export.zip",
-	"GET /api/v1/spaces/{id}/auditor-export",
-	"GET /api/v1/spaces/{id}/releases/export",
-	"GET /api/v1/templates/{id}/export",
-	"POST /api/v1/exports",
-	"POST /api/v1/me/export",
-}
-
-// scopeFor maps a request to the scope a token needs, by the pattern of its route
-// (spec 015, H9). A request without a pattern was not routed, and needs the most.
-func scopeFor(r *http.Request) string {
-	_, path, _ := strings.Cut(r.Pattern, " ")
-	switch {
-	case r.Pattern == "" || strings.HasPrefix(path, adminPathPrefix):
-		return identity.ScopeAdmin
-	case slices.Contains(exportRoutes, r.Pattern):
-		return identity.ScopeExport
-	case isRead(r):
-		return identity.ScopeRead
-	}
-	return identity.ScopeWrite
-}
-
-// tokenMayGoOn applies the limit per minute and the scope of a token, and answers
-// the request when it refuses. A refusal is audited: a script has gone wrong, or
-// someone is trying a stolen token.
-func (s *Server) tokenMayGoOn(w http.ResponseWriter, r *http.Request, p *identity.Principal) bool {
-	if !s.tokenCalls.allow(p.TokenID.String()) {
-		writeError(w, http.StatusTooManyRequests, "too_many_requests", "This token made too many calls. Wait a minute.")
-		return false
-	}
-	scope := scopeFor(r)
-	if slices.Contains(p.Scopes, scope) {
-		return true
-	}
-	if err := s.deps.Identity.RecordTokenRefused(r.Context(), s.caller(r), p.TokenID, scope); err != nil {
-		s.fail(w, r, err)
-		return false
-	}
-	if scope == identity.ScopeWrite {
-		writeError(w, http.StatusForbidden, "token_read_only", "This token can only read.")
-		return false
-	}
-	writeError(w, http.StatusForbidden, "token_scope", "This token does not have the scope "+scope+".")
 	return false
 }
 

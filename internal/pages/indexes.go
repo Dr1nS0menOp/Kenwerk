@@ -51,8 +51,8 @@ func (s *Service) UsedBy(ctx context.Context, c identity.Caller, id uuid.UUID) (
 		return nil, err
 	}
 	rows, err := s.pool.Query(ctx, `SELECT DISTINCT `+refColumns+`, lower(p.title) FROM page_includes i
-		JOIN pages p ON p.id = i.source_id `+refJoins+`
-		WHERE i.target_id = $2 AND p.status = 'published' ORDER BY lower(p.title) LIMIT $3`, c.UserID, id, maxListedLinks)
+		JOIN pages p ON p.id = i.source_id `+refJoins("$4")+`
+		WHERE i.target_id = $2 AND p.status = 'published' ORDER BY lower(p.title) LIMIT $3`, c.UserID, id, maxListedLinks, permissions.CredentialSpaces(ctx))
 	if err != nil {
 		return nil, err
 	}

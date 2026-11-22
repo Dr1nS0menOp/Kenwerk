@@ -323,6 +323,35 @@ test('a token is shown once, and can be taken back', async ({ page, browser }) =
   await expect(page.getByRole('row', { name: /My script/ })).toHaveCount(0);
 });
 
+test('a token for an assistant reaches every space unless spaces are chosen', async ({ page, browser }) => {
+  const email = `${unique('assistant')}@example.com`;
+  await createUser(browser, email);
+  await login(page, email);
+  await page.goto('/me/tokens');
+  await expect(page.getByLabel('Every space you can see')).toBeChecked();
+  await expect(page.getByLabel('Read pages, spaces, comments and files')).toBeChecked();
+  await expect(
+    page.getByLabel('Share outside: sharing, guests, public links, sites and restrictions'),
+  ).not.toBeChecked();
+
+  await page.getByLabel('Only chosen spaces').check();
+  await expect(page.getByLabel('Administration, read only')).toBeDisabled();
+  await expect(page.getByText('Choose at least one space.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'New token' })).toBeDisabled();
+  await checkAccessibility(page);
+
+  await page.getByLabel('Every space you can see').check();
+  await page.getByLabel('Name').fill('My assistant');
+  await page.getByLabel('For an assistant').check();
+  await page.getByRole('button', { name: 'New token' }).click();
+  const dialog = page.getByRole('dialog', { name: 'New token' });
+  await expect(dialog.getByTestId('token-secret')).toContainText('kenwerk_');
+  await dialog.getByRole('button', { name: 'Close' }).click();
+  const row = page.getByRole('row', { name: /My assistant/ });
+  await expect(row).toContainText('Assistant');
+  await expect(row).toContainText('Every space');
+});
+
 test('a person downloads their data and asks for removal', async ({ page, browser }) => {
   const email = `${unique('data')}@example.com`;
   await createUser(browser, email);

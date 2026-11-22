@@ -31,7 +31,7 @@
 - **SEC-226** · built · Only the methods of a route work, because the router matches on them. `TRACE` has no route (ASVS 4.1.4, 13.4.4).
 - **SEC-227** · built · Personal API tokens have a name, an end date and a limited scope, are stored hashed, and are shown once (ACC-019).
 - **SEC-228** · built · Routes that manage tokens, sessions or factors work with a session only, never with a token (`SessionOnly`). A stolen token cannot make a new one.
-- **SEC-229** · built · Scopes `read`, `write`, `export` and `admin` are checked in the middleware, the module's checks still apply, and a token never exceeds its owner.
+- **SEC-229** · built · Scopes `read`, `write`, `export` and `admin` are checked in the middleware, the module's checks still apply, and a token never exceeds its owner. Since spec 096 (wave MC2) each route names one finer scope in the router's table, the old words are bundles of them, and a token may be limited to chosen spaces, checked in `permissions.Evaluate` and the perm_* functions.
 - **SEC-230** · built · The audit log says which token made a call. `audit.Event` knows user, system and anonymous, so it needs a field for this. Spec 015 does not name it.
 - **SEC-231** · new · Medium. Only login has a limit. Any other route can be called as fast as a person likes, and search and exports are the expensive ones. Limits per person and per token belong in phase 3 (ASVS 2.4.1, 15.2.2). Spec 015 limits tokens, and sessions need the same.
 - **SEC-232** · partly · Every refused request writes an audit event, so a flood of refusals can fill the log and slow writing. It was accepted for now in the threat model. It needs the limit of SEC-231.

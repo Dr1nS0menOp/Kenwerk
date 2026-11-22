@@ -137,7 +137,7 @@ type Entry struct {
 func (s *Service) Mine(ctx context.Context, c identity.Caller) ([]Entry, error) {
 	rows, err := s.pool.Query(ctx, `SELECT w.target_type, w.target_id, p.title, sp.name, w.created_at
 			FROM watches w
-			JOIN perm_visible_pages($1) v ON v.page_id = w.target_id
+			JOIN perm_visible_pages($1, $2) v ON v.page_id = w.target_id
 			JOIN pages p ON p.id = w.target_id
 			JOIN spaces sp ON sp.id = p.space_id
 			WHERE w.user_id = $1 AND w.target_type IN ('page', 'branch')
@@ -146,8 +146,8 @@ func (s *Service) Mine(ctx context.Context, c identity.Caller) ([]Entry, error) 
 			FROM watches w
 			JOIN spaces sp ON sp.id = w.target_id
 			WHERE w.user_id = $1 AND w.target_type = 'space'
-			  AND sp.id IN (SELECT space_id FROM perm_spaces($1, 'space.view'))
-		ORDER BY 5 DESC LIMIT 500`, c.UserID)
+			  AND sp.id IN (SELECT space_id FROM perm_spaces($1, 'space.view', $2))
+		ORDER BY 5 DESC LIMIT 500`, c.UserID, permissions.CredentialSpaces(ctx))
 	if err != nil {
 		return nil, err
 	}

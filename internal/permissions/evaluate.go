@@ -203,6 +203,9 @@ type UserFacts struct {
 	Active bool
 	Groups []uuid.UUID
 	Global []string
+	// Spaces limits what the person's credential reaches to these spaces (spec 096). Nil is
+	// every space, as for a browser session.
+	Spaces []uuid.UUID
 }
 
 // SpaceFacts is what evaluation needs to know about a space.
@@ -402,6 +405,7 @@ func Evaluate(in Input) Decision {
 
 	check(LayerUser, "account_active", in.User.Active, true)
 	check(LayerGlobal, globalUseProduct, slices.Contains(in.User.Global, globalUseProduct), true)
+	check(LayerUser, RuleSpaceLimit, insideCredentialLimit(in.User, in.Space.ID), true)
 	check(LayerSpace, "space_not_trashed", in.Space.Status != "trashed", true)
 	check(LayerSpace, SpaceView, holds(in, SpaceView), true)
 	if in.Action != SpaceView && in.Action != ActionPageView && in.Action != ActionApprovalRead && in.Action != ActionReact {

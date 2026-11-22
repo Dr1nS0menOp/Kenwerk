@@ -220,6 +220,10 @@ export interface Token {
   name: string;
   can_write: boolean;
   scopes: string[];
+  /** The spaces the token is limited to; empty means every space its person reaches. */
+  spaces: string[];
+  /** Made for an assistant (spec 096). */
+  assistant: boolean;
   expires_at: string;
   created_at: string;
   last_used_at: string | null;

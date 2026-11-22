@@ -150,8 +150,8 @@ func (r reader) space() *uuid.UUID {
 // missing page give the same answer.
 func (r reader) visible(ctx context.Context, id uuid.UUID) (bool, error) {
 	var ok bool
-	err := r.s.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM perm_visible_pages($1) v
-		JOIN pages p ON p.id = v.page_id WHERE v.page_id = $2 AND p.status = 'published')`, r.userID, id).Scan(&ok)
+	err := r.s.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM perm_visible_pages($1, $3) v
+		JOIN pages p ON p.id = v.page_id WHERE v.page_id = $2 AND p.status = 'published')`, r.userID, id, permissions.CredentialSpaces(ctx)).Scan(&ok)
 	return ok, err
 }
 
@@ -193,8 +193,8 @@ func (s *Service) Answer(ctx context.Context, c identity.Caller, in Request) (An
 	r := reader{s: s, caller: c, userID: c.UserID, pageID: in.PageID, settings: document.CleanSettings(in.Kind, in.Settings)}
 	if in.PageID != uuid.Nil {
 		// The page it stands on sets the space. A page the reader may not see sets nothing.
-		err := s.pool.QueryRow(ctx, `SELECT p.space_id FROM pages p JOIN perm_visible_pages($1) v ON v.page_id = p.id
-			WHERE p.id = $2`, c.UserID, in.PageID).Scan(&r.spaceID)
+		err := s.pool.QueryRow(ctx, `SELECT p.space_id FROM pages p JOIN perm_visible_pages($1, $3) v ON v.page_id = p.id
+			WHERE p.id = $2`, c.UserID, in.PageID, permissions.CredentialSpaces(ctx)).Scan(&r.spaceID)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return Answer{Rows: []Row{}}, nil
 		}

@@ -249,8 +249,8 @@ func LockForPairing(ctx context.Context, tx pgx.Tx, a, b uuid.UUID) error {
 // the directory, under their own filter (SPC-069).
 func (s *Service) List(ctx context.Context, c identity.Caller) ([]Space, error) {
 	rows, err := s.pool.Query(ctx, `SELECT `+columns+` FROM spaces
-		WHERE status = 'active' AND id IN (SELECT space_id FROM perm_spaces($1, 'space.view'))
-		ORDER BY lower(name), id`, c.UserID)
+		WHERE status = 'active' AND id IN (SELECT space_id FROM perm_spaces($1, 'space.view', $2))
+		ORDER BY lower(name), id`, c.UserID, permissions.CredentialSpaces(ctx))
 	return collect(rows, err)
 }
 

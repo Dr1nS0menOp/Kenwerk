@@ -228,9 +228,9 @@ func (s *Service) OtherEditors(ctx context.Context, c identity.Caller, id uuid.U
 // SameTitle finds a page with this title in a space, for the warning in the editor
 // (PAG-008). It only answers with a page the person can see.
 func (s *Service) SameTitle(ctx context.Context, c identity.Caller, spaceID, except uuid.UUID, title string) (*PageRef, error) {
-	rows, err := s.pool.Query(ctx, `SELECT `+refColumns+` FROM pages p `+refJoins+`
+	rows, err := s.pool.Query(ctx, `SELECT `+refColumns+` FROM pages p `+refJoins("$5")+`
 		WHERE p.space_id = $2 AND lower(p.title) = lower($3) AND p.id <> $4 AND p.status = 'published'
-		ORDER BY p.id LIMIT 1`, c.UserID, spaceID, title, except)
+		ORDER BY p.id LIMIT 1`, c.UserID, spaceID, title, except, permissions.CredentialSpaces(ctx))
 	list, err := collectRefs(rows, err)
 	if err != nil || len(list) == 0 {
 		return nil, err

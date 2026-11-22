@@ -62,5 +62,5 @@ func (c Caller) Event(action, objectType, objectID, spaceID string, details map[
 	}
 	return audit.Event{ActorType: a.Type, ActorID: a.ID, Action: action, ObjectType: objectType, ObjectID: objectID,
 		SpaceID: spaceID, Result: audit.ResultSuccess, IP: c.Meta.IP, UserAgent: c.Meta.UserAgent,
-		RequestID: c.Meta.RequestID, Details: details}
+		RequestID: c.Meta.RequestID, Details: details, Via: c.Meta.Via}
 }

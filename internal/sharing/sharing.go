@@ -423,8 +423,8 @@ func (s *Service) levels(ctx context.Context, q db.Querier, c identity.Caller, r
 			// An edit restriction sits on one page. A view restriction covers the branch,
 			// counted as far as the person answering can see it.
 			err = q.QueryRow(ctx, `SELECT p.title, CASE WHEN $3 THEN 1 ELSE (SELECT count(*) FROM page_tree t
-					JOIN perm_visible_pages($2) v ON v.page_id = t.descendant_id WHERE t.ancestor_id = p.id) END
-				FROM pages p WHERE p.id = $1`, b.PageID, c.UserID, b.Kind == "edit").Scan(&level.Title, &level.Pages)
+					JOIN perm_visible_pages($2, $4) v ON v.page_id = t.descendant_id WHERE t.ancestor_id = p.id) END
+				FROM pages p WHERE p.id = $1`, b.PageID, c.UserID, b.Kind == "edit", permissions.CredentialSpaces(ctx)).Scan(&level.Title, &level.Pages)
 			if err != nil {
 				return nil, err
 			}

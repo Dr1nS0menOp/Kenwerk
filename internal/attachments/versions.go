@@ -303,8 +303,8 @@ func (s *Service) Lookup(ctx context.Context, c identity.Caller, list []uuid.UUI
 	}
 	rows, err := s.pool.Query(ctx, `SELECT a.id, a.page_id, a.filename, v.size, v.content_type FROM attachments a
 		JOIN attachment_versions v ON v.attachment_id = a.id AND v.number = a.current_version
-		JOIN perm_visible_pages($1) p ON p.page_id = a.page_id
-		WHERE a.id = ANY($2) AND a.status = 'active'`, c.UserID, list)
+		JOIN perm_visible_pages($1, $3) p ON p.page_id = a.page_id
+		WHERE a.id = ANY($2) AND a.status = 'active'`, c.UserID, list, permissions.CredentialSpaces(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -405,11 +405,13 @@ var fileKindSQL = `CASE WHEN lower(a.filename) ~ '\.(` + strings.Join(officeExte
 
 var spaceFileColumns = `a.id, a.filename, v.size, a.page_id, p.title, COALESCE(u.display_name, ''), a.updated_at, ` + fileKindSQL + `, ` + labelsSQL
 
-// Every way to the files of a space goes through this: perm_visible_pages decides.
+// Every way to the files of a space goes through this: perm_visible_pages decides. Each asks
+// about one space ($2), which RequireSpace checked first with the spaces of the credential,
+// so the list itself needs no limit (spec 096).
 const (
 	visibleFrom = ` FROM attachments a
 	JOIN attachment_versions v ON v.attachment_id = a.id AND v.number = a.current_version
-	JOIN perm_visible_pages($1) vp ON vp.page_id = a.page_id
+	JOIN perm_visible_pages($1, NULL) vp ON vp.page_id = a.page_id
 	JOIN pages p ON p.id = a.page_id`
 	// A file a reader may not have of a controlled page stays out of every list (DOC-512).
 	activeInSpace   = ` WHERE a.space_id = $2 AND a.status = 'active' AND a.id NOT IN (SELECT x.attachment_id FROM perm_unpinned_files($1) x)`

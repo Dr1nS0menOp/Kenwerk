@@ -84,7 +84,7 @@ const contentSQL = `SELECT p.id, p.parent_id, p.title, COALESCE(p.owner_id, p.cr
 		(SELECT count(*) FROM pages c WHERE c.parent_id = p.id AND c.status <> 'trashed' AND c.archived_at IS NULL),
 		count(*) OVER ()
 	FROM pages p
-	JOIN perm_listed_pages($1) v ON v.page_id = p.id
+	JOIN perm_listed_pages($1, $23) v ON v.page_id = p.id
 	LEFT JOIN users o ON o.id = COALESCE(p.owner_id, p.created_by)
 	WHERE p.space_id = $2 AND p.status = 'published' AND p.kind = ANY($14)
 	  AND ($3::uuid IS NULL OR COALESCE(p.owner_id, p.created_by) = $3)
@@ -96,7 +96,7 @@ const contentSQL = `SELECT p.id, p.parent_id, p.title, COALESCE(p.owner_id, p.cr
 	       AND ($9 OR NOT EXISTS (SELECT 1 FROM pages c WHERE c.parent_id = p.id AND c.status <> 'trashed' AND c.archived_at IS NULL))))
 	  AND (NOT $10 OR EXISTS (SELECT 1 FROM page_restrictions r WHERE r.page_id = p.id))
 	  AND (NOT $11 OR EXISTS (SELECT 1 FROM page_links k WHERE k.source_id = p.id
-	                          AND k.target_id NOT IN (SELECT g.page_id FROM perm_visible_pages($1) g)))
+	                          AND k.target_id NOT IN (SELECT g.page_id FROM perm_visible_pages($1, $23) g)))
 	  AND (NOT $12 OR (NOT EXISTS (SELECT 1 FROM page_links k WHERE k.target_id = p.id)
 	                   AND (SELECT count(*) FROM page_tree a WHERE a.descendant_id = p.id) > $15))
 	  AND (NOT $13 OR p.review_on <= current_date)
@@ -121,7 +121,7 @@ func (s *Service) Content(ctx context.Context, c identity.Caller, spaceID uuid.U
 	}
 	rows, err := s.pool.Query(ctx, contentSQL, c.UserID, spaceID, q.OwnerID, q.OwnerDisabled, q.Stage, q.Label, q.ContributorID,
 		q.InactiveMonths, q.WithParents, q.Restricted, q.BrokenLinks, q.Orphaned, q.PastReview, treeKinds, farFromTheTop, q.Sort, q.Limit, max(q.Offset, 0),
-		q.ChangedFrom, q.ChangedUntil, q.CreatedFrom, q.CreatedUntil)
+		q.ChangedFrom, q.ChangedUntil, q.CreatedFrom, q.CreatedUntil, permissions.CredentialSpaces(ctx))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -289,7 +289,7 @@ type copyJob struct {
 func (s *Service) BranchSize(ctx context.Context, c identity.Caller, id uuid.UUID) (int, error) {
 	var n int
 	err := s.pool.QueryRow(ctx, `SELECT count(*) FROM page_tree t
-		JOIN perm_listed_pages($1) v ON v.page_id = t.descendant_id WHERE t.ancestor_id = $2`, c.UserID, id).Scan(&n)
+		JOIN perm_listed_pages($1, $3) v ON v.page_id = t.descendant_id WHERE t.ancestor_id = $2`, c.UserID, id, permissions.CredentialSpaces(ctx)).Scan(&n)
 	return n, err
 }
 

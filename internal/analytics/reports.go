@@ -146,14 +146,14 @@ func (s *Service) PageReport(ctx context.Context, c identity.Caller, id uuid.UUI
 // it, among the pages the user may see.
 func (s *Service) linksOf(ctx context.Context, user, id uuid.UUID, p Period) (from, to []LinkCount, err error) {
 	rows, err := s.pool.Query(ctx, `SELECT p.id, p.title, sum(l.count)::int FROM page_view_links l
-		JOIN perm_visible_pages($1) v ON v.page_id = l.from_id JOIN pages p ON p.id = l.from_id
-		WHERE l.to_id = $2 AND l.day BETWEEN $3 AND $4 GROUP BY p.id, p.title ORDER BY 3 DESC LIMIT 10`, user, id, p.From, p.To)
+		JOIN perm_visible_pages($1, $5) v ON v.page_id = l.from_id JOIN pages p ON p.id = l.from_id
+		WHERE l.to_id = $2 AND l.day BETWEEN $3 AND $4 GROUP BY p.id, p.title ORDER BY 3 DESC LIMIT 10`, user, id, p.From, p.To, permissions.CredentialSpaces(ctx))
 	if from, err = collect(rows, err, scanLink); err != nil {
 		return nil, nil, err
 	}
 	rows, err = s.pool.Query(ctx, `SELECT p.id, p.title, sum(l.count)::int FROM page_view_links l
-		JOIN perm_visible_pages($1) v ON v.page_id = l.to_id JOIN pages p ON p.id = l.to_id
-		WHERE l.from_id = $2 AND l.day BETWEEN $3 AND $4 GROUP BY p.id, p.title ORDER BY 3 DESC LIMIT 10`, user, id, p.From, p.To)
+		JOIN perm_visible_pages($1, $5) v ON v.page_id = l.to_id JOIN pages p ON p.id = l.to_id
+		WHERE l.from_id = $2 AND l.day BETWEEN $3 AND $4 GROUP BY p.id, p.title ORDER BY 3 DESC LIMIT 10`, user, id, p.From, p.To, permissions.CredentialSpaces(ctx))
 	if to, err = collect(rows, err, scanLink); err != nil {
 		return nil, nil, err
 	}
@@ -210,9 +210,9 @@ func (s *Service) SpaceReport(ctx context.Context, c identity.Caller, spaceID uu
 			(SELECT count(*) FROM comments cm WHERE cm.page_id = pg.id),
 			COALESCE((SELECT sum(d.readers) FROM page_view_days d WHERE d.page_id = pg.id AND d.day BETWEEN $3 AND $4), 0)::int,
 			COALESCE((SELECT sum(d.views) FROM page_view_days d WHERE d.page_id = pg.id AND d.day BETWEEN $3 AND $4), 0)::int
-		FROM pages pg JOIN perm_visible_pages($1) v ON v.page_id = pg.id
+		FROM pages pg JOIN perm_visible_pages($1, $6) v ON v.page_id = pg.id
 		WHERE pg.space_id = $2 AND pg.status = 'published'
-		ORDER BY 8 DESC, pg.updated_at DESC LIMIT $5`, c.UserID, spaceID, p.From, p.To, maxListRows)
+		ORDER BY 8 DESC, pg.updated_at DESC LIMIT $5`, c.UserID, spaceID, p.From, p.To, maxListRows, permissions.CredentialSpaces(ctx))
 	return collect(rows, err, func(r pgx.CollectableRow) (ContentRow, error) {
 		var v ContentRow
 		err := r.Scan(&v.ID, &v.Title, &v.CreatedAt, &v.UpdatedAt, &v.LastViewed, &v.Comments, &v.Readers, &v.Views)
@@ -242,9 +242,9 @@ func WriteContentCSV(w io.Writer, list []ContentRow) error {
 // Popular lists the most viewed pages of a space, for its overview (SPC-019).
 func (s *Service) Popular(ctx context.Context, c identity.Caller, spaceID uuid.UUID, limit int) ([]LinkCount, error) {
 	rows, err := s.pool.Query(ctx, `SELECT pg.id, pg.title, sum(d.views)::int FROM page_view_days d
-		JOIN pages pg ON pg.id = d.page_id JOIN perm_visible_pages($1) v ON v.page_id = pg.id
+		JOIN pages pg ON pg.id = d.page_id JOIN perm_visible_pages($1, $5) v ON v.page_id = pg.id
 		WHERE pg.space_id = $2 AND d.day >= $3 GROUP BY pg.id, pg.title ORDER BY 3 DESC LIMIT $4`,
-		c.UserID, spaceID, s.today().AddDate(0, 0, -29), limit)
+		c.UserID, spaceID, s.today().AddDate(0, 0, -29), limit, permissions.CredentialSpaces(ctx))
 	return collect(rows, err, scanLink)
 }
 
@@ -256,10 +256,10 @@ func (s *Service) PopularPages(ctx context.Context, c identity.Caller, space *uu
 		return []LinkCount{}, err
 	}
 	rows, err := s.pool.Query(ctx, `SELECT pg.id, pg.title, sum(d.views)::int, pg.space_id FROM page_view_days d
-		JOIN pages pg ON pg.id = d.page_id JOIN perm_visible_pages($1) v ON v.page_id = pg.id
+		JOIN pages pg ON pg.id = d.page_id JOIN perm_visible_pages($1, $5) v ON v.page_id = pg.id
 		WHERE ($2::uuid IS NULL OR pg.space_id = $2) AND d.day >= $3 AND pg.status = 'published'
 		GROUP BY pg.id, pg.title, pg.space_id ORDER BY 3 DESC, pg.id LIMIT $4`,
-		c.UserID, space, s.today().AddDate(0, 0, 1-days), popularCandidates)
+		c.UserID, space, s.today().AddDate(0, 0, 1-days), popularCandidates, permissions.CredentialSpaces(ctx))
 	type candidate struct {
 		page  LinkCount
 		space uuid.UUID
@@ -311,9 +311,9 @@ func (s *Service) Stale(ctx context.Context, c identity.Caller, spaceID uuid.UUI
 	if err := s.perms.RequireSpace(ctx, s.pool, c.UserID, spaceID, permissions.AnalyticsView); err != nil {
 		return nil, err
 	}
-	rows, err := s.pool.Query(ctx, `SELECT pg.id, pg.title, 0 FROM pages pg JOIN perm_visible_pages($1) v ON v.page_id = pg.id
+	rows, err := s.pool.Query(ctx, `SELECT pg.id, pg.title, 0 FROM pages pg JOIN perm_visible_pages($1, $4) v ON v.page_id = pg.id
 		WHERE pg.space_id = $2 AND pg.status = 'published' AND pg.updated_at < $3 ORDER BY pg.updated_at LIMIT 10`,
-		c.UserID, spaceID, s.now().AddDate(-1, 0, 0))
+		c.UserID, spaceID, s.now().AddDate(-1, 0, 0), permissions.CredentialSpaces(ctx))
 	return collect(rows, err, scanLink)
 }
 
@@ -340,7 +340,7 @@ func (s *Service) SpacePeople(ctx context.Context, c identity.Caller, spaceID uu
 		return []PersonRow{}, nil
 	}
 	rows, err := s.pool.Query(ctx, `WITH visible AS (
-			SELECT pg.id, pg.created_by FROM pages pg JOIN perm_visible_pages($1) v ON v.page_id = pg.id WHERE pg.space_id = $2
+			SELECT pg.id, pg.created_by FROM pages pg JOIN perm_visible_pages($1, $4) v ON v.page_id = pg.id WHERE pg.space_id = $2
 		)
 		SELECT x.user_id, COALESCE(u.display_name, ''), sum(x.pages)::int, sum(x.edits)::int, sum(x.comments)::int, sum(x.views)::int
 		FROM (
@@ -349,7 +349,7 @@ func (s *Service) SpacePeople(ctx context.Context, c identity.Caller, spaceID uu
 			UNION ALL SELECT cm.author_id, 0, 0, 1, 0 FROM comments cm JOIN visible g ON g.id = cm.page_id
 			UNION ALL SELECT w.user_id, 0, 0, 0, w.views FROM page_view_people w JOIN visible g ON g.id = w.page_id
 		) x JOIN users u ON u.id = x.user_id
-		GROUP BY x.user_id, u.display_name ORDER BY 6 DESC, 2 LIMIT $3`, c.UserID, spaceID, maxListRows)
+		GROUP BY x.user_id, u.display_name ORDER BY 6 DESC, 2 LIMIT $3`, c.UserID, spaceID, maxListRows, permissions.CredentialSpaces(ctx))
 	return collect(rows, err, func(r pgx.CollectableRow) (PersonRow, error) {
 		var v PersonRow
 		err := r.Scan(&v.ID, &v.Name, &v.Pages, &v.Edits, &v.Comments, &v.Views)

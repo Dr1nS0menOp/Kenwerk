@@ -80,7 +80,7 @@ type DirectoryRow struct {
 // tell how much is hidden.
 const directorySQL = `WITH listed AS (
 		SELECT sp.id FROM spaces sp
-		WHERE sp.id IN (SELECT space_id FROM perm_spaces($1, 'space.view'))
+		WHERE sp.id IN (SELECT space_id FROM perm_spaces($1, 'space.view', $8))
 		  AND ($2 = '' OR position(lower($2) IN lower(sp.name)) > 0 OR position(lower($2) IN lower(sp.key)) > 0)
 		  AND CASE $3
 		        WHEN 'archived' THEN sp.status = 'archived'
@@ -92,7 +92,7 @@ const directorySQL = `WITH listed AS (
 		  AND ($7::uuid IS NULL OR sp.id IN (SELECT l.space_id FROM space_category_links l WHERE l.category_id = $7))
 	), counted AS (
 		SELECT p.space_id, count(*) AS pages, max(p.updated_at) AS changed
-		FROM pages p JOIN perm_listed_pages($1) v ON v.page_id = p.id
+		FROM pages p JOIN perm_listed_pages($1, $8) v ON v.page_id = p.id
 		WHERE p.status = 'published' AND p.space_id IN (SELECT id FROM listed)
 		GROUP BY p.space_id
 	)
@@ -119,7 +119,7 @@ func (s *Service) Directory(ctx context.Context, c identity.Caller, in Directory
 	if q.Category != uuid.Nil {
 		category = &q.Category
 	}
-	rows, err := s.pool.Query(ctx, directorySQL, c.UserID, q.Text, q.Kind, q.Sort, q.Limit, q.Offset, category)
+	rows, err := s.pool.Query(ctx, directorySQL, c.UserID, q.Text, q.Kind, q.Sort, q.Limit, q.Offset, category, permissions.CredentialSpaces(ctx))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -173,9 +173,9 @@ type Mine struct {
 func (s *Service) Mine(ctx context.Context, c identity.Caller) (Mine, error) {
 	var out Mine
 	rows, err := s.pool.Query(ctx, `SELECT `+columns+` FROM spaces
-		WHERE status = 'active' AND id IN (SELECT space_id FROM perm_spaces($1, 'space.view'))
+		WHERE status = 'active' AND id IN (SELECT space_id FROM perm_spaces($1, 'space.view', $2))
 		  AND id IN (SELECT space_id FROM space_favourites WHERE user_id = $1)
-		ORDER BY lower(name), id`, c.UserID)
+		ORDER BY lower(name), id`, c.UserID, permissions.CredentialSpaces(ctx))
 	if out.Favourites, err = collect(rows, err); err != nil {
 		return out, err
 	}
@@ -184,9 +184,9 @@ func (s *Service) Mine(ctx context.Context, c identity.Caller) (Mine, error) {
 		return out, err
 	}
 	rows, err = s.pool.Query(ctx, `SELECT `+columns+` FROM spaces
-		WHERE status = 'active' AND id = ANY($2) AND id IN (SELECT space_id FROM perm_spaces($1, 'space.view'))
+		WHERE status = 'active' AND id = ANY($2) AND id IN (SELECT space_id FROM perm_spaces($1, 'space.view', $4))
 		  AND id NOT IN (SELECT space_id FROM space_favourites WHERE user_id = $1)
-		ORDER BY array_position($2, id) LIMIT $3`, c.UserID, recent, maxMenuSpaces)
+		ORDER BY array_position($2, id) LIMIT $3`, c.UserID, recent, maxMenuSpaces, permissions.CredentialSpaces(ctx))
 	out.Recent, err = collect(rows, err)
 	return out, err
 }
@@ -244,9 +244,9 @@ func (s *Service) Overview(ctx context.Context, c identity.Caller, id uuid.UUID)
 // Find looks for active spaces by name or key, for quick search.
 func (s *Service) Find(ctx context.Context, c identity.Caller, text string, limit int) ([]Space, error) {
 	rows, err := s.pool.Query(ctx, `SELECT `+columns+` FROM spaces
-		WHERE status = 'active' AND id IN (SELECT space_id FROM perm_spaces($1, 'space.view'))
+		WHERE status = 'active' AND id IN (SELECT space_id FROM perm_spaces($1, 'space.view', $4))
 		  AND (position(lower($2) IN lower(name)) > 0 OR position(lower($2) IN lower(key)) > 0)
-		ORDER BY lower(name), id LIMIT $3`, c.UserID, text, limit)
+		ORDER BY lower(name), id LIMIT $3`, c.UserID, text, limit, permissions.CredentialSpaces(ctx))
 	return collect(rows, err)
 }
 

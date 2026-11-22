@@ -665,8 +665,8 @@ mutate "a reset link works twice" internal/identity/factors.go \
   's.replace("\"DELETE FROM auth_challenges WHERE token_hash = $1 AND kind = $2 RETURNING user_id, data, expires_at\"", "\"SELECT user_id, data, expires_at FROM auth_challenges WHERE token_hash = $1 AND kind = $2\"")' $app -run TestAResetLink
 mutate "a reset says whether the address is known" internal/identity/lifecycle.go \
   's.replace("if errors.Is(err, pgx.ErrNoRows) {\n\t\treturn nil\n\t}\n\tif err != nil {\n\t\treturn err\n\t}\n\tif _, err := s.pool.Exec(ctx, \"DELETE FROM auth_challenges WHERE kind = $1 AND user_id = $2\"", "if errors.Is(err, pgx.ErrNoRows) {\n\t\treturn s.send(ctx, s.pool, AccountMail{To: email, Kind: MailReset})\n\t}\n\tif err != nil {\n\t\treturn err\n\t}\n\tif _, err := s.pool.Exec(ctx, \"DELETE FROM auth_challenges WHERE kind = $1 AND user_id = $2\"")' $app -run TestAResetLink
-mutate "a read token writes" internal/httpapi/server.go \
-  's.replace("return identity.ScopeWrite\n", "return identity.ScopeRead\n")' $app -run TestTokens
+mutate "a read token writes" internal/identity/scopes.go \
+  's.replace("ScopeRead:   {ScopeContentRead, ScopePeopleRead, ScopeAccountRead},\n\tScopeWrite:  {ScopeContentWrite, ScopeContentDelete, ScopeContentShare", "ScopeRead:   {ScopeContentRead, ScopePeopleRead, ScopeAccountRead, ScopeContentWrite},\n\tScopeWrite:  {ScopeContentWrite, ScopeContentDelete, ScopeContentShare")' $app -run 'TestTokens|TestATokenReachesOnlyWhatItsScopesAndSpacesAllow'
 mutate "a token reaches account security" internal/httpapi/server.go \
   's.replace("case p.ViaToken && a.sessionOnly:", "case p.ViaToken && len(r.Method) < 0:")' $app -run TestTokens
 mutate "sensitive lets anything through" internal/httpapi/server.go \
@@ -2710,12 +2710,8 @@ mutate "a password alone opens an account with a passkey" internal/identity/fact
   's.replace("if passkey {\n\t\tmethods = append(methods, SecondFactorPasskey)", "if false {\n\t\tmethods = append(methods, SecondFactorPasskey)")' $app -run TestAPasswordLoginAsksForThePasskeyOfAnAccountThatHasOnlyThat
 mutate "a code is not offered beside a passkey" internal/identity/factors.go \
   's.replace("if code {\n\t\tmethods = append(methods, SecondFactorCode)", "if false {\n\t\tmethods = append(methods, SecondFactorCode)")' $app -run TestALoginOffersTheSecondFactorsTheAccountHas
-mutate "the scope follows words in the address" internal/httpapi/server.go \
-  's.replace("case slices.Contains(exportRoutes, r.Pattern):", "case strings.Contains(r.URL.Path, \"/export\"):")' $app -run TestTheScopeOfATokenFollowsTheRouteNotTheAddress
-mutate "a space export needs only the read scope" internal/httpapi/server.go \
-  's.replace("\t\"GET /api/v1/spaces/{id}/export.zip\",\n", "")' $app -run TestEveryExportRouteNeedsMoreThanTheReadScope
-mutate "an unrouted request needs no admin scope" internal/httpapi/server.go \
-  's.replace("case r.Pattern == \"\" || strings.HasPrefix(path,", "case strings.HasPrefix(path,")' ./internal/httpapi/ -run TestTheScopeOfARequestComesFromItsRoute
+mutate "a space export needs only the read scope" internal/httpapi/scopes.go \
+  's.replace("\"GET /api/v1/spaces/{id}/export.zip\":", "\"GET /api/v1/spaces/{id}/export.zip\": identity.ScopeContentRead, \"x\":")' $app -run 'TestEveryExportRouteNeedsMoreThanTheReadScope|TestTheWriteScopeNoLongerCoversWhatReachesOutside|TestATokenReachesOnlyWhatItsScopesAndSpacesAllow'
 # Spec 085: every change of Administration needs a signed-in session; a token only reads it.
 mutate "a token changes Administration" internal/httpapi/router.go \
   's.replace("\ta = withAdministrationRule(pattern, a)\n", "")' $app -run '^TestEveryAdministrationChangeNeedsASession$'
@@ -2725,6 +2721,57 @@ mutate "a token cannot read Administration" internal/httpapi/router.go \
   's.replace("|| method == http.MethodGet || method == http.MethodHead {", "|| method == http.MethodOptions {")' $app -run '^TestEveryAdministrationChangeNeedsASession$'
 mutate "a route of Administration without a method takes a token" internal/httpapi/router.go \
   's.replace("\t\tmethod, path = \"\", pattern\n", "\t\treturn a\n")' ./internal/httpapi/ -run '^TestAnAdministrationChangeIsSessionOnlyWhateverRuleItWasGiven$'
+# Spec 096, wave MC2: a credential never does more than its scopes, its spaces and its person.
+mutate "the scope check of a token is skipped" internal/httpapi/credentials.go \
+  's.replace("if !slices.Contains(p.Scopes, a.scope) {", "if false {")' $app -run 'TestTokens|TestATokenReachesOnlyWhatItsScopesAndSpacesAllow|TestANewWriteTokenNeitherSharesNorChangesAccess'
+mutate "every route needs only content:read" internal/httpapi/router.go \
+  's.replace("\ta.scope = scope\n", "\ta.scope = identity.ScopeContentRead\n")' $app -run 'TestATokenReachesOnlyWhatItsScopesAndSpacesAllow|TestTheWriteScopeNoLongerCoversWhatReachesOutside'
+mutate "a route without a scope starts" internal/httpapi/router.go \
+  's.replace("\tif !ok {\n\t\tpanic(", "\tif !ok && false {\n\t\tpanic(")' ./internal/httpapi/ -run '^TestARouteWithoutAScopeDoesNotStart$'
+mutate "scope:none on a route a token reaches starts" internal/httpapi/router.go \
+  's.replace("if scope == identity.ScopeNone && !a.sessionOnly {", "if scope == identity.ScopeNone && !a.sessionOnly && false {")' ./internal/httpapi/ -run '^TestScopeNoneIsOnlyForRoutesNoTokenReaches$'
+mutate "sharing needs only content:write" internal/httpapi/scopes.go \
+  's.replace("\"POST /api/v1/pages/{id}/share\":", "\"POST /api/v1/pages/{id}/share\": identity.ScopeContentWrite, \"y\":")' $app -run 'TestTheWriteScopeNoLongerCoversWhatReachesOutside|TestANewWriteTokenNeitherSharesNorChangesAccess'
+mutate "a new write token shares" internal/identity/scopes.go \
+  's.replace("ScopeWrite:  {ScopeContentWrite, ScopeContentDelete, ScopeAccountWrite},", "ScopeWrite:  {ScopeContentWrite, ScopeContentDelete, ScopeContentShare, ScopeSpacesManage, ScopeAccountWrite},")' $app -run '^TestANewWriteTokenNeitherSharesNorChangesAccess$'
+mutate "an old write token loses sharing" internal/identity/scopes.go \
+  's.replace("ScopeWrite:  {ScopeContentWrite, ScopeContentDelete, ScopeContentShare, ScopeSpacesManage, ScopeAccountWrite},", "ScopeWrite:  {ScopeContentWrite, ScopeContentDelete, ScopeAccountWrite},")' $app -run 'TestATokenReachesOnlyWhatItsScopesAndSpacesAllow|TestAnOldWriteTokenKeepsItsRightsAndSaysSo'
+mutate "an old write token shares without a note" internal/httpapi/credentials.go \
+  's.replace("\tp.UsesOldWrite = p.HeldThroughOldWrite(a.scope)\n", "")' $app -run '^TestAnOldWriteTokenKeepsItsRightsAndSaysSo$'
+mutate "the space limit is dropped from Evaluate" internal/permissions/evaluate.go \
+  's.replace("insideCredentialLimit(in.User, in.Space.ID)", "true")' $perms -run 'TestMatrixEvaluate|TestMatrixSQLAgreesWithEvaluate|TestAUserOutsideTheLimitIsNotFound'
+mutate "SQL: the allowed spaces are ignored" internal/db/migrations/0078_credential_limits.sql \
+  's.replace("      AND (allowed IS NULL OR g.space_id = ANY (allowed))\n", "")' $perms -run 'TestMatrixSQLAgreesWithEvaluate|TestTheSmallerListsKeepToTheLimit'
+mutate "the limit of a credential is not loaded" internal/permissions/credential.go \
+  's.replace("\t\tu.Spaces = limit.spaces\n", "")' $perms -run '^TestTheLimitOfACredentialIsItsOwnPersonsAlone$'
+mutate "the limit of a credential binds someone else" internal/permissions/credential.go \
+  's.replace("if ok && limit.userID == u.ID {", "if ok {")' $perms -run '^TestTheLimitOfACredentialIsItsOwnPersonsAlone$'
+mutate "a request forgets the limit of its token" internal/httpapi/middleware.go \
+  's.replace("ctx := permissions.WithCredentialSpaces(r.Context(), p.User.ID, p.Spaces)", "ctx := permissions.WithCredentialSpaces(r.Context(), p.User.ID, nil)")' $app -run '^TestALimitedTokenFindsNothingOutsideItsSpaces$'
+mutate "the list of spaces ignores the limit" internal/spaces/spaces.go \
+  's.replace("ORDER BY lower(name), id`, c.UserID, permissions.CredentialSpaces(ctx))", "ORDER BY lower(name), id`, c.UserID, []uuid.UUID(nil))")' $app -run '^TestALimitedTokenFindsNothingOutsideItsSpaces$'
+mutate "search ignores the limit" internal/search/words.go \
+  's.replace("\targs[\"credential\"] = permissions.CredentialSpaces(ctx)\n", "\targs[\"credential\"] = permissions.CredentialSpaces(context.Background())\n")' $app -run '^TestALimitedTokenFindsNothingOutsideItsSpaces$'
+mutate "a limited token makes a space" internal/httpapi/credentials.go \
+  's.replace("(spaceBoundless[r.Pattern] || identity.IsAdminScope(a.scope))", "identity.IsAdminScope(a.scope)")' $app -run 'TestALimitedTokenFindsNothingOutsideItsSpaces|TestATokenReachesOnlyWhatItsScopesAndSpacesAllow'
+mutate "a limited token reaches Administration" internal/identity/tokens.go \
+  's.replace("if len(in.Spaces) > 0 && slices.ContainsFunc(out, IsAdminScope) {", "if false {")' $app -run '^TestATokenIsLimitedOnlyToSpacesItsPersonSeesAndNeverToAdministration$'
+mutate "a token is limited to a space its person cannot see" internal/identity/tokens.go \
+  's.replace("\tif seen != len(spaces) {", "\tif seen < 0 {")' $app -run '^TestATokenIsLimitedOnlyToSpacesItsPersonSeesAndNeverToAdministration$'
+mutate "a token is limited to 51 spaces" internal/identity/tokens.go \
+  's.replace("if len(spaces) > MaxTokenSpaces {", "if len(spaces) > 2*MaxTokenSpaces {")' $app -run '^TestATokenIsLimitedOnlyToSpacesItsPersonSeesAndNeverToAdministration$'
+mutate "an event of a token names no token" internal/identity/caller.go \
+  's.replace(", Via: c.Meta.Via}", "}")' $app -run '^TestEveryEventOfATokenNamesTheToken$'
+mutate "a request through a token carries no via" internal/httpapi/middleware.go \
+  's.replace("\t\tmeta.Via = p.Via()\n", "")' $app -run 'TestEveryEventOfATokenNamesTheToken|TestAnOldWriteTokenKeepsItsRightsAndSaysSo'
+mutate "the per-person limit is skipped" internal/httpapi/credentials.go \
+  's.replace("case !s.credentialLimits.person.allow(p.User.ID.String()):", "case false:")' ./internal/httpapi/ -run '^TestEveryTokenOfAPersonCountsTowardsOneLimit$'
+mutate "an assistant changes without a limit" internal/httpapi/credentials.go \
+  's.replace("case !s.credentialLimits.changes.allow(token):", "case false:")' ./internal/httpapi/ -run '^TestAnAssistantChangesAtMost120TimesAMinute$'
+mutate "an assistant deletes and shares without a limit" internal/httpapi/credentials.go \
+  's.replace("case slices.Contains(riskyScopes, a.scope) && !s.credentialLimits.risky.allow(token):", "case false:")' ./internal/httpapi/ -run '^TestAnAssistantDeletesOrSharesAtMost20TimesAMinute$'
+mutate "a limited token is not told when to try again" internal/httpapi/credentials.go \
+  's.replace("\tw.Header().Set(\"Retry-After\", strconv.Itoa(rateLimitedRetrySeconds))\n", "\t_ = strconv.Itoa(rateLimitedRetrySeconds)\n")' $app -run '^TestATokenPastItsLimitIsToldWhenToTryAgain$'
 # Spec 092: only the holder of a rule changes it, a test runs as its caller, and conditions need a page.
 mutate "someone who does not hold a rule changes it" internal/automation/service.go \
   's.replace("\tcase held:\n\t\treturn s.change(", "\tcase held || true:\n\t\treturn s.change(")' $app -run '^TestSomeoneWhoDoesNotHoldARuleCannotChangeWhatItDoes$'

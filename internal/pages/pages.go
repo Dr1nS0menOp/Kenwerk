@@ -867,12 +867,12 @@ func (s *Service) Tree(ctx context.Context, c identity.Caller, spaceID uuid.UUID
 			EXISTS (SELECT 1 FROM page_restrictions r WHERE r.page_id = p.id),
 			d.page_id IS NOT NULL, p.updated_at, COALESCE(u.display_name, ''), rp.viewed_at,
 			p.kind, p.link_target, COALESCE(o.display_name, ''), p.stage_text, p.stage_color
-		FROM pages p JOIN perm_listed_pages($1) v ON v.page_id = p.id
+		FROM pages p JOIN perm_listed_pages($1, $4) v ON v.page_id = p.id
 		LEFT JOIN users u ON u.id = p.updated_by
 		LEFT JOIN users o ON o.id = COALESCE(p.owner_id, p.created_by)
 		LEFT JOIN drafts d ON d.page_id = p.id AND d.user_id = $1
 		LEFT JOIN recent_pages rp ON rp.page_id = p.id AND rp.user_id = $1
-		WHERE p.space_id = $2 AND p.kind = ANY($3) ORDER BY p.parent_id NULLS FIRST, p.position, p.id`, c.UserID, spaceID, treeKinds)
+		WHERE p.space_id = $2 AND p.kind = ANY($3) ORDER BY p.parent_id NULLS FIRST, p.position, p.id`, c.UserID, spaceID, treeKinds, permissions.CredentialSpaces(ctx))
 	if err != nil {
 		return nil, err
 	}

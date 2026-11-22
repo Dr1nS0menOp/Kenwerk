@@ -20,6 +20,7 @@ import (
 	"github.com/kenwerk/kenwerk/internal/document"
 	"github.com/kenwerk/kenwerk/internal/identity"
 	"github.com/kenwerk/kenwerk/internal/ids"
+	"github.com/kenwerk/kenwerk/internal/permissions"
 )
 
 // The tabs and filters of My tasks.
@@ -177,13 +178,13 @@ func (s *Service) Mine(ctx context.Context, c identity.Caller, tab, status strin
 	rows, err := s.pool.Query(ctx, `SELECT t.id, t.text, t.done, t.due_on::text, t.page_id, p.title, sp.name,
 			t.assignee_id, COALESCE(u.display_name, ''), t.updated_at
 		FROM page_tasks t
-		JOIN perm_visible_pages($1) v ON v.page_id = t.page_id
+		JOIN perm_visible_pages($1, $5) v ON v.page_id = t.page_id
 		JOIN pages p ON p.id = t.page_id
 		JOIN spaces sp ON sp.id = t.space_id
 		LEFT JOIN users u ON u.id = t.assignee_id
 		WHERE CASE $2 WHEN 'assigned' THEN t.assignee_id = $1 ELSE t.creator_id = $1 END
 		  AND CASE $3 WHEN 'open' THEN NOT t.done WHEN 'done' THEN t.done ELSE true END
-		ORDER BY t.due_on NULLS LAST, t.updated_at DESC, t.id LIMIT $4`, c.UserID, tab, status, maxListed)
+		ORDER BY t.due_on NULLS LAST, t.updated_at DESC, t.id LIMIT $4`, c.UserID, tab, status, maxListed, permissions.CredentialSpaces(ctx))
 	if err != nil {
 		return nil, err
 	}

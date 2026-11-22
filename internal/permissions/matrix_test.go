@@ -239,6 +239,16 @@ var actions = []string{
 	permissions.SpaceWorkflows, permissions.PageWorkflow, permissions.SpaceRelease, permissions.TemplatePropose,
 }
 
+// Credentials of the matrix (spec 096): a browser session or a token without a limit, a token
+// limited to spaces that hold the space asked about, and one limited to other spaces only.
+const (
+	credNone    = "none"
+	credInside  = "inside"
+	credOutside = "outside"
+)
+
+var credentialCases = []string{credNone, credInside, credOutside}
+
 // isDeleteAction says whether the creator of the object decides, through "delete own".
 func isDeleteAction(action string) bool {
 	return action == permissions.ActionPageDelete || action == permissions.ActionAttachmentDelete ||
@@ -249,7 +259,11 @@ func isDeleteAction(action string) bool {
 // It deliberately works on the case tables, not on the production types. ownObject says
 // that the person asking made the object the action is about, which for a file or a
 // comment need not be the page (PRM-166).
-func literalRule(u userCase, g grantCase, r restrictionCase, ps pageState, spaceStatus, action string, ownObject bool) bool {
+func literalRule(u userCase, g grantCase, r restrictionCase, ps pageState, spaceStatus, action string, ownObject bool, cred string) bool {
+	// A credential limited to some spaces reaches nothing in any other space (spec 096).
+	if cred == credOutside {
+		return false
+	}
 	pageStatus, ownPage := ps.status, ps.ownDraft
 	applies := func(subject string) bool {
 		switch subject {
@@ -519,23 +533,60 @@ func evaluateOnePerson(t *testing.T, u userCase, id matrixIDs, subjects func(str
 				}
 				for _, ss := range spaceStates {
 					space := spaceFactsOf(id.leaf, ss, grants)
-					for _, action := range actions {
-						owners := []uuid.UUID{creator}
-						if isDeleteAction(action) {
-							// A file or comment of mine on someone else's page, and the other way round.
-							owners = append(owners, map[uuid.UUID]uuid.UUID{id.me: id.other, id.other: id.me}[creator])
+					for _, cred := range credentialCases {
+						if cred != credNone && r.name != "unrestricted" {
+							continue // the limit is checked before restrictions, so one restriction case is enough
 						}
-						for _, owner := range owners {
-							n++
-							got := permissions.Evaluate(permissions.Input{User: facts, Space: space, Page: page, Action: action, Owner: owner})
-							want := literalRule(u, g, r, ps, ss, action, owner == id.me)
-							if got.Allowed != want {
-								t.Fatalf("user=%s grant=%s restriction=%s page=%s space=%s action=%s own=%v: Evaluate=%v, rule=%v\nchecks: %+v",
-									u.name, g.name, r.name, ps.name, ss, action, owner == id.me, got.Allowed, want, got.Checks)
-							}
-						}
+						n += evaluateActions(t, matrixCase{u: u, g: g, r: r, ps: ps, ss: ss, cred: cred},
+							permissions.Input{User: limitedFacts(facts, cred, id), Space: space, Page: page}, creator, id)
 					}
 				}
+			}
+		}
+	}
+	return n
+}
+
+// matrixCase is one combination of the case tables.
+type matrixCase struct {
+	u    userCase
+	g    grantCase
+	r    restrictionCase
+	ps   pageState
+	ss   string
+	cred string
+}
+
+// limitedFacts gives the facts of a person the limit of a credential case. The space asked
+// about is id.leaf.
+func limitedFacts(facts permissions.UserFacts, cred string, id matrixIDs) permissions.UserFacts {
+	switch cred {
+	case credInside:
+		facts.Spaces = []uuid.UUID{id.other, id.leaf}
+	case credOutside:
+		facts.Spaces = []uuid.UUID{id.other}
+	}
+	return facts
+}
+
+// evaluateActions compares Evaluate with the rule for every action of one combination, and
+// says how many it compared.
+func evaluateActions(t *testing.T, c matrixCase, in permissions.Input, creator uuid.UUID, id matrixIDs) int64 {
+	var n int64
+	for _, action := range actions {
+		owners := []uuid.UUID{creator}
+		if isDeleteAction(action) {
+			// A file or comment of mine on someone else's page, and the other way round.
+			owners = append(owners, map[uuid.UUID]uuid.UUID{id.me: id.other, id.other: id.me}[creator])
+		}
+		for _, owner := range owners {
+			n++
+			in.Action, in.Owner = action, owner
+			got := permissions.Evaluate(in)
+			want := literalRule(c.u, c.g, c.r, c.ps, c.ss, action, owner == id.me, c.cred)
+			if got.Allowed != want {
+				t.Fatalf("user=%s grant=%s restriction=%s page=%s space=%s credential=%s action=%s own=%v: Evaluate=%v, rule=%v\nchecks: %+v",
+					c.u.name, c.g.name, c.r.name, c.ps.name, c.ss, c.cred, action, owner == id.me, got.Allowed, want, got.Checks)
 			}
 		}
 	}
@@ -769,10 +820,22 @@ func TestMatrixSQLAgreesWithEvaluate(t *testing.T) {
 		}
 		flush()
 		// Compare this user's copy right away; it keeps the working set small.
-		pagesIn := func(function string) map[uuid.UUID]bool {
+		// A credential limited to every other space of this person's copy: the lists must keep
+		// to it, and Evaluate with it, as the rule does (spec 096).
+		var allowed []uuid.UUID
+		inLimit := map[uuid.UUID]bool{}
+		for _, b := range all {
+			if _, seen := inLimit[b.space]; !seen {
+				inLimit[b.space] = len(inLimit)%2 == 0
+				if inLimit[b.space] {
+					allowed = append(allowed, b.space)
+				}
+			}
+		}
+		pagesIn := func(function string, spaces []uuid.UUID) map[uuid.UUID]bool {
 			t.Helper()
 			found := map[uuid.UUID]bool{}
-			rows, err := pool.Query(ctx, "SELECT page_id FROM "+function+"($1)", ru.id)
+			rows, err := pool.Query(ctx, "SELECT page_id FROM "+function+"($1, $2)", ru.id, spaces)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -786,7 +849,9 @@ func TestMatrixSQLAgreesWithEvaluate(t *testing.T) {
 			}
 			return found
 		}
-		visible, listed, editable := pagesIn("perm_visible_pages"), pagesIn("perm_listed_pages"), pagesIn("perm_editable_pages")
+		visible, listed, editable := pagesIn("perm_visible_pages", nil), pagesIn("perm_listed_pages", nil), pagesIn("perm_editable_pages", nil)
+		visibleIn, listedIn, editableIn := pagesIn("perm_visible_pages", allowed), pagesIn("perm_listed_pages", allowed),
+			pagesIn("perm_editable_pages", allowed)
 		// perm_page_readers asks the same rule per page, of a list of people.
 		leaves := make([]uuid.UUID, 0, len(all))
 		for _, b := range all {
@@ -822,7 +887,7 @@ func TestMatrixSQLAgreesWithEvaluate(t *testing.T) {
 				return fmt.Errorf("%s: %w", name, err)
 			}
 			own := b.page.ownDraft
-			want := literalRule(ru.userCase, b.g, b.r, b.page, b.spaceStatus, permissions.ActionPageView, own)
+			want := literalRule(ru.userCase, b.g, b.r, b.page, b.spaceStatus, permissions.ActionPageView, own, credNone)
 			if visible[b.leaf] != want {
 				return fmt.Errorf("%s: SQL said %v, rule says %v", name, visible[b.leaf], want)
 			}
@@ -832,13 +897,31 @@ func TestMatrixSQLAgreesWithEvaluate(t *testing.T) {
 			if listed[b.leaf] != (want && !b.page.archived) {
 				return fmt.Errorf("%s: lists said %v, rule says %v", name, listed[b.leaf], want && !b.page.archived)
 			}
-			if rule := literalRule(ru.userCase, b.g, b.r, b.page, b.spaceStatus, permissions.PageEdit, own); editable[b.leaf] != rule {
+			if rule := literalRule(ru.userCase, b.g, b.r, b.page, b.spaceStatus, permissions.PageEdit, own, credNone); editable[b.leaf] != rule {
 				return fmt.Errorf("%s: editable list said %v, rule says %v", name, editable[b.leaf], rule)
 			}
+			cred := credOutside
+			if inLimit[b.space] {
+				cred = credInside
+			}
+			if rule := literalRule(ru.userCase, b.g, b.r, b.page, b.spaceStatus, permissions.ActionPageView, own, cred); visibleIn[b.leaf] != rule {
+				return fmt.Errorf("%s credential=%s: SQL said %v, rule says %v", name, cred, visibleIn[b.leaf], rule)
+			} else if listedIn[b.leaf] != (rule && !b.page.archived) {
+				return fmt.Errorf("%s credential=%s: lists said %v, rule says %v", name, cred, listedIn[b.leaf], rule && !b.page.archived)
+			}
+			if rule := literalRule(ru.userCase, b.g, b.r, b.page, b.spaceStatus, permissions.PageEdit, own, cred); editableIn[b.leaf] != rule {
+				return fmt.Errorf("%s credential=%s: editable list said %v, rule says %v", name, cred, editableIn[b.leaf], rule)
+			}
+			limited := facts
+			limited.Spaces = allowed
 			for _, action := range actions {
 				d := permissions.Evaluate(permissions.Input{User: facts, Space: space, Page: &page, Action: action, Owner: page.CreatedBy})
-				if rule := literalRule(ru.userCase, b.g, b.r, b.page, b.spaceStatus, action, own); d.Allowed != rule {
+				if rule := literalRule(ru.userCase, b.g, b.r, b.page, b.spaceStatus, action, own, credNone); d.Allowed != rule {
 					return fmt.Errorf("%s action=%s: loaded facts gave %v, rule says %v\nchecks: %+v", name, action, d.Allowed, rule, d.Checks)
+				}
+				d = permissions.Evaluate(permissions.Input{User: limited, Space: space, Page: &page, Action: action, Owner: page.CreatedBy})
+				if rule := literalRule(ru.userCase, b.g, b.r, b.page, b.spaceStatus, action, own, cred); d.Allowed != rule {
+					return fmt.Errorf("%s credential=%s action=%s: loaded facts gave %v, rule says %v", name, cred, action, d.Allowed, rule)
 				}
 			}
 			return nil

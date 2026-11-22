@@ -83,7 +83,17 @@ type Principal struct {
 	ViaToken bool
 	CanWrite bool
 	TokenID  uuid.UUID
-	Scopes   []string
+	// Scopes are what the token holds (spec 096); storedScopes is what its row says, which for
+	// a token made before spec 096 are the old words.
+	Scopes       []string
+	storedScopes []string
+	// Spaces limits the token to these spaces; nil is every space its person reaches.
+	Spaces []uuid.UUID
+	// Assistant marks a token made for an assistant.
+	Assistant bool
+	// UsesOldWrite says this request reaches its route only through the word write of a token
+	// made before spec 096. The router sets it, and the audit log notes it.
+	UsesOldWrite bool
 	// ConfirmedAt is when the person last proved who they are in this session.
 	ConfirmedAt time.Time
 	// NeedsSecondFactor limits the session to setting up a second factor.
@@ -95,6 +105,9 @@ type RequestMeta struct {
 	IP        string
 	UserAgent string
 	RequestID string
+	// Via names the credential the request came with, for every audit event it causes; nil
+	// for a browser session (spec 096).
+	Via *audit.Via
 }
 
 // Actor is who performs an action, for the audit log.
@@ -180,7 +193,7 @@ func validEmail(e string) bool {
 func event(meta RequestMeta, actor Actor, action, objType, objID, result string, details map[string]any) audit.Event {
 	return audit.Event{ActorType: actor.Type, ActorID: actor.ID, Action: action, ObjectType: objType,
 		ObjectID: objID, Result: result, IP: meta.IP, UserAgent: meta.UserAgent, RequestID: meta.RequestID,
-		Details: details}
+		Details: details, Via: meta.Via}
 }
 
 // NewUser is the input for CreateLocalUser.

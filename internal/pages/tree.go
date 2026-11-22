@@ -346,8 +346,8 @@ func copyLabels(ctx context.Context, tx pgx.Tx, c identity.Caller, from, to uuid
 
 // childrenToCopy lists what the user can see; hidden pages stay behind.
 func childrenToCopy(ctx context.Context, q db.Querier, userID, from uuid.UUID) ([]uuid.UUID, error) {
-	rows, err := q.Query(ctx, `SELECT p.id FROM pages p JOIN perm_listed_pages($1) v ON v.page_id = p.id
-		WHERE p.parent_id = $2 AND p.status = 'published' ORDER BY p.position, p.id`, userID, from)
+	rows, err := q.Query(ctx, `SELECT p.id FROM pages p JOIN perm_listed_pages($1, $3) v ON v.page_id = p.id
+		WHERE p.parent_id = $2 AND p.status = 'published' ORDER BY p.position, p.id`, userID, from, permissions.CredentialSpaces(ctx))
 	if err != nil {
 		return nil, err
 	}

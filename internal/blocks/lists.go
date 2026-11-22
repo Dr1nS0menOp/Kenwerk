@@ -9,6 +9,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/kenwerk/kenwerk/internal/permissions"
 )
 
 // filter selects pages. Values in one field mean or, fields mean and, and every
@@ -63,7 +65,7 @@ func oneOrNone(value string) []string {
 // person in a filter is a name or an address. It can only narrow what passed the check.
 const filterSQL = `SELECT ` + pageColumns + `
 	FROM pages p
-	JOIN perm_visible_pages($1) v ON v.page_id = p.id
+	JOIN perm_visible_pages($1, $21) v ON v.page_id = p.id
 	JOIN spaces s ON s.id = p.space_id
 	LEFT JOIN users u ON u.id = p.updated_by
 	LEFT JOIN page_tree t ON t.descendant_id = p.id AND t.ancestor_id = $5
@@ -101,7 +103,7 @@ func (r reader) pages(ctx context.Context, f filter) ([]Row, error) {
 	rows, err := r.s.pool.Query(ctx, filterSQL, r.userID, lower(f.labels), lower(f.excluded), f.title,
 		f.below, f.space, f.sort, f.descending, f.kinds, f.maxDepth, f.max, f.text, lower(f.creators),
 		lower(f.contributors), lower(f.mentioned), f.createdAfter, f.changedAfter, upper(f.spaceKeys),
-		f.favourites, f.network)
+		f.favourites, f.network, permissions.CredentialSpaces(ctx))
 	return scanRows(rows, err, pageRow)
 }
 
@@ -283,10 +285,10 @@ func (r reader) cardRows(ctx context.Context) ([]Row, error) {
 		return r.pages(ctx, r.fromSettings(defaultCards))
 	}
 	rows, err := r.s.pool.Query(ctx, `SELECT `+pageColumns+` FROM pages p
-		JOIN perm_visible_pages($1) v ON v.page_id = p.id
+		JOIN perm_visible_pages($1, $3) v ON v.page_id = p.id
 		JOIN spaces s ON s.id = p.space_id
 		LEFT JOIN users u ON u.id = p.updated_by
-		WHERE p.id = ANY($2) AND p.status = 'published' ORDER BY array_position($2, p.id)`, r.userID, ids)
+		WHERE p.id = ANY($2) AND p.status = 'published' ORDER BY array_position($2, p.id)`, r.userID, ids, permissions.CredentialSpaces(ctx))
 	return scanRows(rows, err, pageRow)
 }
 
@@ -332,8 +334,8 @@ func breadcrumbs(ctx context.Context, r reader) (Answer, error) {
 	}
 	rows, err := r.s.pool.Query(ctx, `SELECT p.id, p.title, p.emoji FROM page_tree t
 		JOIN pages p ON p.id = t.ancestor_id
-		JOIN perm_visible_pages($1) v ON v.page_id = p.id
-		WHERE t.descendant_id = $2 ORDER BY t.depth DESC`, r.userID, id)
+		JOIN perm_visible_pages($1, $3) v ON v.page_id = p.id
+		WHERE t.descendant_id = $2 ORDER BY t.depth DESC`, r.userID, id, permissions.CredentialSpaces(ctx))
 	out, err := scanRows(rows, err, func(row pgx.CollectableRow, v *Row) error {
 		return row.Scan(&v.ID, &v.Title, &v.Emoji)
 	})
@@ -342,11 +344,11 @@ func breadcrumbs(ctx context.Context, r reader) (Answer, error) {
 
 func spacesList(ctx context.Context, r reader) (Answer, error) {
 	rows, err := r.s.pool.Query(ctx, `SELECT s.id, s.name, s.key FROM spaces s
-		WHERE s.status = 'active' AND s.id IN (SELECT space_id FROM perm_spaces($1, 'space.view'))
+		WHERE s.status = 'active' AND s.id IN (SELECT space_id FROM perm_spaces($1, 'space.view', $4))
 		  AND (NOT $2 OR s.id IN (SELECT f.space_id FROM space_favourites f WHERE f.user_id = $1))
 		  AND (cardinality($3::text[]) = 0 OR EXISTS (SELECT 1 FROM space_category_links l
 			JOIN space_categories c ON c.id = l.category_id WHERE l.space_id = s.id AND lower(c.name) = ANY($3)))
-		ORDER BY lower(s.name), s.id LIMIT 200`, r.userID, r.on("favourites"), lower(r.list("categories")))
+		ORDER BY lower(s.name), s.id LIMIT 200`, r.userID, r.on("favourites"), lower(r.list("categories")), permissions.CredentialSpaces(ctx))
 	out, err := scanRows(rows, err, func(row pgx.CollectableRow, v *Row) error {
 		return row.Scan(&v.ID, &v.Title, &v.SpaceKey)
 	})
@@ -355,10 +357,10 @@ func spacesList(ctx context.Context, r reader) (Answer, error) {
 
 func labelsList(ctx context.Context, r reader) (Answer, error) {
 	rows, err := r.s.pool.Query(ctx, `SELECT l.label, count(*) FROM page_labels l
-		JOIN perm_visible_pages($1) v ON v.page_id = l.page_id
+		JOIN perm_visible_pages($1, $4) v ON v.page_id = l.page_id
 		JOIN pages p ON p.id = l.page_id
 		WHERE p.status = 'published' AND ($2::uuid IS NULL OR p.space_id = $2)
-		GROUP BY l.label ORDER BY l.label LIMIT $3`, r.userID, r.space(), r.max(maxRows))
+		GROUP BY l.label ORDER BY l.label LIMIT $3`, r.userID, r.space(), r.max(maxRows), permissions.CredentialSpaces(ctx))
 	out, err := scanRows(rows, err, func(row pgx.CollectableRow, v *Row) error {
 		return row.Scan(&v.Title, &v.Count)
 	})
@@ -368,22 +370,22 @@ func labelsList(ctx context.Context, r reader) (Answer, error) {
 func myFavourites(ctx context.Context, r reader) (Answer, error) {
 	rows, err := r.s.pool.Query(ctx, `SELECT `+pageColumns+` FROM favourites f
 		JOIN pages p ON p.id = f.page_id
-		JOIN perm_visible_pages($1) v ON v.page_id = p.id
+		JOIN perm_visible_pages($1, $3) v ON v.page_id = p.id
 		JOIN spaces s ON s.id = p.space_id
 		LEFT JOIN users u ON u.id = p.updated_by
-		WHERE f.user_id = $1 ORDER BY f.position NULLS FIRST, f.created_at DESC LIMIT $2`, r.userID, r.max(defaultRows))
+		WHERE f.user_id = $1 ORDER BY f.position NULLS FIRST, f.created_at DESC LIMIT $2`, r.userID, r.max(defaultRows), permissions.CredentialSpaces(ctx))
 	out, err := scanRows(rows, err, pageRow)
 	return Answer{Rows: out}, err
 }
 
 func myDrafts(ctx context.Context, r reader) (Answer, error) {
 	rows, err := r.s.pool.Query(ctx, `SELECT `+pageColumns+` FROM pages p
-		JOIN perm_visible_pages($1) v ON v.page_id = p.id
+		JOIN perm_visible_pages($1, $3) v ON v.page_id = p.id
 		JOIN spaces s ON s.id = p.space_id
 		LEFT JOIN users u ON u.id = p.updated_by
 		LEFT JOIN drafts d ON d.page_id = p.id AND d.user_id = $1
 		WHERE d.page_id IS NOT NULL OR (p.status = 'draft' AND p.created_by = $1)
-		ORDER BY COALESCE(d.updated_at, p.updated_at) DESC LIMIT $2`, r.userID, r.max(defaultRows))
+		ORDER BY COALESCE(d.updated_at, p.updated_at) DESC LIMIT $2`, r.userID, r.max(defaultRows), permissions.CredentialSpaces(ctx))
 	out, err := scanRows(rows, err, pageRow)
 	return Answer{Rows: out}, err
 }
@@ -405,9 +407,9 @@ func scanTask(row pgx.CollectableRow, v *Row) error {
 func myTasks(ctx context.Context, r reader) (Answer, error) {
 	rows, err := r.s.pool.Query(ctx, `SELECT `+taskColumns+` FROM page_tasks k
 		JOIN pages p ON p.id = k.page_id
-		JOIN perm_visible_pages($1) v ON v.page_id = p.id
+		JOIN perm_visible_pages($1, $3) v ON v.page_id = p.id
 		LEFT JOIN users u ON u.id = k.assignee_id
-		WHERE k.assignee_id = $1 AND NOT k.done ORDER BY k.due_on NULLS LAST, k.id LIMIT $2`, r.userID, r.max(defaultRows))
+		WHERE k.assignee_id = $1 AND NOT k.done ORDER BY k.due_on NULLS LAST, k.id LIMIT $2`, r.userID, r.max(defaultRows), permissions.CredentialSpaces(ctx))
 	out, err := scanRows(rows, err, scanTask)
 	return Answer{Rows: out}, err
 }
@@ -415,7 +417,7 @@ func myTasks(ctx context.Context, r reader) (Answer, error) {
 func taskReport(ctx context.Context, r reader) (Answer, error) {
 	rows, err := r.s.pool.Query(ctx, `SELECT `+taskColumns+` FROM page_tasks k
 		JOIN pages p ON p.id = k.page_id
-		JOIN perm_visible_pages($1) v ON v.page_id = p.id
+		JOIN perm_visible_pages($1, $9) v ON v.page_id = p.id
 		LEFT JOIN users u ON u.id = k.assignee_id
 		WHERE ($2::uuid IS NULL OR k.space_id = $2) AND k.done = $3 AND (NOT $4 OR k.assignee_id = $1)
 		  AND (cardinality($5::text[]) = 0 OR EXISTS (SELECT 1 FROM page_labels l WHERE l.page_id = p.id AND l.label = ANY($5)))
@@ -423,7 +425,7 @@ func taskReport(ctx context.Context, r reader) (Answer, error) {
 		  AND ($8::timestamptz IS NULL OR k.created_at >= $8)
 		ORDER BY k.due_on NULLS LAST, k.id LIMIT $6`,
 		r.userID, r.space(), r.on("done"), r.on("mine"), lower(r.list("labels")), r.max(defaultRows),
-		r.text("created_by"), r.date("created_after"))
+		r.text("created_by"), r.date("created_after"), permissions.CredentialSpaces(ctx))
 	out, err := scanRows(rows, err, scanTask)
 	return Answer{Rows: out}, err
 }
@@ -437,14 +439,14 @@ func decisionReport(ctx context.Context, r reader) (Answer, error) {
 	}
 	rows, err := r.s.pool.Query(ctx, `SELECT p.id, d.text, p.title, p.updated_at FROM page_decisions d
 		JOIN pages p ON p.id = d.page_id
-		JOIN perm_visible_pages($1) v ON v.page_id = p.id
+		JOIN perm_visible_pages($1, $7) v ON v.page_id = p.id
 		WHERE p.status = 'published' AND ($2::uuid IS NULL OR p.space_id = $2)
 		  AND (cardinality($3::text[]) = 0 OR EXISTS (SELECT 1 FROM page_labels l WHERE l.page_id = p.id AND l.label = ANY($3)))
 		  AND ($5::uuid IS NULL OR p.id IN (SELECT descendant_id FROM page_tree WHERE ancestor_id = $5))
 		  AND ($6 = '' OR EXISTS (SELECT 1 FROM users c WHERE (lower(c.email) = lower($6) OR lower(c.display_name) = lower($6))
 			AND (c.id = p.created_by OR position(lower(c.display_name) IN lower(d.text)) > 0)))
 		ORDER BY p.updated_at DESC, p.id, d.position LIMIT $4`,
-		r.userID, r.space(), lower(r.list("labels")), r.max(defaultRows), page, r.text("person"))
+		r.userID, r.space(), lower(r.list("labels")), r.max(defaultRows), page, r.text("person"), permissions.CredentialSpaces(ctx))
 	out, err := scanRows(rows, err, func(row pgx.CollectableRow, v *Row) error {
 		var at time.Time
 		err := row.Scan(&v.ID, &v.Title, &v.Detail, &at)

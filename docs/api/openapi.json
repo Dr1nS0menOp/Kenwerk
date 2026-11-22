@@ -43,7 +43,8 @@
         "tags": [
           "access-requests"
         ],
-        "x-access": "object:restriction.manage"
+        "x-access": "object:restriction.manage scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/access-requests/{id}/allow": {
@@ -70,7 +71,8 @@
         "tags": [
           "access-requests"
         ],
-        "x-access": "object:restriction.manage"
+        "x-access": "object:restriction.manage scope:content:share",
+        "x-scope": "content:share"
       }
     },
     "/api/v1/access-requests/{id}/refuse": {
@@ -97,7 +99,8 @@
         "tags": [
           "access-requests"
         ],
-        "x-access": "object:restriction.manage"
+        "x-access": "object:restriction.manage scope:content:share",
+        "x-scope": "content:share"
       }
     },
     "/api/v1/admin/analytics": {
@@ -115,7 +118,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "permission:administrator"
+        "x-access": "permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       },
       "put": {
         "operationId": "put /api/v1/admin/analytics",
@@ -131,7 +135,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/analytics/data": {
@@ -149,7 +154,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/appearance/font": {
@@ -167,7 +173,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       },
       "put": {
         "operationId": "put /api/v1/admin/appearance/font",
@@ -183,7 +190,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/appearance/logo": {
@@ -201,7 +209,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       },
       "put": {
         "operationId": "put /api/v1/admin/appearance/logo",
@@ -217,7 +226,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/appearance/reset": {
@@ -235,7 +245,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/attention": {
@@ -253,7 +264,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       }
     },
     "/api/v1/admin/audit-events": {
@@ -271,7 +283,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:audit",
+        "x-scope": "admin:audit"
       }
     },
     "/api/v1/admin/audit-events/export": {
@@ -289,7 +302,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:audit",
+        "x-scope": "admin:audit"
       }
     },
     "/api/v1/admin/audit-events/verify": {
@@ -307,7 +321,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:audit",
+        "x-scope": "admin:audit"
       }
     },
     "/api/v1/admin/audit-overview": {
@@ -325,7 +340,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:audit",
+        "x-scope": "admin:audit"
       }
     },
     "/api/v1/admin/automation": {
@@ -343,7 +359,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "permission:administrator"
+        "x-access": "permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       },
       "put": {
         "operationId": "put /api/v1/admin/automation",
@@ -359,7 +376,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/backups": {
@@ -377,7 +395,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:system",
+        "x-scope": "admin:system"
       }
     },
     "/api/v1/admin/backups/request": {
@@ -395,7 +414,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/backups/restore": {
@@ -413,7 +433,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:system_administrator"
+        "x-access": "session-only permission:system_administrator scope:admin:write",
+        "x-scope": "admin:write"
       },
       "post": {
         "operationId": "post /api/v1/admin/backups/restore",
@@ -429,7 +450,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "sensitive permission:system_administrator"
+        "x-access": "sensitive permission:system_administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/backups/restore/code": {
@@ -447,7 +469,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:system_administrator"
+        "x-access": "session-only permission:system_administrator scope:none",
+        "x-scope": "none"
       }
     },
     "/api/v1/admin/backups/schedule/code": {
@@ -465,7 +488,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:system_administrator"
+        "x-access": "session-only permission:system_administrator scope:none",
+        "x-scope": "none"
       }
     },
     "/api/v1/admin/bundles": {
@@ -483,7 +507,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/bundles/key": {
@@ -501,7 +526,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "permission:administrator"
+        "x-access": "permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       }
     },
     "/api/v1/admin/categories": {
@@ -519,7 +545,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/categories/{id}": {
@@ -546,7 +573,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/configuration": {
@@ -564,7 +592,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:system",
+        "x-scope": "admin:system"
       }
     },
     "/api/v1/admin/event-failures": {
@@ -582,7 +611,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:system",
+        "x-scope": "admin:system"
       }
     },
     "/api/v1/admin/event-failures/{id}/replay": {
@@ -609,7 +639,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/events": {
@@ -627,7 +658,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:system",
+        "x-scope": "admin:system"
       }
     },
     "/api/v1/admin/example-space": {
@@ -645,7 +677,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/experimental": {
@@ -663,7 +696,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "permission:administrator"
+        "x-access": "permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       },
       "put": {
         "operationId": "put /api/v1/admin/experimental",
@@ -679,7 +713,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/export-policy": {
@@ -697,7 +732,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "permission:administrator"
+        "x-access": "permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       },
       "put": {
         "operationId": "put /api/v1/admin/export-policy",
@@ -713,7 +749,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/features": {
@@ -731,7 +768,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "permission:administrator"
+        "x-access": "permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       },
       "put": {
         "operationId": "put /api/v1/admin/features",
@@ -747,7 +785,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/global-permissions": {
@@ -765,7 +804,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       }
     },
     "/api/v1/admin/groups": {
@@ -783,7 +823,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       },
       "post": {
         "operationId": "post /api/v1/admin/groups",
@@ -799,7 +840,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/groups/{id}": {
@@ -826,7 +868,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       },
       "patch": {
         "operationId": "patch /api/v1/admin/groups/{id}",
@@ -851,7 +894,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/groups/{id}/impact": {
@@ -878,7 +922,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       }
     },
     "/api/v1/admin/groups/{id}/members": {
@@ -905,7 +950,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       }
     },
     "/api/v1/admin/groups/{id}/members/{user}": {
@@ -940,7 +986,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       },
       "put": {
         "operationId": "put /api/v1/admin/groups/{id}/members/{user}",
@@ -973,7 +1020,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/groups/{id}/owners": {
@@ -1000,7 +1048,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/groups/{id}/permissions": {
@@ -1027,7 +1076,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/health": {
@@ -1045,7 +1095,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:system",
+        "x-scope": "admin:system"
       }
     },
     "/api/v1/admin/insights": {
@@ -1063,7 +1114,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "permission:administrator"
+        "x-access": "permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       }
     },
     "/api/v1/admin/insights/search": {
@@ -1081,7 +1133,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "permission:administrator"
+        "x-access": "permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       }
     },
     "/api/v1/admin/invitations": {
@@ -1099,7 +1152,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       },
       "post": {
         "operationId": "post /api/v1/admin/invitations",
@@ -1115,7 +1169,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/invitations/{id}": {
@@ -1142,7 +1197,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/jobs": {
@@ -1160,7 +1216,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:system",
+        "x-scope": "admin:system"
       }
     },
     "/api/v1/admin/jobs/{id}/cancel": {
@@ -1187,7 +1244,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/jobs/{id}/retry": {
@@ -1214,7 +1272,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/log-level": {
@@ -1232,7 +1291,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       },
       "get": {
         "operationId": "get /api/v1/admin/log-level",
@@ -1248,7 +1308,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:system",
+        "x-scope": "admin:system"
       },
       "put": {
         "operationId": "put /api/v1/admin/log-level",
@@ -1264,7 +1325,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/log-level/confirmed": {
@@ -1282,7 +1344,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "sensitive permission:system_administrator"
+        "x-access": "sensitive permission:system_administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/mail": {
@@ -1300,7 +1363,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "permission:administrator"
+        "x-access": "permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       }
     },
     "/api/v1/admin/mail/server": {
@@ -1318,7 +1382,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "permission:administrator"
+        "x-access": "permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       },
       "put": {
         "operationId": "put /api/v1/admin/mail/server",
@@ -1334,7 +1399,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "sensitive permission:system_administrator"
+        "x-access": "sensitive permission:system_administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/mail/test": {
@@ -1352,7 +1418,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/maintenance": {
@@ -1370,7 +1437,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "sensitive permission:system_administrator"
+        "x-access": "sensitive permission:system_administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/monitoring": {
@@ -1388,7 +1456,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:system",
+        "x-scope": "admin:system"
       }
     },
     "/api/v1/admin/monitoring/{kind}": {
@@ -1415,7 +1484,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:system",
+        "x-scope": "admin:system"
       }
     },
     "/api/v1/admin/organising": {
@@ -1433,7 +1503,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "permission:administrator"
+        "x-access": "permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       },
       "put": {
         "operationId": "put /api/v1/admin/organising",
@@ -1449,7 +1520,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/outgoing-hosts": {
@@ -1467,7 +1539,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "permission:administrator"
+        "x-access": "permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       },
       "put": {
         "operationId": "put /api/v1/admin/outgoing-hosts",
@@ -1483,7 +1556,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/pages/{id}": {
@@ -1510,7 +1584,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:audit",
+        "x-scope": "admin:audit"
       }
     },
     "/api/v1/admin/pages/{id}/recover": {
@@ -1537,7 +1612,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "sensitive permission:administrator"
+        "x-access": "sensitive permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/pages/{id}/versions/{number}": {
@@ -1572,7 +1648,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/permission-sets": {
@@ -1590,7 +1667,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       },
       "put": {
         "operationId": "put /api/v1/admin/permission-sets",
@@ -1606,7 +1684,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/permission-sets/{id}": {
@@ -1633,7 +1712,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/public-links": {
@@ -1651,7 +1731,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "permission:administrator"
+        "x-access": "permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       }
     },
     "/api/v1/admin/publishing/check": {
@@ -1669,7 +1750,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/reports/largest": {
@@ -1687,7 +1769,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       }
     },
     "/api/v1/admin/role-assignments": {
@@ -1705,7 +1788,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       },
       "put": {
         "operationId": "put /api/v1/admin/role-assignments",
@@ -1721,7 +1805,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/roles": {
@@ -1739,7 +1824,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/roles/{id}": {
@@ -1766,7 +1852,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       },
       "put": {
         "operationId": "put /api/v1/admin/roles/{id}",
@@ -1791,7 +1878,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/roles/{id}/holders": {
@@ -1818,7 +1906,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "permission:administrator"
+        "x-access": "permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       }
     },
     "/api/v1/admin/roles/{id}/preview": {
@@ -1845,7 +1934,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/rules": {
@@ -1863,7 +1953,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "permission:administrator"
+        "x-access": "permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       },
       "post": {
         "operationId": "post /api/v1/admin/rules",
@@ -1879,7 +1970,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/scim-tokens": {
@@ -1897,7 +1989,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       },
       "post": {
         "operationId": "post /api/v1/admin/scim-tokens",
@@ -1913,7 +2006,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "sensitive permission:administrator"
+        "x-access": "sensitive permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/scim-tokens/{id}": {
@@ -1940,7 +2034,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/scim-tokens/{id}/rotate": {
@@ -1967,7 +2062,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "sensitive permission:administrator"
+        "x-access": "sensitive permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/service-accounts": {
@@ -1985,7 +2081,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/service-accounts/{id}/tokens": {
@@ -2012,7 +2109,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "sensitive permission:administrator"
+        "x-access": "sensitive permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/sessions/count": {
@@ -2030,7 +2128,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       }
     },
     "/api/v1/admin/sessions/end": {
@@ -2048,7 +2147,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "sensitive permission:administrator"
+        "x-access": "sensitive permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/settings": {
@@ -2066,7 +2166,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       },
       "put": {
         "operationId": "put /api/v1/admin/settings",
@@ -2082,7 +2183,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/settings/retention/lowering": {
@@ -2100,7 +2202,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/settings/{section}": {
@@ -2127,7 +2230,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       },
       "put": {
         "operationId": "put /api/v1/admin/settings/{section}",
@@ -2152,7 +2256,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/settings/{section}/confirmed": {
@@ -2179,7 +2284,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "sensitive permission:system_administrator"
+        "x-access": "sensitive permission:system_administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/space-templates": {
@@ -2197,7 +2303,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/spaces": {
@@ -2215,7 +2322,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       }
     },
     "/api/v1/admin/spaces/{id}/handover": {
@@ -2242,7 +2350,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/spaces/{id}/recover": {
@@ -2269,7 +2378,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "sensitive permission:administrator"
+        "x-access": "sensitive permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/spaces/{id}/storage-limit": {
@@ -2296,7 +2406,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/storage/unused": {
@@ -2314,7 +2425,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       },
       "post": {
         "operationId": "post /api/v1/admin/storage/unused",
@@ -2330,7 +2442,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/summary": {
@@ -2348,7 +2461,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       }
     },
     "/api/v1/admin/system": {
@@ -2366,7 +2480,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:system",
+        "x-scope": "admin:system"
       }
     },
     "/api/v1/admin/template-review": {
@@ -2384,7 +2499,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "permission:administrator"
+        "x-access": "permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       },
       "put": {
         "operationId": "put /api/v1/admin/template-review",
@@ -2400,7 +2516,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/templates": {
@@ -2418,7 +2535,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "permission:administrator"
+        "x-access": "permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       },
       "post": {
         "operationId": "post /api/v1/admin/templates",
@@ -2434,7 +2552,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/templates/import": {
@@ -2452,7 +2571,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/trash/spaces": {
@@ -2470,7 +2590,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       }
     },
     "/api/v1/admin/upgrades": {
@@ -2488,7 +2609,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:system",
+        "x-scope": "admin:system"
       }
     },
     "/api/v1/admin/users": {
@@ -2506,7 +2628,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       },
       "post": {
         "operationId": "post /api/v1/admin/users",
@@ -2522,7 +2645,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/users/bulk": {
@@ -2540,7 +2664,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/users/import": {
@@ -2558,7 +2683,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/users/{id}": {
@@ -2585,7 +2711,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       },
       "patch": {
         "operationId": "patch /api/v1/admin/users/{id}",
@@ -2610,7 +2737,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/users/{id}/anonymise": {
@@ -2637,7 +2765,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "sensitive permission:administrator"
+        "x-access": "sensitive permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/users/{id}/disable": {
@@ -2664,7 +2793,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/users/{id}/enable": {
@@ -2691,7 +2821,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/users/{id}/expiry": {
@@ -2718,7 +2849,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/users/{id}/permissions": {
@@ -2745,7 +2877,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "sensitive permission:administrator"
+        "x-access": "sensitive permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/users/{id}/reach": {
@@ -2772,7 +2905,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       }
     },
     "/api/v1/admin/users/{id}/reset-mfa": {
@@ -2799,7 +2933,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "sensitive permission:administrator"
+        "x-access": "sensitive permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/users/{id}/reset-password": {
@@ -2826,7 +2961,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "sensitive permission:administrator"
+        "x-access": "sensitive permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/users/{id}/signing": {
@@ -2853,7 +2989,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       },
       "get": {
         "operationId": "get /api/v1/admin/users/{id}/signing",
@@ -2878,7 +3015,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       },
       "put": {
         "operationId": "put /api/v1/admin/users/{id}/signing",
@@ -2903,7 +3041,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "sensitive permission:administrator"
+        "x-access": "sensitive permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/users/{id}/type-impact": {
@@ -2930,7 +3069,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       }
     },
     "/api/v1/admin/users/{id}/unlock-password": {
@@ -2957,7 +3097,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/webhooks": {
@@ -2975,7 +3116,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "permission:administrator"
+        "x-access": "permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       },
       "post": {
         "operationId": "post /api/v1/admin/webhooks",
@@ -2991,7 +3133,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/workflow-templates": {
@@ -3009,7 +3152,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
       },
       "post": {
         "operationId": "post /api/v1/admin/workflow-templates",
@@ -3025,7 +3169,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/workflow-templates/{id}": {
@@ -3052,7 +3197,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/admin/workflow-templates/{id}/archive": {
@@ -3079,7 +3225,8 @@
         "tags": [
           "admin"
         ],
-        "x-access": "session-only permission:administrator"
+        "x-access": "session-only permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
       }
     },
     "/api/v1/appearance": {
@@ -3160,7 +3307,8 @@
         "tags": [
           "approvals"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/approvals/{id}/answer": {
@@ -3187,7 +3335,8 @@
         "tags": [
           "approvals"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/approvals/{id}/close": {
@@ -3214,7 +3363,8 @@
         "tags": [
           "approvals"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/approvals/{id}/people/{user}": {
@@ -3249,7 +3399,8 @@
         "tags": [
           "approvals"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/attachments/lookup": {
@@ -3267,7 +3418,8 @@
         "tags": [
           "attachments"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/attachments/{id}": {
@@ -3294,7 +3446,8 @@
         "tags": [
           "attachments"
         ],
-        "x-access": "object:attachment.delete"
+        "x-access": "object:attachment.delete scope:content:delete",
+        "x-scope": "content:delete"
       },
       "patch": {
         "operationId": "patch /api/v1/attachments/{id}",
@@ -3319,7 +3472,8 @@
         "tags": [
           "attachments"
         ],
-        "x-access": "object:attachment.add"
+        "x-access": "object:attachment.add scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/attachments/{id}/content": {
@@ -3346,7 +3500,8 @@
         "tags": [
           "attachments"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/attachments/{id}/copy": {
@@ -3373,7 +3528,8 @@
         "tags": [
           "attachments"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/attachments/{id}/labels": {
@@ -3400,7 +3556,8 @@
         "tags": [
           "attachments"
         ],
-        "x-access": "object:attachment.add"
+        "x-access": "object:attachment.add scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/attachments/{id}/labels/{label}": {
@@ -3435,7 +3592,8 @@
         "tags": [
           "attachments"
         ],
-        "x-access": "object:attachment.add"
+        "x-access": "object:attachment.add scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/attachments/{id}/move": {
@@ -3462,7 +3620,8 @@
         "tags": [
           "attachments"
         ],
-        "x-access": "object:attachment.delete"
+        "x-access": "object:attachment.delete scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/attachments/{id}/preview.pdf": {
@@ -3489,7 +3648,8 @@
         "tags": [
           "attachments"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/attachments/{id}/text": {
@@ -3516,7 +3676,8 @@
         "tags": [
           "attachments"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/attachments/{id}/versions": {
@@ -3543,7 +3704,8 @@
         "tags": [
           "attachments"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:read",
+        "x-scope": "content:read"
       },
       "post": {
         "operationId": "post /api/v1/attachments/{id}/versions",
@@ -3568,7 +3730,8 @@
         "tags": [
           "attachments"
         ],
-        "x-access": "object:attachment.add"
+        "x-access": "object:attachment.add scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/attachments/{id}/versions/{number}": {
@@ -3603,7 +3766,8 @@
         "tags": [
           "attachments"
         ],
-        "x-access": "object:attachment.delete_any"
+        "x-access": "object:attachment.delete_any scope:content:delete",
+        "x-scope": "content:delete"
       }
     },
     "/api/v1/attachments/{id}/versions/{number}/content": {
@@ -3638,7 +3802,8 @@
         "tags": [
           "attachments"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/attachments/{id}/versions/{number}/current": {
@@ -3673,7 +3838,8 @@
         "tags": [
           "attachments"
         ],
-        "x-access": "object:attachment.add"
+        "x-access": "object:attachment.add scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/auth/forgot": {
@@ -3815,7 +3981,8 @@
         "tags": [
           "auth"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:account:write",
+        "x-scope": "account:write"
       }
     },
     "/api/v1/auth/oidc/callback": {
@@ -3851,7 +4018,8 @@
         "tags": [
           "auth"
         ],
-        "x-access": "session-only authenticated"
+        "x-access": "session-only authenticated scope:none",
+        "x-scope": "none"
       }
     },
     "/api/v1/auth/oidc/start": {
@@ -3941,7 +4109,8 @@
         "tags": [
           "auth"
         ],
-        "x-access": "session-only authenticated"
+        "x-access": "session-only authenticated scope:none",
+        "x-scope": "none"
       }
     },
     "/api/v1/auth/reauth/passkey/begin": {
@@ -3959,7 +4128,8 @@
         "tags": [
           "auth"
         ],
-        "x-access": "session-only authenticated"
+        "x-access": "session-only authenticated scope:none",
+        "x-scope": "none"
       }
     },
     "/api/v1/auth/reauth/passkey/finish": {
@@ -3977,7 +4147,8 @@
         "tags": [
           "auth"
         ],
-        "x-access": "session-only authenticated"
+        "x-access": "session-only authenticated scope:none",
+        "x-scope": "none"
       }
     },
     "/api/v1/auth/reset": {
@@ -4058,7 +4229,8 @@
         "tags": [
           "blocks"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/categories": {
@@ -4076,7 +4248,8 @@
         "tags": [
           "categories"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/comments/{id}": {
@@ -4103,7 +4276,8 @@
         "tags": [
           "comments"
         ],
-        "x-access": "object:comment.delete"
+        "x-access": "object:comment.delete scope:content:delete",
+        "x-scope": "content:delete"
       },
       "patch": {
         "operationId": "patch /api/v1/comments/{id}",
@@ -4128,7 +4302,8 @@
         "tags": [
           "comments"
         ],
-        "x-access": "object:comment.add"
+        "x-access": "object:comment.add scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/comments/{id}/reactions": {
@@ -4155,7 +4330,8 @@
         "tags": [
           "comments"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/comments/{id}/reactions/{emoji}": {
@@ -4190,7 +4366,8 @@
         "tags": [
           "comments"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:write",
+        "x-scope": "content:write"
       },
       "put": {
         "operationId": "put /api/v1/comments/{id}/reactions/{emoji}",
@@ -4223,7 +4400,8 @@
         "tags": [
           "comments"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/comments/{id}/reopen": {
@@ -4250,7 +4428,8 @@
         "tags": [
           "comments"
         ],
-        "x-access": "object:page.edit"
+        "x-access": "object:page.edit scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/comments/{id}/resolve": {
@@ -4277,7 +4456,8 @@
         "tags": [
           "comments"
         ],
-        "x-access": "object:page.edit"
+        "x-access": "object:page.edit scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/comments/{id}/undo-delete": {
@@ -4304,7 +4484,8 @@
         "tags": [
           "comments"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:delete",
+        "x-scope": "content:delete"
       }
     },
     "/api/v1/control-reports/{kind}": {
@@ -4331,7 +4512,8 @@
         "tags": [
           "control-reports"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/directory": {
@@ -4349,7 +4531,8 @@
         "tags": [
           "directory"
         ],
-        "x-access": "permission:view_profiles"
+        "x-access": "permission:view_profiles scope:people:read",
+        "x-scope": "people:read"
       }
     },
     "/api/v1/document/format": {
@@ -4367,7 +4550,8 @@
         "tags": [
           "document"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/export-formats": {
@@ -4385,7 +4569,8 @@
         "tags": [
           "export-formats"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:export",
+        "x-scope": "content:export"
       }
     },
     "/api/v1/exports": {
@@ -4403,7 +4588,8 @@
         "tags": [
           "exports"
         ],
-        "x-access": "object:space.export"
+        "x-access": "object:space.export scope:content:export",
+        "x-scope": "content:export"
       }
     },
     "/api/v1/exports/{id}": {
@@ -4430,7 +4616,8 @@
         "tags": [
           "exports"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:export",
+        "x-scope": "content:export"
       }
     },
     "/api/v1/exports/{id}/file": {
@@ -4457,7 +4644,8 @@
         "tags": [
           "exports"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:export",
+        "x-scope": "content:export"
       }
     },
     "/api/v1/feed": {
@@ -4475,7 +4663,8 @@
         "tags": [
           "feed"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/groups/{id}": {
@@ -4502,7 +4691,8 @@
         "tags": [
           "groups"
         ],
-        "x-access": "object:group.manage_members"
+        "x-access": "object:group.manage_members scope:people:read",
+        "x-scope": "people:read"
       }
     },
     "/api/v1/groups/{id}/members/{user}": {
@@ -4537,7 +4727,8 @@
         "tags": [
           "groups"
         ],
-        "x-access": "object:group.manage_members"
+        "x-access": "object:group.manage_members scope:content:share",
+        "x-scope": "content:share"
       },
       "put": {
         "operationId": "put /api/v1/groups/{id}/members/{user}",
@@ -4570,7 +4761,8 @@
         "tags": [
           "groups"
         ],
-        "x-access": "object:group.manage_members"
+        "x-access": "object:group.manage_members scope:content:share",
+        "x-scope": "content:share"
       }
     },
     "/api/v1/imports/{id}": {
@@ -4597,7 +4789,8 @@
         "tags": [
           "imports"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/imports/{id}/mapping": {
@@ -4624,7 +4817,8 @@
         "tags": [
           "imports"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/imports/{id}/run": {
@@ -4651,7 +4845,8 @@
         "tags": [
           "imports"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/imports/{id}/undo": {
@@ -4678,7 +4873,8 @@
         "tags": [
           "imports"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/invitation-requests": {
@@ -4696,7 +4892,8 @@
         "tags": [
           "invitation-requests"
         ],
-        "x-access": "session-only authenticated"
+        "x-access": "session-only authenticated scope:people:read",
+        "x-scope": "people:read"
       }
     },
     "/api/v1/invitation-requests/{id}/approve": {
@@ -4723,7 +4920,8 @@
         "tags": [
           "invitation-requests"
         ],
-        "x-access": "session-only authenticated"
+        "x-access": "session-only authenticated scope:content:share",
+        "x-scope": "content:share"
       }
     },
     "/api/v1/invitation-requests/{id}/refuse": {
@@ -4750,7 +4948,8 @@
         "tags": [
           "invitation-requests"
         ],
-        "x-access": "session-only authenticated"
+        "x-access": "session-only authenticated scope:content:share",
+        "x-scope": "content:share"
       }
     },
     "/api/v1/jobs/{id}": {
@@ -4777,7 +4976,8 @@
         "tags": [
           "jobs"
         ],
-        "x-access": "object:job.owner"
+        "x-access": "object:job.owner scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/labels": {
@@ -4795,7 +4995,8 @@
         "tags": [
           "labels"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/labels/{label}/pages": {
@@ -4822,7 +5023,8 @@
         "tags": [
           "labels"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/mail/unsubscribe/{token}": {
@@ -4867,7 +5069,8 @@
         "tags": [
           "markdown"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/me": {
@@ -4885,7 +5088,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:account:read",
+        "x-scope": "account:read"
       }
     },
     "/api/v1/me/absence": {
@@ -4903,7 +5107,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "session-only authenticated"
+        "x-access": "session-only authenticated scope:account:write",
+        "x-scope": "account:write"
       },
       "get": {
         "operationId": "get /api/v1/me/absence",
@@ -4919,7 +5124,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "session-only authenticated"
+        "x-access": "session-only authenticated scope:account:read",
+        "x-scope": "account:read"
       },
       "put": {
         "operationId": "put /api/v1/me/absence",
@@ -4935,7 +5141,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "session-only authenticated"
+        "x-access": "session-only authenticated scope:account:write",
+        "x-scope": "account:write"
       }
     },
     "/api/v1/me/export": {
@@ -4953,7 +5160,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "session-only authenticated"
+        "x-access": "session-only authenticated scope:content:export",
+        "x-scope": "content:export"
       }
     },
     "/api/v1/me/favourites": {
@@ -4971,7 +5179,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:account:read",
+        "x-scope": "account:read"
       }
     },
     "/api/v1/me/favourites/order": {
@@ -4989,7 +5198,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:account:write",
+        "x-scope": "account:write"
       }
     },
     "/api/v1/me/following": {
@@ -5007,7 +5217,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:people:read",
+        "x-scope": "people:read"
       }
     },
     "/api/v1/me/groups": {
@@ -5025,7 +5236,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:people:read",
+        "x-scope": "people:read"
       }
     },
     "/api/v1/me/logins": {
@@ -5043,7 +5255,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "session-only authenticated"
+        "x-access": "session-only authenticated scope:none",
+        "x-scope": "none"
       }
     },
     "/api/v1/me/notification-settings": {
@@ -5061,7 +5274,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:account:read",
+        "x-scope": "account:read"
       },
       "put": {
         "operationId": "put /api/v1/me/notification-settings",
@@ -5077,7 +5291,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:account:write",
+        "x-scope": "account:write"
       }
     },
     "/api/v1/me/notifications": {
@@ -5095,7 +5310,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:account:read",
+        "x-scope": "account:read"
       }
     },
     "/api/v1/me/notifications/count": {
@@ -5113,7 +5329,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:account:read",
+        "x-scope": "account:read"
       }
     },
     "/api/v1/me/notifications/read-all": {
@@ -5131,7 +5348,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:account:write",
+        "x-scope": "account:write"
       }
     },
     "/api/v1/me/notifications/{id}/read": {
@@ -5158,7 +5376,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:account:write",
+        "x-scope": "account:write"
       }
     },
     "/api/v1/me/notifications/{id}/unread": {
@@ -5185,7 +5404,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:account:write",
+        "x-scope": "account:write"
       }
     },
     "/api/v1/me/passkeys": {
@@ -5203,7 +5423,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "session-only authenticated"
+        "x-access": "session-only authenticated scope:none",
+        "x-scope": "none"
       }
     },
     "/api/v1/me/passkeys/begin": {
@@ -5221,7 +5442,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "sensitive authenticated"
+        "x-access": "sensitive authenticated scope:none",
+        "x-scope": "none"
       }
     },
     "/api/v1/me/passkeys/finish": {
@@ -5239,7 +5461,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "sensitive authenticated"
+        "x-access": "sensitive authenticated scope:none",
+        "x-scope": "none"
       }
     },
     "/api/v1/me/passkeys/{id}": {
@@ -5266,7 +5489,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "sensitive authenticated"
+        "x-access": "sensitive authenticated scope:none",
+        "x-scope": "none"
       }
     },
     "/api/v1/me/password": {
@@ -5284,7 +5508,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "session-only authenticated"
+        "x-access": "session-only authenticated scope:none",
+        "x-scope": "none"
       }
     },
     "/api/v1/me/personal-space": {
@@ -5302,7 +5527,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "permission:create_personal_space"
+        "x-access": "permission:create_personal_space scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/me/picture": {
@@ -5320,7 +5546,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "session-only authenticated"
+        "x-access": "session-only authenticated scope:account:write",
+        "x-scope": "account:write"
       },
       "put": {
         "operationId": "put /api/v1/me/picture",
@@ -5336,7 +5563,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "session-only authenticated"
+        "x-access": "session-only authenticated scope:account:write",
+        "x-scope": "account:write"
       }
     },
     "/api/v1/me/preferences": {
@@ -5354,7 +5582,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:account:read",
+        "x-scope": "account:read"
       },
       "put": {
         "operationId": "put /api/v1/me/preferences",
@@ -5370,7 +5599,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:account:write",
+        "x-scope": "account:write"
       }
     },
     "/api/v1/me/profile": {
@@ -5388,7 +5618,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "session-only authenticated"
+        "x-access": "session-only authenticated scope:account:write",
+        "x-scope": "account:write"
       }
     },
     "/api/v1/me/recent": {
@@ -5406,7 +5637,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/me/removal-request": {
@@ -5424,7 +5656,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "session-only authenticated"
+        "x-access": "session-only authenticated scope:none",
+        "x-scope": "none"
       }
     },
     "/api/v1/me/security": {
@@ -5442,7 +5675,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "session-only authenticated"
+        "x-access": "session-only authenticated scope:none",
+        "x-scope": "none"
       }
     },
     "/api/v1/me/sessions": {
@@ -5460,7 +5694,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "session-only authenticated"
+        "x-access": "session-only authenticated scope:none",
+        "x-scope": "none"
       }
     },
     "/api/v1/me/sessions/end-others": {
@@ -5478,7 +5713,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "session-only authenticated"
+        "x-access": "session-only authenticated scope:none",
+        "x-scope": "none"
       }
     },
     "/api/v1/me/sessions/{id}": {
@@ -5505,7 +5741,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "session-only authenticated"
+        "x-access": "session-only authenticated scope:none",
+        "x-scope": "none"
       }
     },
     "/api/v1/me/sign-in-prompt/later": {
@@ -5523,7 +5760,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "session-only authenticated"
+        "x-access": "session-only authenticated scope:none",
+        "x-scope": "none"
       }
     },
     "/api/v1/me/spaces": {
@@ -5541,7 +5779,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/me/tasks": {
@@ -5559,7 +5798,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/me/tokens": {
@@ -5577,7 +5817,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "session-only authenticated"
+        "x-access": "session-only authenticated scope:none",
+        "x-scope": "none"
       },
       "post": {
         "operationId": "post /api/v1/me/tokens",
@@ -5593,7 +5834,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "session-only authenticated"
+        "x-access": "session-only authenticated scope:none",
+        "x-scope": "none"
       }
     },
     "/api/v1/me/tokens/{id}": {
@@ -5620,7 +5862,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "session-only authenticated"
+        "x-access": "session-only authenticated scope:none",
+        "x-scope": "none"
       }
     },
     "/api/v1/me/totp/begin": {
@@ -5638,7 +5881,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "session-only authenticated"
+        "x-access": "session-only authenticated scope:none",
+        "x-scope": "none"
       }
     },
     "/api/v1/me/totp/confirm": {
@@ -5656,7 +5900,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "session-only authenticated"
+        "x-access": "session-only authenticated scope:none",
+        "x-scope": "none"
       }
     },
     "/api/v1/me/totp/disable": {
@@ -5674,7 +5919,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "sensitive authenticated"
+        "x-access": "sensitive authenticated scope:none",
+        "x-scope": "none"
       }
     },
     "/api/v1/me/watches": {
@@ -5692,7 +5938,8 @@
         "tags": [
           "me"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:account:read",
+        "x-scope": "account:read"
       }
     },
     "/api/v1/openapi.json": {
@@ -5710,7 +5957,8 @@
         "tags": [
           "openapi.json"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/pages": {
@@ -5728,7 +5976,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.create"
+        "x-access": "object:page.create scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/bulk-move": {
@@ -5746,7 +5995,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/link-facts": {
@@ -5764,7 +6014,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/reachable": {
@@ -5782,7 +6033,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}": {
@@ -5809,7 +6061,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.delete"
+        "x-access": "object:page.delete scope:content:delete",
+        "x-scope": "content:delete"
       },
       "get": {
         "operationId": "get /api/v1/pages/{id}",
@@ -5834,7 +6087,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:read",
+        "x-scope": "content:read"
       },
       "patch": {
         "operationId": "patch /api/v1/pages/{id}",
@@ -5859,7 +6113,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.edit"
+        "x-access": "object:page.edit scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}/access": {
@@ -5886,7 +6141,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/pages/{id}/access-requests": {
@@ -5913,7 +6169,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:restriction.manage"
+        "x-access": "object:restriction.manage scope:content:read",
+        "x-scope": "content:read"
       },
       "post": {
         "operationId": "post /api/v1/pages/{id}/access-requests",
@@ -5938,7 +6195,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}/approvals": {
@@ -5965,7 +6223,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:read",
+        "x-scope": "content:read"
       },
       "post": {
         "operationId": "post /api/v1/pages/{id}/approvals",
@@ -5990,7 +6249,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.edit"
+        "x-access": "object:page.edit scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}/archive": {
@@ -6017,7 +6277,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.archive"
+        "x-access": "object:page.archive scope:content:delete",
+        "x-scope": "content:delete"
       }
     },
     "/api/v1/pages/{id}/attachments": {
@@ -6044,7 +6305,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:read",
+        "x-scope": "content:read"
       },
       "post": {
         "operationId": "post /api/v1/pages/{id}/attachments",
@@ -6069,7 +6331,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:attachment.add"
+        "x-access": "object:attachment.add scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}/attachments.zip": {
@@ -6096,7 +6359,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/pages/{id}/attachments/clear-up": {
@@ -6123,7 +6387,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:delete",
+        "x-scope": "content:delete"
       }
     },
     "/api/v1/pages/{id}/collab": {
@@ -6150,7 +6415,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/pages/{id}/comments": {
@@ -6177,7 +6443,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:read",
+        "x-scope": "content:read"
       },
       "post": {
         "operationId": "post /api/v1/pages/{id}/comments",
@@ -6202,7 +6469,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:comment.add"
+        "x-access": "object:comment.add scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}/comments-closed": {
@@ -6229,7 +6497,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.edit"
+        "x-access": "object:page.edit scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}/comments/seen": {
@@ -6256,7 +6525,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}/compare": {
@@ -6283,7 +6553,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/pages/{id}/control-history": {
@@ -6310,7 +6581,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/pages/{id}/copy": {
@@ -6337,7 +6609,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.create"
+        "x-access": "object:page.create scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}/copy-impact": {
@@ -6364,7 +6637,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/pages/{id}/details": {
@@ -6391,7 +6665,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/pages/{id}/draft": {
@@ -6418,7 +6693,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:write",
+        "x-scope": "content:write"
       },
       "get": {
         "operationId": "get /api/v1/pages/{id}/draft",
@@ -6443,7 +6719,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:read",
+        "x-scope": "content:read"
       },
       "put": {
         "operationId": "put /api/v1/pages/{id}/draft",
@@ -6468,7 +6745,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.edit"
+        "x-access": "object:page.edit scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}/editors": {
@@ -6495,7 +6773,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.edit"
+        "x-access": "object:page.edit scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/pages/{id}/explain": {
@@ -6522,7 +6801,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:space.administer"
+        "x-access": "object:space.administer scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/pages/{id}/export.md": {
@@ -6549,7 +6829,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:space.export"
+        "x-access": "object:space.export scope:content:export",
+        "x-scope": "content:export"
       }
     },
     "/api/v1/pages/{id}/export.zip": {
@@ -6576,7 +6857,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:space.export"
+        "x-access": "object:space.export scope:content:export",
+        "x-scope": "content:export"
       }
     },
     "/api/v1/pages/{id}/favourite": {
@@ -6603,7 +6885,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:write",
+        "x-scope": "content:write"
       },
       "put": {
         "operationId": "put /api/v1/pages/{id}/favourite",
@@ -6628,7 +6911,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}/file-events": {
@@ -6655,7 +6939,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/pages/{id}/impact": {
@@ -6682,7 +6967,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.delete"
+        "x-access": "object:page.delete scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/pages/{id}/import-word": {
@@ -6709,7 +6995,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.edit"
+        "x-access": "object:page.edit scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}/imported-signatures": {
@@ -6736,7 +7023,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/pages/{id}/insights": {
@@ -6763,7 +7051,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:analytics.view"
+        "x-access": "object:analytics.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/pages/{id}/invitation-requests": {
@@ -6790,7 +7079,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:share",
+        "x-scope": "content:share"
       }
     },
     "/api/v1/pages/{id}/kind": {
@@ -6817,7 +7107,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.edit"
+        "x-access": "object:page.edit scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}/labels": {
@@ -6844,7 +7135,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:read",
+        "x-scope": "content:read"
       },
       "post": {
         "operationId": "post /api/v1/pages/{id}/labels",
@@ -6869,7 +7161,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.edit"
+        "x-access": "object:page.edit scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}/labels/{label}": {
@@ -6904,7 +7197,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.edit"
+        "x-access": "object:page.edit scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}/leave-out": {
@@ -6931,7 +7225,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:space.release"
+        "x-access": "object:space.release scope:spaces:manage",
+        "x-scope": "spaces:manage"
       },
       "put": {
         "operationId": "put /api/v1/pages/{id}/leave-out",
@@ -6956,7 +7251,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:space.release"
+        "x-access": "object:space.release scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/pages/{id}/look": {
@@ -6983,7 +7279,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.edit"
+        "x-access": "object:page.edit scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}/mention-candidates": {
@@ -7010,7 +7307,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/pages/{id}/move": {
@@ -7037,7 +7335,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.edit"
+        "x-access": "object:page.edit scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}/move-impact": {
@@ -7064,7 +7363,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.edit"
+        "x-access": "object:page.edit scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/pages/{id}/owner": {
@@ -7091,7 +7391,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.edit"
+        "x-access": "object:page.edit scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}/placeholders": {
@@ -7118,7 +7419,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:read",
+        "x-scope": "content:read"
       },
       "post": {
         "operationId": "post /api/v1/pages/{id}/placeholders",
@@ -7143,7 +7445,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}/presence": {
@@ -7170,7 +7473,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}/public-link": {
@@ -7197,7 +7501,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:site.publish"
+        "x-access": "object:site.publish scope:content:share",
+        "x-scope": "content:share"
       },
       "get": {
         "operationId": "get /api/v1/pages/{id}/public-link",
@@ -7222,7 +7527,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:site.publish"
+        "x-access": "object:site.publish scope:content:read",
+        "x-scope": "content:read"
       },
       "put": {
         "operationId": "put /api/v1/pages/{id}/public-link",
@@ -7247,7 +7553,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:site.publish"
+        "x-access": "object:site.publish scope:content:share",
+        "x-scope": "content:share"
       }
     },
     "/api/v1/pages/{id}/public-state": {
@@ -7274,7 +7581,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/pages/{id}/publish": {
@@ -7301,7 +7609,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.edit"
+        "x-access": "object:page.edit scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}/reactions": {
@@ -7328,7 +7637,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/pages/{id}/reactions/{emoji}": {
@@ -7363,7 +7673,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:write",
+        "x-scope": "content:write"
       },
       "put": {
         "operationId": "put /api/v1/pages/{id}/reactions/{emoji}",
@@ -7396,7 +7707,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}/read-confirmation": {
@@ -7423,7 +7735,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "session-only authenticated"
+        "x-access": "session-only authenticated scope:none",
+        "x-scope": "none"
       }
     },
     "/api/v1/pages/{id}/read-confirmations": {
@@ -7450,7 +7763,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/pages/{id}/release": {
@@ -7477,7 +7791,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:read",
+        "x-scope": "content:read"
       },
       "post": {
         "operationId": "post /api/v1/pages/{id}/release",
@@ -7502,7 +7817,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:space.release"
+        "x-access": "object:space.release scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/pages/{id}/release/preview": {
@@ -7529,7 +7845,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:space.release"
+        "x-access": "object:space.release scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/pages/{id}/release/verify": {
@@ -7556,7 +7873,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:space.audit"
+        "x-access": "object:space.audit scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}/restrictions": {
@@ -7583,7 +7901,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:read",
+        "x-scope": "content:read"
       },
       "put": {
         "operationId": "put /api/v1/pages/{id}/restrictions",
@@ -7608,7 +7927,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:restriction.manage"
+        "x-access": "object:restriction.manage scope:content:share",
+        "x-scope": "content:share"
       }
     },
     "/api/v1/pages/{id}/review": {
@@ -7635,7 +7955,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:read",
+        "x-scope": "content:read"
       },
       "put": {
         "operationId": "put /api/v1/pages/{id}/review",
@@ -7660,7 +7981,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.edit"
+        "x-access": "object:page.edit scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}/review-period": {
@@ -7687,7 +8009,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}/review/answer": {
@@ -7714,7 +8037,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}/review/comments": {
@@ -7741,7 +8065,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}/review/delegate": {
@@ -7768,7 +8093,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}/reviewers": {
@@ -7795,7 +8121,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}/reviewers/{user}/remove": {
@@ -7830,7 +8157,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}/rules": {
@@ -7857,7 +8185,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/pages/{id}/save-as-template": {
@@ -7884,7 +8213,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:space.templates"
+        "x-access": "object:space.templates scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/pages/{id}/schedule": {
@@ -7911,7 +8241,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.edit"
+        "x-access": "object:page.edit scope:content:write",
+        "x-scope": "content:write"
       },
       "put": {
         "operationId": "put /api/v1/pages/{id}/schedule",
@@ -7936,7 +8267,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.edit"
+        "x-access": "object:page.edit scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}/share": {
@@ -7963,7 +8295,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:share",
+        "x-scope": "content:share"
       }
     },
     "/api/v1/pages/{id}/signing": {
@@ -7990,7 +8323,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "session-only authenticated"
+        "x-access": "session-only authenticated scope:none",
+        "x-scope": "none"
       }
     },
     "/api/v1/pages/{id}/sort-children": {
@@ -8017,7 +8351,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.edit"
+        "x-access": "object:page.edit scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}/stage": {
@@ -8044,7 +8379,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.edit"
+        "x-access": "object:page.edit scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}/summary": {
@@ -8071,7 +8407,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/pages/{id}/targets": {
@@ -8098,7 +8435,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/pages/{id}/template-origin": {
@@ -8125,7 +8463,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/pages/{id}/transitions": {
@@ -8152,7 +8491,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.edit"
+        "x-access": "object:page.edit scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}/unarchive": {
@@ -8179,7 +8519,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.archive"
+        "x-access": "object:page.archive scope:content:delete",
+        "x-scope": "content:delete"
       }
     },
     "/api/v1/pages/{id}/undo-delete": {
@@ -8206,7 +8547,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:delete",
+        "x-scope": "content:delete"
       }
     },
     "/api/v1/pages/{id}/used-by": {
@@ -8233,7 +8575,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/pages/{id}/verification": {
@@ -8260,7 +8603,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.edit"
+        "x-access": "object:page.edit scope:content:write",
+        "x-scope": "content:write"
       },
       "put": {
         "operationId": "put /api/v1/pages/{id}/verification",
@@ -8285,7 +8629,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.edit"
+        "x-access": "object:page.edit scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}/version-authors": {
@@ -8312,7 +8657,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/pages/{id}/versions": {
@@ -8339,7 +8685,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/pages/{id}/versions/{number}": {
@@ -8374,7 +8721,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/pages/{id}/versions/{number}/restore": {
@@ -8409,7 +8757,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.edit"
+        "x-access": "object:page.edit scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}/versions/{number}/signatures": {
@@ -8444,7 +8793,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/pages/{id}/views": {
@@ -8471,7 +8821,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:write",
+        "x-scope": "content:write"
       },
       "post": {
         "operationId": "post /api/v1/pages/{id}/views",
@@ -8496,7 +8847,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}/watch": {
@@ -8523,7 +8875,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:write",
+        "x-scope": "content:write"
       },
       "get": {
         "operationId": "get /api/v1/pages/{id}/watch",
@@ -8548,7 +8901,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:read",
+        "x-scope": "content:read"
       },
       "put": {
         "operationId": "put /api/v1/pages/{id}/watch",
@@ -8573,7 +8927,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}/watchers": {
@@ -8600,7 +8955,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.watchers"
+        "x-access": "object:page.watchers scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/pages/{id}/watchers/{user}": {
@@ -8635,7 +8991,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.watchers"
+        "x-access": "object:page.watchers scope:content:write",
+        "x-scope": "content:write"
       },
       "put": {
         "operationId": "put /api/v1/pages/{id}/watchers/{user}",
@@ -8668,7 +9025,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.watchers"
+        "x-access": "object:page.watchers scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/pages/{id}/workflow": {
@@ -8695,7 +9053,8 @@
         "tags": [
           "pages"
         ],
-        "x-access": "object:page.workflow"
+        "x-access": "object:page.workflow scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/people": {
@@ -8713,7 +9072,8 @@
         "tags": [
           "people"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:people:read",
+        "x-scope": "people:read"
       }
     },
     "/api/v1/people/{id}": {
@@ -8740,7 +9100,8 @@
         "tags": [
           "people"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:people:read",
+        "x-scope": "people:read"
       }
     },
     "/api/v1/people/{id}/follows": {
@@ -8767,7 +9128,8 @@
         "tags": [
           "people"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:people:read",
+        "x-scope": "people:read"
       }
     },
     "/api/v1/people/{id}/mentions": {
@@ -8794,7 +9156,8 @@
         "tags": [
           "people"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:people:read",
+        "x-scope": "people:read"
       }
     },
     "/api/v1/people/{id}/pages": {
@@ -8821,7 +9184,8 @@
         "tags": [
           "people"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:people:read",
+        "x-scope": "people:read"
       }
     },
     "/api/v1/people/{id}/picture": {
@@ -8848,7 +9212,8 @@
         "tags": [
           "people"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:people:read",
+        "x-scope": "people:read"
       }
     },
     "/api/v1/posts": {
@@ -8866,7 +9231,8 @@
         "tags": [
           "posts"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/roles": {
@@ -8884,7 +9250,8 @@
         "tags": [
           "roles"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/rules/{id}": {
@@ -8911,7 +9278,8 @@
         "tags": [
           "rules"
         ],
-        "x-access": "object:space.automation"
+        "x-access": "object:space.automation scope:spaces:manage",
+        "x-scope": "spaces:manage"
       },
       "get": {
         "operationId": "get /api/v1/rules/{id}",
@@ -8936,7 +9304,8 @@
         "tags": [
           "rules"
         ],
-        "x-access": "object:space.automation"
+        "x-access": "object:space.automation scope:content:read",
+        "x-scope": "content:read"
       },
       "put": {
         "operationId": "put /api/v1/rules/{id}",
@@ -8961,7 +9330,8 @@
         "tags": [
           "rules"
         ],
-        "x-access": "object:space.automation"
+        "x-access": "object:space.automation scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/rules/{id}/hook": {
@@ -8988,7 +9358,8 @@
         "tags": [
           "rules"
         ],
-        "x-access": "session-only object:space.automation"
+        "x-access": "session-only object:space.automation scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/rules/{id}/run": {
@@ -9015,7 +9386,8 @@
         "tags": [
           "rules"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/rules/{id}/runs": {
@@ -9042,7 +9414,8 @@
         "tags": [
           "rules"
         ],
-        "x-access": "object:space.automation"
+        "x-access": "object:space.automation scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/rules/{id}/test": {
@@ -9069,7 +9442,8 @@
         "tags": [
           "rules"
         ],
-        "x-access": "object:space.automation"
+        "x-access": "object:space.automation scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/same-title": {
@@ -9087,7 +9461,8 @@
         "tags": [
           "same-title"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/saved-blocks": {
@@ -9105,7 +9480,8 @@
         "tags": [
           "saved-blocks"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:read",
+        "x-scope": "content:read"
       },
       "post": {
         "operationId": "post /api/v1/saved-blocks",
@@ -9121,7 +9497,8 @@
         "tags": [
           "saved-blocks"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/saved-blocks/{id}": {
@@ -9148,7 +9525,8 @@
         "tags": [
           "saved-blocks"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       },
       "patch": {
         "operationId": "patch /api/v1/saved-blocks/{id}",
@@ -9173,7 +9551,8 @@
         "tags": [
           "saved-blocks"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/search": {
@@ -9191,7 +9570,8 @@
         "tags": [
           "search"
         ],
-        "x-access": "object:page.view"
+        "x-access": "object:page.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/search/quick": {
@@ -9209,7 +9589,8 @@
         "tags": [
           "search"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/setup": {
@@ -9261,7 +9642,8 @@
         "tags": [
           "signing"
         ],
-        "x-access": "session-only authenticated"
+        "x-access": "session-only authenticated scope:none",
+        "x-scope": "none"
       }
     },
     "/api/v1/signing/passkey": {
@@ -9279,7 +9661,8 @@
         "tags": [
           "signing"
         ],
-        "x-access": "session-only authenticated"
+        "x-access": "session-only authenticated scope:none",
+        "x-scope": "none"
       }
     },
     "/api/v1/sites/{id}": {
@@ -9306,7 +9689,8 @@
         "tags": [
           "sites"
         ],
-        "x-access": "object:site.publish"
+        "x-access": "object:site.publish scope:content:share",
+        "x-scope": "content:share"
       },
       "get": {
         "operationId": "get /api/v1/sites/{id}",
@@ -9331,7 +9715,8 @@
         "tags": [
           "sites"
         ],
-        "x-access": "object:site.publish"
+        "x-access": "object:site.publish scope:content:read",
+        "x-scope": "content:read"
       },
       "patch": {
         "operationId": "patch /api/v1/sites/{id}",
@@ -9356,7 +9741,8 @@
         "tags": [
           "sites"
         ],
-        "x-access": "object:site.publish"
+        "x-access": "object:site.publish scope:content:share",
+        "x-scope": "content:share"
       }
     },
     "/api/v1/sites/{id}/builds": {
@@ -9383,7 +9769,8 @@
         "tags": [
           "sites"
         ],
-        "x-access": "object:site.publish"
+        "x-access": "object:site.publish scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/sites/{id}/download": {
@@ -9410,7 +9797,8 @@
         "tags": [
           "sites"
         ],
-        "x-access": "object:site.publish"
+        "x-access": "object:site.publish scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/sites/{id}/pages": {
@@ -9437,7 +9825,8 @@
         "tags": [
           "sites"
         ],
-        "x-access": "object:site.publish"
+        "x-access": "object:site.publish scope:content:read",
+        "x-scope": "content:read"
       },
       "put": {
         "operationId": "put /api/v1/sites/{id}/pages",
@@ -9462,7 +9851,8 @@
         "tags": [
           "sites"
         ],
-        "x-access": "object:site.publish"
+        "x-access": "object:site.publish scope:content:share",
+        "x-scope": "content:share"
       }
     },
     "/api/v1/sites/{id}/preview": {
@@ -9489,7 +9879,8 @@
         "tags": [
           "sites"
         ],
-        "x-access": "object:site.publish"
+        "x-access": "object:site.publish scope:content:share",
+        "x-scope": "content:share"
       }
     },
     "/api/v1/sites/{id}/publish": {
@@ -9516,7 +9907,8 @@
         "tags": [
           "sites"
         ],
-        "x-access": "object:site.publish"
+        "x-access": "object:site.publish scope:content:share",
+        "x-scope": "content:share"
       }
     },
     "/api/v1/sites/{id}/rollback": {
@@ -9543,7 +9935,8 @@
         "tags": [
           "sites"
         ],
-        "x-access": "object:site.publish"
+        "x-access": "object:site.publish scope:content:share",
+        "x-scope": "content:share"
       }
     },
     "/api/v1/sites/{id}/withdraw": {
@@ -9570,7 +9963,8 @@
         "tags": [
           "sites"
         ],
-        "x-access": "object:site.publish"
+        "x-access": "object:site.publish scope:content:share",
+        "x-scope": "content:share"
       }
     },
     "/api/v1/space-directory": {
@@ -9588,7 +9982,8 @@
         "tags": [
           "space-directory"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/space-key-check": {
@@ -9606,7 +10001,8 @@
         "tags": [
           "space-key-check"
         ],
-        "x-access": "permission:create_space"
+        "x-access": "permission:create_space scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/space-keys/{key}": {
@@ -9633,7 +10029,8 @@
         "tags": [
           "space-keys"
         ],
-        "x-access": "object:space.view"
+        "x-access": "object:space.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/space-templates": {
@@ -9651,7 +10048,8 @@
         "tags": [
           "space-templates"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/spaces": {
@@ -9669,7 +10067,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.view"
+        "x-access": "object:space.view scope:content:read",
+        "x-scope": "content:read"
       },
       "post": {
         "operationId": "post /api/v1/spaces",
@@ -9685,7 +10084,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "permission:create_space"
+        "x-access": "permission:create_space scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}": {
@@ -9712,7 +10112,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.administer"
+        "x-access": "object:space.administer scope:spaces:manage",
+        "x-scope": "spaces:manage"
       },
       "get": {
         "operationId": "get /api/v1/spaces/{id}",
@@ -9737,7 +10138,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.view"
+        "x-access": "object:space.view scope:content:read",
+        "x-scope": "content:read"
       },
       "patch": {
         "operationId": "patch /api/v1/spaces/{id}",
@@ -9762,7 +10164,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.administer"
+        "x-access": "object:space.administer scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/access": {
@@ -9789,7 +10192,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.manage_access"
+        "x-access": "object:space.manage_access scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/spaces/{id}/access-answer": {
@@ -9816,7 +10220,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.administer"
+        "x-access": "object:space.administer scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/access.csv": {
@@ -9843,7 +10248,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.manage_access"
+        "x-access": "object:space.manage_access scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/spaces/{id}/approvals": {
@@ -9870,7 +10276,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.approvals"
+        "x-access": "object:space.approvals scope:content:read",
+        "x-scope": "content:read"
       },
       "put": {
         "operationId": "put /api/v1/spaces/{id}/approvals",
@@ -9895,7 +10302,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.approvals"
+        "x-access": "object:space.approvals scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/approvals-digest": {
@@ -9922,7 +10330,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.view"
+        "x-access": "object:space.view scope:content:write",
+        "x-scope": "content:write"
       },
       "get": {
         "operationId": "get /api/v1/spaces/{id}/approvals-digest",
@@ -9947,7 +10356,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.view"
+        "x-access": "object:space.view scope:content:read",
+        "x-scope": "content:read"
       },
       "put": {
         "operationId": "put /api/v1/spaces/{id}/approvals-digest",
@@ -9972,7 +10382,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.view"
+        "x-access": "object:space.view scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/spaces/{id}/archive": {
@@ -9999,7 +10410,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.view"
+        "x-access": "object:space.view scope:content:read",
+        "x-scope": "content:read"
       },
       "post": {
         "operationId": "post /api/v1/spaces/{id}/archive",
@@ -10024,7 +10436,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.administer"
+        "x-access": "object:space.administer scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/audit": {
@@ -10051,7 +10464,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.audit"
+        "x-access": "object:space.audit scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/spaces/{id}/auditor-export": {
@@ -10078,7 +10492,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.audit"
+        "x-access": "object:space.audit scope:content:export",
+        "x-scope": "content:export"
       }
     },
     "/api/v1/spaces/{id}/bundles": {
@@ -10105,7 +10520,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.bundle"
+        "x-access": "object:space.bundle scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/categories": {
@@ -10132,7 +10548,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.view"
+        "x-access": "object:space.view scope:content:read",
+        "x-scope": "content:read"
       },
       "put": {
         "operationId": "put /api/v1/spaces/{id}/categories",
@@ -10157,7 +10574,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.administer"
+        "x-access": "object:space.administer scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/content": {
@@ -10184,7 +10602,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.administer"
+        "x-access": "object:space.administer scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/spaces/{id}/content/preview": {
@@ -10211,7 +10630,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.administer"
+        "x-access": "object:space.administer scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/content/run": {
@@ -10238,7 +10658,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.administer"
+        "x-access": "object:space.administer scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/control-reports/{kind}": {
@@ -10273,7 +10694,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.audit"
+        "x-access": "object:space.audit scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/spaces/{id}/export.zip": {
@@ -10300,7 +10722,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.export"
+        "x-access": "object:space.export scope:content:export",
+        "x-scope": "content:export"
       }
     },
     "/api/v1/spaces/{id}/favourite": {
@@ -10327,7 +10750,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.view"
+        "x-access": "object:space.view scope:content:write",
+        "x-scope": "content:write"
       },
       "put": {
         "operationId": "put /api/v1/spaces/{id}/favourite",
@@ -10352,7 +10776,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.view"
+        "x-access": "object:space.view scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/spaces/{id}/features": {
@@ -10379,7 +10804,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.administer"
+        "x-access": "object:space.administer scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/files": {
@@ -10406,7 +10832,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.view"
+        "x-access": "object:space.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/spaces/{id}/files/delete": {
@@ -10433,7 +10860,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.administer"
+        "x-access": "object:space.administer scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/files/filters": {
@@ -10460,7 +10888,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.view"
+        "x-access": "object:space.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/spaces/{id}/files/usage": {
@@ -10487,7 +10916,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.administer"
+        "x-access": "object:space.administer scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/spaces/{id}/grants": {
@@ -10514,7 +10944,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.manage_access"
+        "x-access": "object:space.manage_access scope:content:read",
+        "x-scope": "content:read"
       },
       "put": {
         "operationId": "put /api/v1/spaces/{id}/grants",
@@ -10539,7 +10970,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.manage_access"
+        "x-access": "object:space.manage_access scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/grants/preview": {
@@ -10566,7 +10998,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.manage_access"
+        "x-access": "object:space.manage_access scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/guests": {
@@ -10593,7 +11026,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.invite_guests"
+        "x-access": "object:space.invite_guests scope:content:share",
+        "x-scope": "content:share"
       }
     },
     "/api/v1/spaces/{id}/home": {
@@ -10620,7 +11054,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.look"
+        "x-access": "object:space.look scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/icon": {
@@ -10647,7 +11082,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.look"
+        "x-access": "object:space.look scope:spaces:manage",
+        "x-scope": "spaces:manage"
       },
       "get": {
         "operationId": "get /api/v1/spaces/{id}/icon",
@@ -10672,7 +11108,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.view"
+        "x-access": "object:space.view scope:content:read",
+        "x-scope": "content:read"
       },
       "post": {
         "operationId": "post /api/v1/spaces/{id}/icon",
@@ -10697,7 +11134,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.look"
+        "x-access": "object:space.look scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/imports": {
@@ -10724,7 +11162,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:page.create"
+        "x-access": "object:page.create scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/spaces/{id}/insights": {
@@ -10751,7 +11190,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:analytics.view"
+        "x-access": "object:analytics.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/spaces/{id}/insights/content": {
@@ -10778,7 +11218,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:analytics.view"
+        "x-access": "object:analytics.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/spaces/{id}/insights/people": {
@@ -10805,7 +11246,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:analytics.view"
+        "x-access": "object:analytics.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/spaces/{id}/key": {
@@ -10832,7 +11274,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.administer"
+        "x-access": "object:space.administer scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/labels": {
@@ -10859,7 +11302,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.view"
+        "x-access": "object:space.view scope:content:read",
+        "x-scope": "content:read"
       },
       "put": {
         "operationId": "put /api/v1/spaces/{id}/labels",
@@ -10884,7 +11328,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.labels"
+        "x-access": "object:space.labels scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/labels/rename": {
@@ -10911,7 +11356,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.labels"
+        "x-access": "object:space.labels scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/manage-templates": {
@@ -10938,7 +11384,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.templates"
+        "x-access": "object:space.templates scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/spaces/{id}/my-templates": {
@@ -10965,7 +11412,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:template.propose"
+        "x-access": "object:template.propose scope:content:read",
+        "x-scope": "content:read"
       },
       "post": {
         "operationId": "post /api/v1/spaces/{id}/my-templates",
@@ -10990,7 +11438,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:template.propose"
+        "x-access": "object:template.propose scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/spaces/{id}/old-keys": {
@@ -11017,7 +11466,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.administer"
+        "x-access": "object:space.administer scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/spaces/{id}/old-keys/{alias}": {
@@ -11052,7 +11502,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.administer"
+        "x-access": "object:space.administer scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/overview": {
@@ -11079,7 +11530,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.view"
+        "x-access": "object:space.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/spaces/{id}/owners": {
@@ -11106,7 +11558,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.administer"
+        "x-access": "object:space.administer scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/pdf-design": {
@@ -11133,7 +11586,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.administer"
+        "x-access": "object:space.administer scope:content:read",
+        "x-scope": "content:read"
       },
       "put": {
         "operationId": "put /api/v1/spaces/{id}/pdf-design",
@@ -11158,7 +11612,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.administer"
+        "x-access": "object:space.administer scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/people": {
@@ -11185,7 +11640,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.view"
+        "x-access": "object:space.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/spaces/{id}/placeholders": {
@@ -11212,7 +11668,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.administer"
+        "x-access": "object:space.administer scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/spaces/{id}/popular": {
@@ -11239,7 +11696,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.view"
+        "x-access": "object:space.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/spaces/{id}/posts": {
@@ -11266,7 +11724,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.view"
+        "x-access": "object:space.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/spaces/{id}/preset": {
@@ -11293,7 +11752,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.administer"
+        "x-access": "object:space.administer scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/publishing": {
@@ -11320,7 +11780,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.view"
+        "x-access": "object:space.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/spaces/{id}/publishing/end": {
@@ -11347,7 +11808,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.administer"
+        "x-access": "object:space.administer scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/publishing/end-preview": {
@@ -11374,7 +11836,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.administer"
+        "x-access": "object:space.administer scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/spaces/{id}/publishing/link": {
@@ -11401,7 +11864,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.administer"
+        "x-access": "object:space.administer scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/publishing/link-preview": {
@@ -11428,7 +11892,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.administer"
+        "x-access": "object:space.administer scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/publishing/linking-in": {
@@ -11455,7 +11920,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.release"
+        "x-access": "object:space.release scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/spaces/{id}/publishing/settings": {
@@ -11482,7 +11948,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.administer"
+        "x-access": "object:space.administer scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/publishing/start": {
@@ -11509,7 +11976,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.administer"
+        "x-access": "object:space.administer scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/publishing/start-preview": {
@@ -11536,7 +12004,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.administer"
+        "x-access": "object:space.administer scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/publishing/undo-start": {
@@ -11563,7 +12032,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.administer"
+        "x-access": "object:space.administer scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/releases": {
@@ -11590,7 +12060,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.release"
+        "x-access": "object:space.release scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/spaces/{id}/releases/as-of": {
@@ -11617,7 +12088,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.release"
+        "x-access": "object:space.release scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/spaces/{id}/releases/check": {
@@ -11644,7 +12116,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.administer"
+        "x-access": "object:space.administer scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/releases/export": {
@@ -11671,7 +12144,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.audit"
+        "x-access": "object:space.audit scope:content:export",
+        "x-scope": "content:export"
       }
     },
     "/api/v1/spaces/{id}/releases/history": {
@@ -11698,7 +12172,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.release"
+        "x-access": "object:space.release scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/spaces/{id}/releases/preview": {
@@ -11725,7 +12200,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.release"
+        "x-access": "object:space.release scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/releases/verify": {
@@ -11752,7 +12228,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.audit"
+        "x-access": "object:space.audit scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/spaces/{id}/releases/{run}": {
@@ -11787,7 +12264,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.release"
+        "x-access": "object:space.release scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/spaces/{id}/releases/{run}/cancel": {
@@ -11822,7 +12300,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.release"
+        "x-access": "object:space.release scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/releases/{run}/resume": {
@@ -11857,7 +12336,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.release"
+        "x-access": "object:space.release scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/releases/{run}/start": {
@@ -11892,7 +12372,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.release"
+        "x-access": "object:space.release scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/review": {
@@ -11919,7 +12400,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.statuses"
+        "x-access": "object:space.statuses scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/role-assignments": {
@@ -11946,7 +12428,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.manage_access"
+        "x-access": "object:space.manage_access scope:content:read",
+        "x-scope": "content:read"
       },
       "put": {
         "operationId": "put /api/v1/spaces/{id}/role-assignments",
@@ -11971,7 +12454,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.manage_access"
+        "x-access": "object:space.manage_access scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/role-assignments/preview": {
@@ -11998,7 +12482,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.manage_access"
+        "x-access": "object:space.manage_access scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/rules": {
@@ -12025,7 +12510,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.automation"
+        "x-access": "object:space.automation scope:content:read",
+        "x-scope": "content:read"
       },
       "post": {
         "operationId": "post /api/v1/spaces/{id}/rules",
@@ -12050,7 +12536,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.automation"
+        "x-access": "object:space.automation scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/shortcuts": {
@@ -12077,7 +12564,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.view"
+        "x-access": "object:space.view scope:content:read",
+        "x-scope": "content:read"
       },
       "put": {
         "operationId": "put /api/v1/spaces/{id}/shortcuts",
@@ -12102,7 +12590,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.look"
+        "x-access": "object:space.look scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/signature-meanings": {
@@ -12129,7 +12618,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.view"
+        "x-access": "object:space.view scope:content:read",
+        "x-scope": "content:read"
       },
       "post": {
         "operationId": "post /api/v1/spaces/{id}/signature-meanings",
@@ -12154,7 +12644,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.workflows"
+        "x-access": "object:space.workflows scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/sites": {
@@ -12181,7 +12672,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:site.publish"
+        "x-access": "object:site.publish scope:content:read",
+        "x-scope": "content:read"
       },
       "post": {
         "operationId": "post /api/v1/spaces/{id}/sites",
@@ -12206,7 +12698,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:site.publish"
+        "x-access": "object:site.publish scope:content:share",
+        "x-scope": "content:share"
       }
     },
     "/api/v1/spaces/{id}/statuses": {
@@ -12233,7 +12726,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.view"
+        "x-access": "object:space.view scope:content:read",
+        "x-scope": "content:read"
       },
       "put": {
         "operationId": "put /api/v1/spaces/{id}/statuses",
@@ -12258,7 +12752,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.statuses"
+        "x-access": "object:space.statuses scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/template-review": {
@@ -12285,7 +12780,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.templates"
+        "x-access": "object:space.templates scope:content:read",
+        "x-scope": "content:read"
       },
       "put": {
         "operationId": "put /api/v1/spaces/{id}/template-review",
@@ -12310,7 +12806,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.administer"
+        "x-access": "object:space.administer scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/templates": {
@@ -12337,7 +12834,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:page.create"
+        "x-access": "object:page.create scope:content:read",
+        "x-scope": "content:read"
       },
       "post": {
         "operationId": "post /api/v1/spaces/{id}/templates",
@@ -12362,7 +12860,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.templates"
+        "x-access": "object:space.templates scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/templates/import": {
@@ -12389,7 +12888,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.templates"
+        "x-access": "object:space.templates scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/title-align": {
@@ -12416,7 +12916,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.look"
+        "x-access": "object:space.look scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/trash": {
@@ -12443,7 +12944,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.administer"
+        "x-access": "object:space.administer scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/spaces/{id}/trash/bulk": {
@@ -12470,7 +12972,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.administer"
+        "x-access": "object:space.administer scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/tree": {
@@ -12497,7 +13000,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.view"
+        "x-access": "object:space.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/spaces/{id}/tree/branches": {
@@ -12524,7 +13028,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.view"
+        "x-access": "object:space.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/spaces/{id}/tree/find": {
@@ -12551,7 +13056,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.view"
+        "x-access": "object:space.view scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/spaces/{id}/unarchive": {
@@ -12578,7 +13084,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.administer"
+        "x-access": "object:space.administer scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/watch": {
@@ -12605,7 +13112,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.view"
+        "x-access": "object:space.view scope:content:write",
+        "x-scope": "content:write"
       },
       "get": {
         "operationId": "get /api/v1/spaces/{id}/watch",
@@ -12630,7 +13138,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.view"
+        "x-access": "object:space.view scope:content:read",
+        "x-scope": "content:read"
       },
       "put": {
         "operationId": "put /api/v1/spaces/{id}/watch",
@@ -12655,7 +13164,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.view"
+        "x-access": "object:space.view scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/spaces/{id}/webhooks": {
@@ -12682,7 +13192,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.automation"
+        "x-access": "object:space.automation scope:content:read",
+        "x-scope": "content:read"
       },
       "post": {
         "operationId": "post /api/v1/spaces/{id}/webhooks",
@@ -12707,7 +13218,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.automation"
+        "x-access": "object:space.automation scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/workflow": {
@@ -12734,7 +13246,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.workflows"
+        "x-access": "object:space.workflows scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/workflow/from-approval-rule": {
@@ -12761,7 +13274,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.workflows"
+        "x-access": "object:space.workflows scope:content:read",
+        "x-scope": "content:read"
       },
       "post": {
         "operationId": "post /api/v1/spaces/{id}/workflow/from-approval-rule",
@@ -12786,7 +13300,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.workflows"
+        "x-access": "object:space.workflows scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/workflow/from-approval-rule/undo": {
@@ -12813,7 +13328,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.workflows"
+        "x-access": "object:space.workflows scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/workflows": {
@@ -12840,7 +13356,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.view"
+        "x-access": "object:space.view scope:content:read",
+        "x-scope": "content:read"
       },
       "post": {
         "operationId": "post /api/v1/spaces/{id}/workflows",
@@ -12865,7 +13382,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.workflows"
+        "x-access": "object:space.workflows scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/spaces/{id}/workflows/from-template": {
@@ -12892,7 +13410,8 @@
         "tags": [
           "spaces"
         ],
-        "x-access": "object:space.workflows"
+        "x-access": "object:space.workflows scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/start": {
@@ -12910,7 +13429,8 @@
         "tags": [
           "start"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/system/capabilities": {
@@ -12928,7 +13448,8 @@
         "tags": [
           "system"
         ],
-        "x-access": "permission:use_product"
+        "x-access": "permission:use_product scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/system/info": {
@@ -12946,7 +13467,8 @@
         "tags": [
           "system"
         ],
-        "x-access": "permission:use_product"
+        "x-access": "permission:use_product scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/tasks/{id}/done": {
@@ -12973,7 +13495,8 @@
         "tags": [
           "tasks"
         ],
-        "x-access": "object:page.edit"
+        "x-access": "object:page.edit scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/templates/{id}": {
@@ -13000,7 +13523,8 @@
         "tags": [
           "templates"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       },
       "get": {
         "operationId": "get /api/v1/templates/{id}",
@@ -13025,7 +13549,8 @@
         "tags": [
           "templates"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:read",
+        "x-scope": "content:read"
       },
       "patch": {
         "operationId": "patch /api/v1/templates/{id}",
@@ -13050,7 +13575,8 @@
         "tags": [
           "templates"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/templates/{id}/entries": {
@@ -13077,7 +13603,8 @@
         "tags": [
           "templates"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:read",
+        "x-scope": "content:read"
       },
       "post": {
         "operationId": "post /api/v1/templates/{id}/entries",
@@ -13102,7 +13629,8 @@
         "tags": [
           "templates"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/templates/{id}/entries/{key}": {
@@ -13137,7 +13665,8 @@
         "tags": [
           "templates"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       },
       "get": {
         "operationId": "get /api/v1/templates/{id}/entries/{key}",
@@ -13170,7 +13699,8 @@
         "tags": [
           "templates"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:read",
+        "x-scope": "content:read"
       },
       "patch": {
         "operationId": "patch /api/v1/templates/{id}/entries/{key}",
@@ -13203,7 +13733,8 @@
         "tags": [
           "templates"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/templates/{id}/entries/{key}/condition": {
@@ -13238,7 +13769,8 @@
         "tags": [
           "templates"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/templates/{id}/entries/{key}/move": {
@@ -13273,7 +13805,8 @@
         "tags": [
           "templates"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/templates/{id}/export": {
@@ -13300,7 +13833,8 @@
         "tags": [
           "templates"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:export",
+        "x-scope": "content:export"
       }
     },
     "/api/v1/templates/{id}/favourite": {
@@ -13327,7 +13861,8 @@
         "tags": [
           "templates"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       },
       "put": {
         "operationId": "put /api/v1/templates/{id}/favourite",
@@ -13352,7 +13887,8 @@
         "tags": [
           "templates"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/templates/{id}/fields": {
@@ -13379,7 +13915,8 @@
         "tags": [
           "templates"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/templates/{id}/fields/rename": {
@@ -13406,7 +13943,8 @@
         "tags": [
           "templates"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/templates/{id}/files/{file}": {
@@ -13441,7 +13979,8 @@
         "tags": [
           "templates"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/templates/{id}/newest": {
@@ -13468,7 +14007,8 @@
         "tags": [
           "templates"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/templates/{id}/publishing": {
@@ -13495,7 +14035,8 @@
         "tags": [
           "templates"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/templates/{id}/rights": {
@@ -13522,7 +14063,8 @@
         "tags": [
           "templates"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:read",
+        "x-scope": "content:read"
       },
       "put": {
         "operationId": "put /api/v1/templates/{id}/rights",
@@ -13547,7 +14089,8 @@
         "tags": [
           "templates"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:share",
+        "x-scope": "content:share"
       }
     },
     "/api/v1/templates/{id}/rules": {
@@ -13574,7 +14117,8 @@
         "tags": [
           "templates"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/templates/{id}/sets": {
@@ -13601,7 +14145,8 @@
         "tags": [
           "templates"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/templates/{id}/sets/check": {
@@ -13628,7 +14173,8 @@
         "tags": [
           "templates"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/templates/{id}/use": {
@@ -13655,7 +14201,8 @@
         "tags": [
           "templates"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/templates/{id}/versions": {
@@ -13682,7 +14229,8 @@
         "tags": [
           "templates"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/templates/{id}/versions/{number}/approve": {
@@ -13717,7 +14265,8 @@
         "tags": [
           "templates"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/templates/{id}/versions/{number}/changes": {
@@ -13752,7 +14301,8 @@
         "tags": [
           "templates"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/templates/{id}/versions/{number}/propose": {
@@ -13787,7 +14337,8 @@
         "tags": [
           "templates"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/templates/{id}/versions/{number}/send-back": {
@@ -13822,7 +14373,8 @@
         "tags": [
           "templates"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/templates/{id}/versions/{number}/sets": {
@@ -13857,7 +14409,8 @@
         "tags": [
           "templates"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/templates/{id}/withdraw": {
@@ -13884,7 +14437,8 @@
         "tags": [
           "templates"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:write",
+        "x-scope": "content:write"
       }
     },
     "/api/v1/trash/{id}": {
@@ -13911,7 +14465,8 @@
         "tags": [
           "trash"
         ],
-        "x-access": "object:space.administer"
+        "x-access": "object:space.administer scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/trash/{id}/restore": {
@@ -13938,7 +14493,8 @@
         "tags": [
           "trash"
         ],
-        "x-access": "object:space.administer"
+        "x-access": "object:space.administer scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/users/{id}/follow": {
@@ -13965,7 +14521,8 @@
         "tags": [
           "users"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:account:write",
+        "x-scope": "account:write"
       },
       "put": {
         "operationId": "put /api/v1/users/{id}/follow",
@@ -13990,7 +14547,8 @@
         "tags": [
           "users"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:account:write",
+        "x-scope": "account:write"
       }
     },
     "/api/v1/webhooks/{id}": {
@@ -14017,7 +14575,8 @@
         "tags": [
           "webhooks"
         ],
-        "x-access": "object:space.automation"
+        "x-access": "object:space.automation scope:spaces:manage",
+        "x-scope": "spaces:manage"
       },
       "get": {
         "operationId": "get /api/v1/webhooks/{id}",
@@ -14042,7 +14601,8 @@
         "tags": [
           "webhooks"
         ],
-        "x-access": "object:space.automation"
+        "x-access": "object:space.automation scope:content:read",
+        "x-scope": "content:read"
       },
       "patch": {
         "operationId": "patch /api/v1/webhooks/{id}",
@@ -14067,7 +14627,8 @@
         "tags": [
           "webhooks"
         ],
-        "x-access": "object:space.automation"
+        "x-access": "object:space.automation scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/webhooks/{id}/deliveries": {
@@ -14094,7 +14655,8 @@
         "tags": [
           "webhooks"
         ],
-        "x-access": "object:space.automation"
+        "x-access": "object:space.automation scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/webhooks/{id}/deliveries/{delivery}/resend": {
@@ -14129,7 +14691,8 @@
         "tags": [
           "webhooks"
         ],
-        "x-access": "object:space.automation"
+        "x-access": "object:space.automation scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/webhooks/{id}/rotate": {
@@ -14156,7 +14719,8 @@
         "tags": [
           "webhooks"
         ],
-        "x-access": "session-only object:space.automation"
+        "x-access": "session-only object:space.automation scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/workflow-templates": {
@@ -14174,7 +14738,8 @@
         "tags": [
           "workflow-templates"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/workflows/check": {
@@ -14192,7 +14757,8 @@
         "tags": [
           "workflows"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/workflows/{id}": {
@@ -14219,7 +14785,8 @@
         "tags": [
           "workflows"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:read",
+        "x-scope": "content:read"
       },
       "put": {
         "operationId": "put /api/v1/workflows/{id}",
@@ -14244,7 +14811,8 @@
         "tags": [
           "workflows"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/workflows/{id}/archive": {
@@ -14271,7 +14839,8 @@
         "tags": [
           "workflows"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/workflows/{id}/history": {
@@ -14298,7 +14867,8 @@
         "tags": [
           "workflows"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/workflows/{id}/take-template": {
@@ -14325,7 +14895,8 @@
         "tags": [
           "workflows"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:spaces:manage",
+        "x-scope": "spaces:manage"
       }
     },
     "/api/v1/workflows/{id}/template-changes": {
@@ -14352,7 +14923,8 @@
         "tags": [
           "workflows"
         ],
-        "x-access": "authenticated"
+        "x-access": "authenticated scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/collab": {

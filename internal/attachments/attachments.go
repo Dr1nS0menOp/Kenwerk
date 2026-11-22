@@ -166,11 +166,12 @@ func (s *Service) withNearThreshold(ctx context.Context, fn func(pgx.Tx) error) 
 }
 
 // fileRows reads the files that meet match, in the given order. match and order speak of
-// a file as a, and may use $2 and up; $1 is the person and $3 a space or NULL. The files
+// a file as a, and may use $2 and up; $1 is the person, $3 a space or NULL, and spaces names the
+// parameter that holds the spaces of the credential (spec 096). The files
 // that match are picked first, and perm_listed_pages is asked once about their pages: as
 // a condition on each file it checked the person's spaces again for every one, and took
 // up to a second for a common word (spec 050).
-func fileRows(match, order string) string {
+func fileRows(match, order, spaces string) string {
 	return `WITH picked AS MATERIALIZED (
 		SELECT a.id, a.filename, a.page_id, a.space_id, a.updated_at FROM attachments a
 		WHERE a.status = 'active' AND ($3::uuid IS NULL OR a.space_id = $3) AND ` + match + `)
@@ -179,7 +180,7 @@ func fileRows(match, order string) string {
 	JOIN pages p ON p.id = a.page_id
 	JOIN spaces sp ON sp.id = a.space_id
 	WHERE sp.status = 'active'
-	  AND a.page_id IN (SELECT v.page_id FROM perm_listed_pages($1) v
+	  AND a.page_id IN (SELECT v.page_id FROM perm_listed_pages($1, ` + spaces + `) v
 		WHERE v.page_id = ANY (ARRAY(SELECT DISTINCT page_id FROM picked)))
 	  AND a.id NOT IN (SELECT x.attachment_id FROM perm_unpinned_files($1) x)
 	ORDER BY ` + order
@@ -202,8 +203,8 @@ func (s *Service) Find(ctx context.Context, c identity.Caller, text string, spac
 		seen[i] = f.ID
 	}
 	err = s.withNearThreshold(ctx, func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, fileRows(`a.id <> ALL($6) AND `+pastWords(text, "$2", "$5"), nearNameOrder("$2", "$5")+` LIMIT $4`),
-			c.UserID, search.LikeOf(text), within, limit-len(found), strings.TrimSpace(text), seen)
+		rows, err := tx.Query(ctx, fileRows(`a.id <> ALL($6) AND `+pastWords(text, "$2", "$5"), nearNameOrder("$2", "$5")+` LIMIT $4`, "$7"),
+			c.UserID, search.LikeOf(text), within, limit-len(found), strings.TrimSpace(text), seen, permissions.CredentialSpaces(ctx))
 		if err != nil {
 			return err
 		}
@@ -229,7 +230,7 @@ func (s *Service) findByWords(ctx context.Context, c identity.Caller, text strin
 	if len(few) > fileMatches {
 		// A common word: the newest files hold enough of them, and only those are read.
 		rows, err = s.pool.Query(ctx, fileRows(`a.id IN (SELECT a.id FROM (SELECT * FROM attachments ORDER BY updated_at DESC, id LIMIT `+recentFiles+`) a
-			WHERE `+fileWords+`)`, `a.updated_at DESC, a.id LIMIT $4`), c.UserID, words, within, limit)
+			WHERE `+fileWords+`)`, `a.updated_at DESC, a.id LIMIT $4`, "$5"), c.UserID, words, within, limit, permissions.CredentialSpaces(ctx))
 		if err != nil {
 			return nil, err
 		}
@@ -238,7 +239,7 @@ func (s *Service) findByWords(ctx context.Context, c identity.Caller, text strin
 			return found, err
 		}
 	}
-	rows, err = s.pool.Query(ctx, fileRows(`a.id = ANY($2)`, `a.updated_at DESC, a.id LIMIT $4`), c.UserID, few, within, limit)
+	rows, err = s.pool.Query(ctx, fileRows(`a.id = ANY($2)`, `a.updated_at DESC, a.id LIMIT $4`, "$5"), c.UserID, few, within, limit, permissions.CredentialSpaces(ctx))
 	if err != nil {
 		return nil, err
 	}

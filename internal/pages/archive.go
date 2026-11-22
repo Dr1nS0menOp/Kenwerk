@@ -196,10 +196,10 @@ func (s *Service) Archived(ctx context.Context, c identity.Caller, spaceID uuid.
 		return nil, err
 	}
 	rows, err := s.pool.Query(ctx, `SELECT p.id, p.parent_id, p.title, p.archived_at, COALESCE(u.display_name, '')
-		FROM pages p JOIN perm_visible_pages($1) v ON v.page_id = p.id
+		FROM pages p JOIN perm_visible_pages($1, $4) v ON v.page_id = p.id
 		LEFT JOIN users u ON u.id = p.archived_by
 		WHERE p.space_id = $2 AND p.archived_at IS NOT NULL
-		ORDER BY p.archived_at DESC, p.id LIMIT $3`, c.UserID, spaceID, maxArchivedPages)
+		ORDER BY p.archived_at DESC, p.id LIMIT $3`, c.UserID, spaceID, maxArchivedPages, permissions.CredentialSpaces(ctx))
 	if err != nil {
 		return nil, err
 	}

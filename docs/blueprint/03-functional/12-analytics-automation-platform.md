@@ -91,7 +91,7 @@ Page views are personal data. They are not in the audit log (decided 2026-11-03)
 ## 12.5 The platform
 
 - **PLT-036** · built · Our own frontend uses only the public API.
-- **PLT-037** · partly · The API is documented, versioned and stable, with OAuth scopes.
+- **PLT-037** · partly · The API is documented, versioned and stable, with OAuth scopes. Built in spec 096, wave MC2: every route names its scope, tokens hold fine scopes and may be limited to chosen spaces; OAuth itself is wave MC4.
 - **PLT-038** · built · Webhooks send events to outside systems, signed, with retries and a delivery log.
 - **PLT-039** · phase 7 · Apps run as sandboxed frames on a separate address, then as WebAssembly blocks. A marketplace comes last.
 - **PLT-040** · built · A **command line tool** uses the API, for scripted import, export and backups of content.
@@ -119,8 +119,8 @@ Later, and always optional (phase 6).
 - **PLT-044** · phase 6 · Rewrite selected text: shorter, clearer, other tone, other language.
 - **PLT-045** · phase 6 · Ask a question of the wiki, with answers that cite pages. Only pages the person may see are used.
 - **PLT-046** · phase 6 · Suggest labels and titles, and extract tasks from meeting notes.
-- **PLT-047** · phase 6 · An MCP server gives assistants access under the person's own permissions.
-- **PLT-048** · phase 6 · Every AI action is audited, and can be turned off per space.
+- **PLT-047** · phase 6 · An MCP server gives assistants access under the person's own permissions. Planned in spec 096; wave MC2 built tokens for an assistant, with stricter limits, ahead of the server (MC3).
+- **PLT-048** · phase 6 · Every AI action is audited, and can be turned off per space. Wave MC2 of spec 096: every event made through a token names it in ia, marked when the token is an assistant's; the switch per space is wave MC6.
 - **PLT-103** · later · When AI is on for the instance and the space, one floating button in the bottom end corner of the space home and of every page, below the page's other floating tools, opens the assistant beside the page. When AI is off, the button is absent. Whether the assistant shares the place of Details and comments, and whether the button shows in the editor, is not known yet (needs its own study).
 - **PLT-104** · later · When AI is set up, a rule can have a condition that asks the chosen model a yes-or-no question about the page of the trigger, using only what the rule's account may read (PLT-045). The question and the answer show in the run log, the answer is a value later steps can use, and the condition does not match when AI is off for the space or the model cannot be reached.
 

@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, type Me, type MemberGroup, type Profile, type Token } from '../api';
+import { api, type Me, type MemberGroup, type Profile, type Space, type Token } from '../api';
 import { useDates } from '../dates';
 import { Link, useLocation } from '../router';
 import { CropDialog } from '../components/crop-dialog';
@@ -239,20 +239,107 @@ export function ProfileView({ me }: { me: Me }) {
   );
 }
 
-const TOKEN_SCOPES = ['read', 'write', 'export', 'admin'];
+/** The scopes a new token may hold (spec 096), in the order the server lists them. */
+const TOKEN_SCOPES = [
+  'content:read',
+  'content:write',
+  'content:delete',
+  'content:share',
+  'content:export',
+  'spaces:manage',
+  'people:read',
+  'account:read',
+  'account:write',
+  'admin:read',
+] as const;
+/** What a new token reads by default: read only. */
+const READ_SCOPES = ['content:read', 'people:read', 'account:read'];
+/** How many spaces a token may be limited to. */
+const MAX_TOKEN_SPACES = 50;
+
+/** The translation key of a scope: a colon would split it into a namespace. */
+const scopeKey = (scope: string) => `account.scope_${scope.replace(':', '_')}`;
+
+function TokenSpaces({
+  chosen,
+  onChange,
+}: {
+  chosen: string[] | null;
+  onChange: (next: string[] | null) => void;
+}) {
+  const { t } = useTranslation();
+  const spaces = useQuery({ queryKey: ['spaces'], queryFn: () => api.get<{ spaces: Space[] }>('/spaces') });
+  const list = chosen ?? [];
+  const nameOf = (id: string) => spaces.data?.spaces.find((s) => s.id === id)?.name ?? id;
+  const left = (spaces.data?.spaces ?? []).filter((s) => !list.includes(s.id));
+  return (
+    <>
+      <fieldset className="matrix">
+        <legend>{t('account.tokenSpaces')}</legend>
+        <label className="check">
+          <input type="radio" name="token-spaces" checked={chosen === null} onChange={() => onChange(null)} />
+          {t('account.tokenEverySpace')}
+        </label>
+        <label className="check">
+          <input type="radio" name="token-spaces" checked={chosen !== null} onChange={() => onChange(list)} />
+          {t('account.tokenChosenSpaces')}
+        </label>
+      </fieldset>
+      {chosen !== null && (
+        <>
+          <ul className="chip-list">
+            {list.map((id) => (
+              <li key={id} className="chip">
+                {nameOf(id)}
+                <button
+                  type="button"
+                  className="ghost"
+                  aria-label={t('account.tokenRemoveSpace', { name: nameOf(id) })}
+                  onClick={() => onChange(list.filter((s) => s !== id))}
+                >
+                  {t('common.remove')}
+                </button>
+              </li>
+            ))}
+          </ul>
+          {list.length < MAX_TOKEN_SPACES ? (
+            <Field label={t('account.tokenAddSpace')}>
+              <select value="" onChange={(e) => e.target.value && onChange([...list, e.target.value])}>
+                <option value="">{t('account.tokenPickSpace')}</option>
+                {left.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          ) : (
+            <p className="muted">{t('account.tokenSpacesMost', { most: MAX_TOKEN_SPACES })}</p>
+          )}
+          {list.length === 0 && <p className="muted">{t('account.tokenNoSpaceYet')}</p>}
+        </>
+      )}
+    </>
+  );
+}
 
 function NewTokenForm({ onCreated }: { onCreated: (secret: string) => void }) {
   const { t } = useTranslation();
   const client = useQueryClient();
   const dayAfter = (days: number) => new Date(Date.now() + days * DAY_MS).toISOString().slice(0, 10);
   const [name, setName] = useState('');
-  const [scopes, setScopes] = useState<string[]>(['read']);
+  const [scopes, setScopes] = useState<string[]>(READ_SCOPES);
+  // null is every space the person reaches, the default (decided by the product owner on 2026-11-22).
+  const [spaces, setSpaces] = useState<string[] | null>(null);
+  const [assistant, setAssistant] = useState(false);
   const [until, setUntil] = useState(() => dayAfter(DEFAULT_TOKEN_DAYS));
   const create = useMutation({
     mutationFn: () =>
       api.post<{ secret: string }>('/me/tokens', {
         name,
         scopes,
+        ...(spaces === null ? {} : { spaces }),
+        assistant,
         expires_at: new Date(until).toISOString(),
       }),
     onSuccess: async (r) => {
@@ -261,6 +348,7 @@ function NewTokenForm({ onCreated }: { onCreated: (secret: string) => void }) {
       await client.invalidateQueries({ queryKey: ['tokens'] });
     },
   });
+  const limited = spaces !== null;
   return (
     <form
       onSubmit={(e: FormEvent) => {
@@ -289,15 +377,33 @@ function NewTokenForm({ onCreated }: { onCreated: (secret: string) => void }) {
             <input
               type="checkbox"
               checked={scopes.includes(scope)}
+              // A token limited to some spaces never reaches Administration.
+              disabled={limited && scope.startsWith('admin:')}
               onChange={(e) =>
                 setScopes(e.target.checked ? [...scopes, scope] : scopes.filter((s) => s !== scope))
               }
             />
-            {t(`account.scope_${scope}`)}
+            {t(scopeKey(scope))}
           </label>
         ))}
       </fieldset>
-      <button type="submit" className="primary" disabled={create.isPending}>
+      <TokenSpaces
+        chosen={spaces}
+        onChange={(next) => {
+          setSpaces(next);
+          if (next !== null) setScopes((held) => held.filter((s) => !s.startsWith('admin:')));
+        }}
+      />
+      <label className="check">
+        <input type="checkbox" checked={assistant} onChange={(e) => setAssistant(e.target.checked)} />
+        {t('account.tokenAssistant')}
+      </label>
+      <p className="muted">{t('account.tokenAssistantHelp')}</p>
+      <button
+        type="submit"
+        className="primary"
+        disabled={create.isPending || (limited && spaces.length === 0)}
+      >
         {t('account.tokenNew')}
       </button>
     </form>
@@ -329,6 +435,7 @@ export function TokensView() {
               <tr>
                 <th>{t('common.name')}</th>
                 <th>{t('account.tokenScope')}</th>
+                <th>{t('account.tokenSpaces')}</th>
                 <th>{t('account.tokenExpires')}</th>
                 <th>{t('admin.lastUsed')}</th>
                 <th>{t('common.actions')}</th>
@@ -337,8 +444,16 @@ export function TokensView() {
             <tbody>
               {q.data?.tokens.map((k) => (
                 <tr key={k.id}>
-                  <td>{k.name}</td>
-                  <td>{k.scopes.map((scope) => t(`account.scope_${scope}`)).join(', ')}</td>
+                  <td>
+                    {k.name}
+                    {k.assistant && <span className="lozenge">{t('account.tokenAssistantMark')}</span>}
+                  </td>
+                  <td>{k.scopes.map((scope) => t(scopeKey(scope))).join(', ')}</td>
+                  <td>
+                    {k.spaces.length === 0
+                      ? t('account.tokenEverySpaceShort')
+                      : t('account.tokenSomeSpaces', { count: k.spaces.length })}
+                  </td>
                   <td>{dates.day(k.expires_at)}</td>
                   <td>{dates.moment(k.last_used_at)}</td>
                   <td>

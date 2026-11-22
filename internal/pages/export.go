@@ -54,11 +54,11 @@ func (s *Service) ForExport(ctx context.Context, c identity.Caller, spaceID uuid
 	}
 	rows, err := s.pool.Query(ctx, `SELECT p.id, p.parent_id, p.title, v.document
 		FROM pages p
-		JOIN perm_visible_pages($1) vis ON vis.page_id = p.id
+		JOIN perm_visible_pages($1, $4) vis ON vis.page_id = p.id
 		JOIN page_versions v ON v.page_id = p.id AND v.number = p.current_version
 		LEFT JOIN page_tree d ON d.descendant_id = p.id AND d.ancestor_id = $3
 		WHERE p.space_id = $2 AND p.status = 'published' AND ($3::uuid IS NULL OR d.ancestor_id IS NOT NULL)
-		ORDER BY (SELECT count(*) FROM page_tree a WHERE a.descendant_id = p.id), p.position, p.id`, c.UserID, spaceID, root)
+		ORDER BY (SELECT count(*) FROM page_tree a WHERE a.descendant_id = p.id), p.position, p.id`, c.UserID, spaceID, root, permissions.CredentialSpaces(ctx))
 	if err != nil {
 		return nil, err
 	}

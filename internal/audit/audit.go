@@ -75,6 +75,24 @@ type Event struct {
 	// it can be erased while the chain holds (SEC-821). Events older than this field
 	// keep their personal data in the payload.
 	PersonalDigest string `json:"personal_digest,omitempty"`
+	// Via names the credential the action came through, when it was not a browser session
+	// (spec 096). It is part of the payload, so the chain covers it; older events have none.
+	Via *Via `json:"via,omitempty"`
+}
+
+// Kinds of credential an event can come through.
+const (
+	ViaToken = "token"
+)
+
+// Via is the credential behind an action. It names the credential, never its secret.
+type Via struct {
+	Kind      string `json:"kind"`
+	TokenID   string `json:"token_id,omitempty"`
+	Assistant bool   `json:"assistant"`
+	// OldWrite says the token reached this only through the word write of a token made before
+	// spec 096, which held sharing and looking after spaces as well.
+	OldWrite bool `json:"old_write,omitempty"`
 }
 
 // CensoredTitle stands in for the title of a page the reader may not see (ADR-029).

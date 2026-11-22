@@ -93,7 +93,7 @@ var (
 			p.kind, p.link_target, COALESCE(o.display_name, ''), p.stage_text, p.stage_color,
 			EXISTS (SELECT 1 FROM pages c WHERE c.parent_id = p.id AND ` + listed("c") + `)
 		FROM pages p
-		JOIN (SELECT v.page_id FROM perm_listed_pages(@user) v WHERE v.page_id = ANY(@ids)) v ON v.page_id = p.id
+		JOIN (SELECT v.page_id FROM perm_listed_pages(@user, @spaces) v WHERE v.page_id = ANY(@ids)) v ON v.page_id = p.id
 		LEFT JOIN users u ON u.id = p.updated_by
 		LEFT JOIN users o ON o.id = COALESCE(p.owner_id, p.created_by)
 		LEFT JOIN drafts d ON d.page_id = p.id AND d.user_id = @user
@@ -170,7 +170,7 @@ func (t *treeRead) rows(ctx context.Context, ids []uuid.UUID) ([]Node, error) {
 	if len(ids) == 0 {
 		return []Node{}, nil
 	}
-	args := pgx.NamedArgs{"ids": ids}
+	args := pgx.NamedArgs{"ids": ids, "spaces": permissions.CredentialSpaces(ctx)}
 	for k, v := range t.args {
 		args[k] = v
 	}

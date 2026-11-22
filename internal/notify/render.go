@@ -153,8 +153,8 @@ func (s *Service) link(i Item) string {
 // mailRows reads what a mail may still say. Rows the person lost access to do not come
 // back. A digest also leaves out what was read in the meantime.
 func (s *Service) mailRows(ctx context.Context, j mail.Job) ([]stored, error) {
-	rows, err := s.pool.Query(ctx, visibleRows+`AND n.id = ANY($2) AND ($3 = 'instant' OR n.read_at IS NULL)
-		ORDER BY n.created_at DESC`, j.UserID, j.NotificationIDs, j.Kind)
+	rows, err := s.pool.Query(ctx, visibleRows("$4")+`AND n.id = ANY($2) AND ($3 = 'instant' OR n.read_at IS NULL)
+		ORDER BY n.created_at DESC`, j.UserID, j.NotificationIDs, j.Kind, permissions.CredentialSpaces(ctx))
 	if err != nil {
 		return nil, err
 	}

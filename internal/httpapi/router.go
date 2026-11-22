@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/kenwerk/kenwerk/internal/identity"
 	"github.com/kenwerk/kenwerk/internal/tracing"
 )
 
@@ -32,6 +33,9 @@ type Access struct {
 	sessionOnly bool
 	// sensitive also asks for proof of who you are, at most 10 minutes old.
 	sensitive bool
+	// scope is what a credential needs for the route (spec 096). The router sets it from its
+	// table when the route is registered; public and SCIM routes have none.
+	scope string
 }
 
 // Public routes need no session. Every use must carry a comment explaining why.
@@ -77,14 +81,21 @@ func Sensitive(a Access) Access {
 func ScimToken() Access { return Access{kind: accessSCIM} }
 
 func (a Access) String() string {
+	rule := a.base()
 	switch {
 	case a.sensitive:
-		return "sensitive " + a.base()
+		rule = "sensitive " + rule
 	case a.sessionOnly:
-		return "session-only " + a.base()
+		rule = "session-only " + rule
 	}
-	return a.base()
+	if a.scope != "" {
+		rule += " scope:" + a.scope
+	}
+	return rule
 }
+
+// Scope is the scope a credential needs for the route, or "" for a public or SCIM route.
+func (a Access) Scope() string { return a.scope }
 
 func (a Access) base() string {
 	switch a.kind {
@@ -112,15 +123,17 @@ type Route struct {
 	Access  Access
 }
 
-// Router wraps http.ServeMux and refuses routes without an access rule.
+// Router wraps http.ServeMux and refuses routes without an access rule or a scope.
 type Router struct {
 	mux     *http.ServeMux
 	routes  []Route
 	enforce func(Access, http.Handler) http.Handler
+	// scopes names the scope of every route that is not public or for SCIM (spec 096).
+	scopes map[string]string
 }
 
-func newRouter(enforce func(Access, http.Handler) http.Handler) *Router {
-	return &Router{mux: http.NewServeMux(), enforce: enforce}
+func newRouter(enforce func(Access, http.Handler) http.Handler, scopes map[string]string) *Router {
+	return &Router{mux: http.NewServeMux(), enforce: enforce, scopes: scopes}
 }
 
 // adminPathPrefix starts every route of Administration.
@@ -132,6 +145,7 @@ func (r *Router) Handle(pattern string, a Access, h http.Handler) {
 		panic(fmt.Sprintf("httpapi: route %q registered without an access rule", pattern))
 	}
 	a = withAdministrationRule(pattern, a)
+	a = r.withScope(pattern, a)
 	r.routes = append(r.routes, Route{Pattern: pattern, Access: a})
 	r.mux.Handle(pattern, namedSpan(pattern, r.enforce(a, h)))
 }
@@ -149,6 +163,24 @@ func withAdministrationRule(pattern string, a Access) Access {
 		return a
 	}
 	return SessionOnly(a)
+}
+
+// withScope gives a route the scope its table names. A route a credential can reach that is not
+// in the table does not start, so no route can be added without deciding its scope; scope:none
+// is only for a route no token reaches anyway (spec 096).
+func (r *Router) withScope(pattern string, a Access) Access {
+	if a.kind == accessPublic || a.kind == accessSCIM {
+		return a
+	}
+	scope, ok := r.scopes[pattern]
+	if !ok {
+		panic(fmt.Sprintf("httpapi: route %q registered without a scope in routeScopes", pattern))
+	}
+	if scope == identity.ScopeNone && !a.sessionOnly {
+		panic(fmt.Sprintf("httpapi: route %q has scope:none but tokens may reach it", pattern))
+	}
+	a.scope = scope
+	return a
 }
 
 // namedSpan names the span of a request after its route pattern, before any access rule

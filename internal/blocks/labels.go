@@ -6,6 +6,8 @@ import (
 	"context"
 
 	"github.com/jackc/pgx/v5"
+
+	"github.com/kenwerk/kenwerk/internal/permissions"
 )
 
 func scanLabel(row pgx.CollectableRow, v *Row) error {
@@ -15,14 +17,14 @@ func scanLabel(row pgx.CollectableRow, v *Row) error {
 // A label counts through the pages a reader may see, so a label that only hidden pages
 // carry does not exist for them.
 const visibleLabels = `FROM page_labels l
-	JOIN perm_visible_pages($1) v ON v.page_id = l.page_id
+	JOIN perm_visible_pages($1, $4) v ON v.page_id = l.page_id
 	JOIN pages p ON p.id = l.page_id
 	WHERE p.status = 'published' AND p.archived_at IS NULL`
 
 func popularLabels(ctx context.Context, r reader) (Answer, error) {
 	rows, err := r.s.pool.Query(ctx, `SELECT l.label, count(*) `+visibleLabels+`
 		AND ($2::uuid IS NULL OR p.space_id = $2)
-		GROUP BY l.label ORDER BY count(*) DESC, l.label LIMIT $3`, r.userID, r.space(), r.max(defaultLabels))
+		GROUP BY l.label ORDER BY count(*) DESC, l.label LIMIT $3`, r.userID, r.space(), r.max(defaultLabels), permissions.CredentialSpaces(ctx))
 	out, err := scanRows(rows, err, scanLabel)
 	return Answer{Rows: out}, err
 }
@@ -38,7 +40,7 @@ func relatedLabels(ctx context.Context, r reader) (Answer, error) {
 		AND l.page_id <> $2
 		AND l.page_id IN (SELECT o.page_id FROM page_labels o WHERE o.label IN (SELECT m.label FROM page_labels m WHERE m.page_id = $2))
 		AND l.label NOT IN (SELECT m.label FROM page_labels m WHERE m.page_id = $2)
-		GROUP BY l.label ORDER BY count(*) DESC, l.label LIMIT $3`, r.userID, id, r.max(defaultLabels))
+		GROUP BY l.label ORDER BY count(*) DESC, l.label LIMIT $3`, r.userID, id, r.max(defaultLabels), permissions.CredentialSpaces(ctx))
 	out, err := scanRows(rows, err, scanLabel)
 	return Answer{Rows: out}, err
 }
@@ -46,7 +48,7 @@ func relatedLabels(ctx context.Context, r reader) (Answer, error) {
 func recentLabels(ctx context.Context, r reader) (Answer, error) {
 	rows, err := r.s.pool.Query(ctx, `SELECT l.label, count(*) `+visibleLabels+`
 		AND ($2::uuid IS NULL OR p.space_id = $2)
-		GROUP BY l.label ORDER BY max(l.created_at) DESC, l.label LIMIT $3`, r.userID, r.space(), r.max(defaultLabels))
+		GROUP BY l.label ORDER BY max(l.created_at) DESC, l.label LIMIT $3`, r.userID, r.space(), r.max(defaultLabels), permissions.CredentialSpaces(ctx))
 	out, err := scanRows(rows, err, scanLabel)
 	return Answer{Rows: out}, err
 }

@@ -254,7 +254,7 @@ func (s *Service) runBundle(ctx context.Context, j jobs.Job) (any, error) {
 func (s *Service) bundlePages(ctx context.Context, c identity.Caller, spaceID uuid.UUID) ([]pages.ImportedPage, pages.ControlRecord, error) {
 	var hidden int
 	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM pages p WHERE p.space_id = $1 AND p.status = 'published'
-		AND p.id NOT IN (SELECT page_id FROM perm_visible_pages($2))`, spaceID, c.UserID).Scan(&hidden); err != nil {
+		AND p.id NOT IN (SELECT page_id FROM perm_visible_pages($2, $3))`, spaceID, c.UserID, permissions.CredentialSpaces(ctx)).Scan(&hidden); err != nil {
 		return nil, pages.ControlRecord{}, err
 	}
 	if hidden > 0 {

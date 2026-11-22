@@ -44,9 +44,9 @@ func (s *Service) LinkFacts(ctx context.Context, c identity.Caller, ids []uuid.U
 	}
 	rows, err := s.pool.Query(ctx, `SELECT p.id, p.title, p.emoji, sp.key, sp.name, p.updated_at, sp.home_page_id IS NOT DISTINCT FROM p.id
 		FROM pages p
-		JOIN perm_visible_pages($1) v ON v.page_id = p.id
+		JOIN perm_visible_pages($1, $3) v ON v.page_id = p.id
 		JOIN spaces sp ON sp.id = p.space_id
-		WHERE p.id = ANY($2)`, c.UserID, ids)
+		WHERE p.id = ANY($2)`, c.UserID, ids, permissions.CredentialSpaces(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -156,8 +156,8 @@ func (s *Service) Followed(ctx context.Context, c identity.Caller, id uuid.UUID)
 		return nil, err
 	}
 	rows, err := s.pool.Query(ctx, `SELECT h.title, h.target_id FROM page_placeholders h
-		JOIN perm_visible_pages($1) v ON v.page_id = h.target_id
-		WHERE h.source_id = $2 ORDER BY h.title`, c.UserID, id)
+		JOIN perm_visible_pages($1, $3) v ON v.page_id = h.target_id
+		WHERE h.source_id = $2 ORDER BY h.title`, c.UserID, id, permissions.CredentialSpaces(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -235,9 +235,9 @@ func (s *Service) OpenPlaceholders(ctx context.Context, c identity.Caller, space
 		return nil, err
 	}
 	rows, err := s.pool.Query(ctx, `SELECT h.title, `+refColumns+` FROM page_placeholders h
-		JOIN pages p ON p.id = h.source_id `+refJoins+`
+		JOIN pages p ON p.id = h.source_id `+refJoins("$4")+`
 		WHERE p.space_id = $2 AND p.status = 'published' AND h.target_id IS NULL
-		ORDER BY lower(h.title), p.id LIMIT $3`, c.UserID, spaceID, maxListedPlaceholders)
+		ORDER BY lower(h.title), p.id LIMIT $3`, c.UserID, spaceID, maxListedPlaceholders, permissions.CredentialSpaces(ctx))
 	if err != nil {
 		return nil, err
 	}

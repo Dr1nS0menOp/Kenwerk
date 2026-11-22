@@ -17,6 +17,7 @@ import (
 	"github.com/kenwerk/kenwerk/internal/identity"
 	"github.com/kenwerk/kenwerk/internal/ids"
 	"github.com/kenwerk/kenwerk/internal/metrics"
+	"github.com/kenwerk/kenwerk/internal/permissions"
 	"github.com/kenwerk/kenwerk/internal/settings"
 	"github.com/kenwerk/kenwerk/internal/tracing"
 )
@@ -53,7 +54,12 @@ func metaFrom(r *http.Request) identity.RequestMeta {
 	if len(ua) > 512 {
 		ua = ua[:512]
 	}
-	return identity.RequestMeta{IP: ClientIPFrom(r.Context()), UserAgent: ua, RequestID: RequestIDFrom(r.Context())}
+	meta := identity.RequestMeta{IP: ClientIPFrom(r.Context()), UserAgent: ua, RequestID: RequestIDFrom(r.Context())}
+	if p := PrincipalFrom(r.Context()); p != nil {
+		// Every event of a request names the credential it came with (spec 096).
+		meta.Via = p.Via()
+	}
+	return meta
 }
 
 func withRequestID(next http.Handler) http.Handler {
@@ -306,7 +312,10 @@ func (s *Server) withAuthentication(next http.Handler) http.Handler {
 		}
 		switch {
 		case err == nil:
-			r = r.WithContext(context.WithValue(r.Context(), ctxPrincipal, &p))
+			// A credential limited to some spaces takes its limit to every check and list the
+			// request makes (spec 096).
+			ctx := permissions.WithCredentialSpaces(r.Context(), p.User.ID, p.Spaces)
+			r = r.WithContext(context.WithValue(ctx, ctxPrincipal, &p))
 		case !errors.Is(err, identity.ErrNoSession):
 			if s.answerBusyPool(w, r) {
 				return

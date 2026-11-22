@@ -904,7 +904,8 @@ type Reach struct {
 // maxReachRows keeps one person's overview to a screenful.
 const maxReachRows = 200
 
-// UserReach reads the overview of one person. The route requires administrator.
+// UserReach reads the overview of one person. The route requires administrator, which no
+// credential with a space limit holds, so its spaces need no limit (spec 096).
 func (s *Service) UserReach(ctx context.Context, id uuid.UUID) (Reach, error) {
 	if _, err := s.GetUser(ctx, s.pool, id); err != nil {
 		return Reach{}, err
@@ -913,7 +914,7 @@ func (s *Service) UserReach(ctx context.Context, id uuid.UUID) (Reach, error) {
 	err := s.pool.QueryRow(ctx, `SELECT
 			COALESCE((SELECT array_agg(name ORDER BY name) FROM (SELECT g.name FROM group_members m
 				JOIN groups g ON g.id = m.group_id WHERE m.user_id = $1 ORDER BY g.name LIMIT $2) gs), '{}'),
-			COALESCE((SELECT array_agg(key ORDER BY key) FROM (SELECT s.key FROM perm_spaces($1, 'space.view') ps
+			COALESCE((SELECT array_agg(key ORDER BY key) FROM (SELECT s.key FROM perm_spaces($1, 'space.view', NULL) ps
 				JOIN spaces s ON s.id = ps.space_id ORDER BY s.key LIMIT $2) ss), '{}'),
 			(SELECT count(*) FROM pages p WHERE COALESCE(p.owner_id, p.created_by) = $1 AND p.status = 'published')`,
 		id, maxReachRows).Scan(&out.Groups, &out.Spaces, &out.PagesOwned)

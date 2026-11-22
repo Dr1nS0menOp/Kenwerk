@@ -1243,7 +1243,8 @@ func TestEveryObjectRouteIsProtected(t *testing.T) {
 		if resp.StatusCode != 404 {
 			t.Errorf("%s as a stranger: %d, want 404: %s", r.Pattern, resp.StatusCode, out)
 		}
-		action := strings.TrimPrefix(rule, "object:")
+		// The rule ends with the route's scope (spec 096), which says nothing of the object.
+		action, _, _ := strings.Cut(strings.TrimPrefix(rule, "object:"), " ")
 		if viewerMay[action] || action == "job.owner" {
 			continue
 		}

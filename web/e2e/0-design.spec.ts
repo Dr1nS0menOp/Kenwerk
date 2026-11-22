@@ -937,6 +937,10 @@ test.describe('the look of every kind of screen', () => {
     await page.goto('/me/tokens');
     await expect(page.getByRole('heading', { name: 'New token' })).toBeVisible();
     await picture(page, 'tokens', [page.getByLabel('Expires')]);
+    // A token limited to chosen spaces, before one is chosen (spec 096).
+    await page.getByLabel('Only chosen spaces').check();
+    await expect(page.getByText('Choose at least one space.')).toBeVisible();
+    await picture(page, 'tokens-chosen-spaces', [page.getByLabel('Expires')]);
     await page.context().close();
   });
 

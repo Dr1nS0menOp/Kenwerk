@@ -47,6 +47,8 @@ In total 318 numbered items: 283 built, 7 partly, 17 still marked with the wave 
 
 **Design rules.** Permissions only allow, and there is no deny entry. No grant means no access, also for administrators. Someone who may not see a thing gets "not found". One function decides single questions, and SQL functions with the same rule decide lists. A generated matrix compares the two with a third, literal copy of the rule.
 
+**A credential only narrows** (spec 096). A token acts as its person, so what it may do is the intersection of what the person may do, its scopes and its spaces. A token limited to some spaces meets a check before every other one, in `Evaluate` and in the list functions alike: a space outside the limit is "not found". A scope is decided per route in the router and never adds a right.
+
 **A restriction only closes.** Nothing that happens to a page, a group or a person may open what was closed: not a move, a copy, a purge, a deleted group or an import.
 
 ## What the study found

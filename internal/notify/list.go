@@ -15,6 +15,7 @@ import (
 	"github.com/kenwerk/kenwerk/internal/address"
 	"github.com/kenwerk/kenwerk/internal/apperr"
 	"github.com/kenwerk/kenwerk/internal/identity"
+	"github.com/kenwerk/kenwerk/internal/permissions"
 )
 
 const (
@@ -107,16 +108,18 @@ type stored struct {
 // working version, or a thread for editors, comes back only while the person may edit the
 // page (spec 064, DOC-603, DOC-604). A row about a template hangs on its hidden page, and
 // comes back while the person owns the template or looks after it (spec 074, TPL-722).
-const visibleRows = `SELECT n.id, n.type, n.reason, COALESCE(u.display_name, ''), n.page_id, p.title, n.space_id, sp.name,
+func visibleRows(spaces string) string {
+	return `SELECT n.id, n.type, n.reason, COALESCE(u.display_name, ''), n.page_id, p.title, n.space_id, sp.name,
 		n.comment_id, n.read_at IS NOT NULL, n.created_at, n.data, n.group_key, p.kind, sp.key, sp.home_page_id IS NOT DISTINCT FROM n.page_id
 	FROM notifications n
-	JOIN (SELECT page_id FROM perm_visible_pages($1) UNION SELECT page_id FROM perm_review_pages($1)
-		UNION SELECT page_id FROM perm_template_notice_pages($1)) v ON v.page_id = n.page_id
+	JOIN (SELECT page_id FROM perm_visible_pages($1, ` + spaces + `) UNION SELECT page_id FROM perm_review_pages($1, ` + spaces + `)
+		UNION SELECT page_id FROM perm_template_notice_pages($1, ` + spaces + `)) v ON v.page_id = n.page_id
 	JOIN pages p ON p.id = n.page_id
 	JOIN spaces sp ON sp.id = n.space_id
 	LEFT JOIN users u ON u.id = n.actor_id
 	WHERE n.user_id = $1 AND n.hidden_at IS NULL
-	  AND (NOT n.needs_edit OR n.page_id IN (SELECT e.page_id FROM perm_editable_pages($1) e WHERE e.page_id = n.page_id)) `
+	  AND (NOT n.needs_edit OR n.page_id IN (SELECT e.page_id FROM perm_editable_pages($1, ` + spaces + `) e WHERE e.page_id = n.page_id)) `
+}
 
 func scanStored(r pgx.CollectableRow) (stored, error) {
 	var v stored
@@ -201,14 +204,14 @@ func (s *Service) List(ctx context.Context, c identity.Caller, q Query) ([]Item,
 	if err != nil {
 		return nil, err
 	}
-	rows, err := s.pool.Query(ctx, visibleRows+`
+	rows, err := s.pool.Query(ctx, visibleRows("$11")+`
 		AND (NOT $2 OR n.read_at IS NULL)
 		AND ($3 = '' OR n.type = $3)
 		AND ($4::uuid IS NULL OR n.space_id = $4)
 		AND ($5::timestamptz IS NULL OR n.created_at < $5 OR (n.created_at = $5 AND $7::uuid IS NOT NULL AND n.id > $7))
 		AND ($8::boolean IS NULL OR `+watchedRow("$1", "$9", "$10")+` = $8)
 		ORDER BY n.created_at DESC, n.id LIMIT $6`, c.UserID, q.UnreadOnly, q.Type, space, before, limit*2, beforeID,
-		watched, ReasonWatching, aimedAtOwner)
+		watched, ReasonWatching, aimedAtOwner, permissions.CredentialSpaces(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -234,11 +237,11 @@ func (s *Service) Count(ctx context.Context, c identity.Caller) (int, error) {
 	err := s.pool.QueryRow(ctx, `WITH unread AS MATERIALIZED (
 			SELECT n.group_key, n.page_id FROM notifications n
 			WHERE n.user_id = $1 AND n.read_at IS NULL AND n.hidden_at IS NULL
-			  AND (NOT n.needs_edit OR n.page_id IN (SELECT e.page_id FROM perm_editable_pages($1) e WHERE e.page_id = n.page_id)))
+			  AND (NOT n.needs_edit OR n.page_id IN (SELECT e.page_id FROM perm_editable_pages($1, $2) e WHERE e.page_id = n.page_id)))
 		SELECT count(DISTINCT r.group_key) FROM unread r
-		WHERE r.page_id IN (SELECT v.page_id FROM perm_visible_pages($1) v
+		WHERE r.page_id IN (SELECT v.page_id FROM perm_visible_pages($1, $2) v
 			WHERE v.page_id = ANY (ARRAY(SELECT DISTINCT page_id FROM unread WHERE page_id IS NOT NULL)))
-		   OR r.page_id IN (SELECT tp.page_id FROM perm_template_notice_pages($1) tp)`, c.UserID).Scan(&n)
+		   OR r.page_id IN (SELECT tp.page_id FROM perm_template_notice_pages($1, $2) tp)`, c.UserID, permissions.CredentialSpaces(ctx)).Scan(&n)
 	return n, err
 }
 

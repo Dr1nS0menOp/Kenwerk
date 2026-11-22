@@ -55,6 +55,8 @@ type UserDetail struct {
 	Spaces []string `json:"spaces"`
 }
 
+// userDetailSQL and the user list serve Administration, which no credential with a space limit
+// reaches, so the spaces of a person need no limit there (spec 096).
 const userDetailSQL = `SELECT u.id, u.type, u.status, u.email, u.display_name, u.username, u.external_id, u.source,
 		EXISTS (SELECT 1 FROM local_credentials c WHERE c.user_id = u.id),
 		EXISTS (SELECT 1 FROM totp_credentials t WHERE t.user_id = u.id AND t.confirmed_at IS NOT NULL),
@@ -64,7 +66,7 @@ const userDetailSQL = `SELECT u.id, u.type, u.status, u.email, u.display_name, u
 			WHERE g.subject_type = 'user' AND g.subject_id = u.id), '{}'),
 		u.created_at, u.updated_at, u.expires_at, u.last_login_at,
 		CASE WHEN u.type = 'guest' THEN COALESCE((SELECT array_agg(s.key ORDER BY s.key)
-			FROM perm_spaces(u.id, 'space.view') ps JOIN spaces s ON s.id = ps.space_id), '{}') ELSE '{}' END
+			FROM perm_spaces(u.id, 'space.view', NULL) ps JOIN spaces s ON s.id = ps.space_id), '{}') ELSE '{}' END
 	FROM users u`
 
 func scanUserDetail(r pgx.Row) (UserDetail, error) {
@@ -113,7 +115,7 @@ func (s *Service) ListUsers(ctx context.Context, f UserFilter) ([]UserDetail, in
 		AND ($8::uuid IS NULL OR u.id IN (SELECT m.user_id FROM group_members m WHERE m.group_id = $8))
 		AND ($9 = 0 OR u.last_login_at IS NULL OR u.last_login_at < now() - make_interval(days => $9))
 		AND ($10 = '' OR perm_has_global(u.id, $10))
-		AND ($11::uuid IS NULL OR $11 IN (SELECT ps.space_id FROM perm_spaces(u.id, 'space.view') ps))`
+		AND ($11::uuid IS NULL OR $11 IN (SELECT ps.space_id FROM perm_spaces(u.id, 'space.view', NULL) ps))`
 	var group *uuid.UUID
 	if f.GroupID != uuid.Nil {
 		group = &f.GroupID

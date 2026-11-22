@@ -152,12 +152,12 @@ type LabelQuery struct {
 // hidden pages does not show up, and a count never includes them.
 func (s *Service) Labels(ctx context.Context, c identity.Caller, q LabelQuery) ([]LabelCount, error) {
 	rows, err := s.pool.Query(ctx, `SELECT l.label, count(*) FROM page_labels l
-		JOIN perm_listed_pages($1) v ON v.page_id = l.page_id
+		JOIN perm_listed_pages($1, $6) v ON v.page_id = l.page_id
 		JOIN pages p ON p.id = l.page_id
 		WHERE p.status = 'published' AND ($2 = '' OR position(lower($2) IN l.label) > 0)
 		  AND ($3::uuid IS NULL OR p.space_id = $3)
 		GROUP BY l.label
-		ORDER BY CASE WHEN $4 THEN 0 ELSE count(*) END DESC, l.label LIMIT $5`, c.UserID, q.Text, q.SpaceID, q.ByName, maxListedLabels)
+		ORDER BY CASE WHEN $4 THEN 0 ELSE count(*) END DESC, l.label LIMIT $5`, c.UserID, q.Text, q.SpaceID, q.ByName, maxListedLabels, permissions.CredentialSpaces(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -172,11 +172,11 @@ func (s *Service) Labels(ctx context.Context, c identity.Caller, q LabelQuery) (
 func (s *Service) LabelPages(ctx context.Context, c identity.Caller, labels []string, spaceID *uuid.UUID) ([]ListItem, error) {
 	rows, err := s.pool.Query(ctx, `SELECT p.id, p.title, p.emoji, p.space_id, sp.key, sp.name, p.updated_at, false
 		FROM pages p
-		JOIN perm_listed_pages($1) v ON v.page_id = p.id
+		JOIN perm_listed_pages($1, $6) v ON v.page_id = p.id
 		JOIN spaces sp ON sp.id = p.space_id
 		WHERE p.status = 'published' AND ($3::uuid IS NULL OR p.space_id = $3)
 		  AND (SELECT count(*) FROM page_labels l WHERE l.page_id = p.id AND l.label = ANY($2)) = $4
-		ORDER BY p.updated_at DESC, p.id LIMIT $5`, c.UserID, labels, spaceID, len(labels), maxLabelPages)
+		ORDER BY p.updated_at DESC, p.id LIMIT $5`, c.UserID, labels, spaceID, len(labels), maxLabelPages, permissions.CredentialSpaces(ctx))
 	return collectList(rows, err)
 }
 

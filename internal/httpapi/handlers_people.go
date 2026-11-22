@@ -506,14 +506,18 @@ func (s *Server) handleTokens(w http.ResponseWriter, r *http.Request) {
 }
 
 type tokenBody struct {
-	Name      string    `json:"name"`
-	CanWrite  bool      `json:"can_write"`
-	Scopes    []string  `json:"scopes"`
-	ExpiresAt time.Time `json:"expires_at"`
+	Name     string   `json:"name"`
+	CanWrite bool     `json:"can_write"`
+	Scopes   []string `json:"scopes"`
+	// Spaces limits the token to some spaces; left out, it reaches every space of its person.
+	Spaces    []uuid.UUID `json:"spaces"`
+	Assistant bool        `json:"assistant"`
+	ExpiresAt time.Time   `json:"expires_at"`
 }
 
 func (b tokenBody) token() identity.NewToken {
-	return identity.NewToken{Name: b.Name, CanWrite: b.CanWrite, Scopes: b.Scopes, ExpiresAt: b.ExpiresAt}
+	return identity.NewToken{Name: b.Name, CanWrite: b.CanWrite, Scopes: b.Scopes, Spaces: b.Spaces, Assistant: b.Assistant,
+		ExpiresAt: b.ExpiresAt}
 }
 
 func (s *Server) handleTokenCreate(w http.ResponseWriter, r *http.Request) {

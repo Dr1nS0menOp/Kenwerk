@@ -53,30 +53,31 @@ type reportQuery struct {
 }
 
 // The spaces of a report are bound as $1 (the person) and $2 (the spaces); the titles of pages
-// the person may not read stay empty.
+// the person may not read stay empty. $2 holds only spaces inside the credential's limit, so
+// the titles need none of their own (spec 096).
 var reportQueries = map[string]reportQuery{
 	ReportStates: {[]string{"space_id", "page_id", "title", "workflow", "state", "state_kind", "approved_version", "head_version", "approved_at"},
 		`SELECT p.space_id, p.id, CASE WHEN v.page_id IS NULL THEN '' ELSE p.title END, w.name, pc.state_id, pc.state_kind,
 			pc.approved_version, pc.head_version, pc.approved_at
 		FROM page_control pc JOIN pages p ON p.id = pc.page_id JOIN workflows w ON w.id = pc.workflow_id
-		LEFT JOIN perm_visible_pages($1) v ON v.page_id = p.id
+		LEFT JOIN perm_visible_pages($1, NULL) v ON v.page_id = p.id
 		WHERE p.space_id = ANY($2) AND p.status = 'published' ORDER BY p.space_id, pc.state_kind, p.title LIMIT $3`},
 	ReportOverdue: {[]string{"space_id", "page_id", "title", "due_at", "stage", "reminders", "escalated"},
 		`SELECT p.space_id, p.id, CASE WHEN v.page_id IS NULL THEN '' ELSE p.title END, d.due_at, d.stage, d.reminders, d.escalated_at IS NOT NULL
 		FROM review_deadlines d JOIN workflow_rounds r ON r.id = d.round_id AND r.status = 'open' AND r.review_stage = d.stage
-		JOIN pages p ON p.id = d.page_id LEFT JOIN perm_visible_pages($1) v ON v.page_id = p.id
+		JOIN pages p ON p.id = d.page_id LEFT JOIN perm_visible_pages($1, NULL) v ON v.page_id = p.id
 		WHERE p.space_id = ANY($2) AND d.due_at <= now() ORDER BY d.due_at LIMIT $3`},
 	ReportPeriodic: {[]string{"space_id", "page_id", "title", "due_at", "status", "owner_gone"},
 		`SELECT p.space_id, p.id, CASE WHEN v.page_id IS NULL THEN '' ELSE p.title END, pr.due_at,
 			CASE WHEN pr.due_at <= now() THEN 'overdue' WHEN pr.due_at <= now() + interval '30 days' THEN 'due_soon' ELSE 'current' END,
 			NOT EXISTS (SELECT 1 FROM users o WHERE o.id = COALESCE(p.owner_id, p.created_by) AND o.status = 'active')
-		FROM periodic_reviews pr JOIN pages p ON p.id = pr.page_id LEFT JOIN perm_visible_pages($1) v ON v.page_id = p.id
+		FROM periodic_reviews pr JOIN pages p ON p.id = pr.page_id LEFT JOIN perm_visible_pages($1, NULL) v ON v.page_id = p.id
 		WHERE p.space_id = ANY($2) ORDER BY pr.due_at LIMIT $3`},
 	ReportRead: {[]string{"space_id", "page_id", "title", "version", "asked", "confirmed"},
 		`SELECT p.space_id, p.id, CASE WHEN v.page_id IS NULL THEN '' ELSE p.title END, rq.version_number,
 			(SELECT count(*) FROM read_confirmations rc WHERE rc.page_id = rq.page_id AND rc.version_number = rq.version_number),
 			(SELECT count(*) FROM read_confirmations rc WHERE rc.page_id = rq.page_id AND rc.version_number = rq.version_number AND rc.confirmed_at IS NOT NULL)
-		FROM read_requests rq JOIN pages p ON p.id = rq.page_id LEFT JOIN perm_visible_pages($1) v ON v.page_id = p.id
+		FROM read_requests rq JOIN pages p ON p.id = rq.page_id LEFT JOIN perm_visible_pages($1, NULL) v ON v.page_id = p.id
 		WHERE p.space_id = ANY($2) ORDER BY p.space_id, p.title, rq.version_number DESC LIMIT $3`},
 	ReportApprovals: {[]string{"space_id", "user_id", "name", "approvals"},
 		`SELECT p.space_id, wr.user_id, COALESCE(u.display_name, ''), count(*)
@@ -100,7 +101,7 @@ func (s *Service) ControlReport(ctx context.Context, c identity.Caller, in Repor
 		}
 		spaces = []uuid.UUID{*in.SpaceID}
 	} else {
-		rows, err := s.pool.Query(ctx, "SELECT space_id FROM perm_spaces($1, 'space.audit')", c.UserID)
+		rows, err := s.pool.Query(ctx, "SELECT space_id FROM perm_spaces($1, 'space.audit', $2)", c.UserID, permissions.CredentialSpaces(ctx))
 		if err != nil {
 			return Report{}, err
 		}

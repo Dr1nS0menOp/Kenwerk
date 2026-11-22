@@ -9,6 +9,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"github.com/kenwerk/kenwerk/internal/permissions"
 )
 
 // window is how many of the newest pages a search reads word by word before it goes to
@@ -203,7 +205,7 @@ const windowIsFull = `SELECT count(*) >= ` + window + ` FROM (SELECT 1 FROM sear
 // visibleSpaces and hiddenPages only narrow the search. The rule itself is applied to
 // every picked row, in pickedRows.
 const (
-	visibleSpaces = `SELECT g.space_id FROM perm_spaces(@user, 'space.view') g JOIN spaces s ON s.id = g.space_id
+	visibleSpaces = `SELECT g.space_id FROM perm_spaces(@user, 'space.view', @credential) g JOIN spaces s ON s.id = g.space_id
 	WHERE (@archived::boolean OR s.status = 'active') AND (@space::uuid IS NULL OR g.space_id = @space)`
 	hiddenPages = `SELECT h.page_id FROM perm_hidden_pages(@user) h`
 )
@@ -241,18 +243,18 @@ const pickedRows = `SELECT p.id, p.space_id, s.key, s.name, COALESCE(sw.title, p
 	FROM (SELECT o.id, row_number() OVER (ORDER BY o.place) AS place
 		FROM unnest(@ids::uuid[]) WITH ORDINALITY o(id, place)
 		JOIN pages q ON q.id = o.id AND q.status = 'published'
-		JOIN (SELECT v.page_id FROM perm_visible_pages(@user) v WHERE v.page_id = ANY(@ids)) v ON v.page_id = o.id) o
+		JOIN (SELECT v.page_id FROM perm_visible_pages(@user, @credential) v WHERE v.page_id = ANY(@ids)) v ON v.page_id = o.id) o
 	JOIN pages p ON p.id = o.id
 	JOIN spaces s ON s.id = p.space_id
 	JOIN search_documents d ON d.page_id = p.id
-	LEFT JOIN search_working sw ON sw.page_id = p.id AND p.id IN (SELECT e.page_id FROM perm_editable_pages(@user) e
+	LEFT JOIN search_working sw ON sw.page_id = p.id AND p.id IN (SELECT e.page_id FROM perm_editable_pages(@user, @credential) e
 		WHERE e.page_id = ANY (ARRAY(SELECT x.page_id FROM search_working x WHERE x.page_id = ANY(@ids))))
 	ORDER BY o.place`
 
 // workingMatches are the working entries a search may use (DOC-520): those that match, and
 // then only of pages the person may edit, so the rule is asked about the few rows of drafts
 // in progress, in one query.
-const workingMatches = `SELECT e.page_id FROM perm_editable_pages(@user) e WHERE e.page_id = ANY (ARRAY(
+const workingMatches = `SELECT e.page_id FROM perm_editable_pages(@user, @credential) e WHERE e.page_id = ANY (ARRAY(
 	SELECT x.page_id FROM search_working x WHERE x.tsv @@ to_tsquery('simple', @words) OR (@plain AND lower(x.title) LIKE @like)))`
 
 // firstOfEach keeps the first place of each page in a list.
@@ -463,6 +465,7 @@ func (s *Service) searchWords(ctx context.Context, userID uuid.UUID, q Query, pa
 	out := Results{Results: []Result{}}
 	offset := max(q.Offset, 0)
 	args := wordArgs(userID, q, parsed)
+	args["credential"] = permissions.CredentialSpaces(ctx)
 	want := offset + q.Limit
 	if !q.Quick {
 		want = max(want+1, totalLimit+1)

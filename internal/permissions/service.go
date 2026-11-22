@@ -28,6 +28,13 @@ func NewService(pool *pgxpool.Pool) *Service { return &Service{pool: pool, cache
 // the memo of its request, and in the memory of the node while the permission generation
 // stays the same (ARC-197, ARC-231). A write reads them fresh every time.
 func (s *Service) LoadUser(ctx context.Context, q db.Querier, id uuid.UUID) (UserFacts, error) {
+	// The limit of the request's credential is applied after the facts are kept, so a memo or
+	// the cache never hands one request's limit to another (spec 096).
+	u, err := s.loadUserFacts(ctx, q, id)
+	return limitedTo(ctx, u), err
+}
+
+func (s *Service) loadUserFacts(ctx context.Context, q db.Querier, id uuid.UUID) (UserFacts, error) {
 	// Facts decide access, so they are always read current (ARC-228).
 	ctx = db.MustBeCurrent(ctx)
 	m := memoOf(ctx)

@@ -105,8 +105,8 @@ func (s *Service) mayHear(ctx context.Context, q db.Querier, r Row) (bool, error
 	}
 	if r.AboutTemplate {
 		var may bool
-		err := q.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM perm_template_notice_pages($1) t WHERE t.page_id = $2)`,
-			r.UserID, r.PageID).Scan(&may)
+		err := q.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM perm_template_notice_pages($1, $3) t WHERE t.page_id = $2)`,
+			r.UserID, r.PageID, permissions.CredentialSpaces(ctx)).Scan(&may)
 		return may, err
 	}
 	action := permissions.ActionPageView

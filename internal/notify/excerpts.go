@@ -12,6 +12,7 @@ import (
 
 	"github.com/kenwerk/kenwerk/internal/document"
 	"github.com/kenwerk/kenwerk/internal/identity"
+	"github.com/kenwerk/kenwerk/internal/permissions"
 )
 
 // addExcerpts gives each item about a comment the start of that comment, for the panel
@@ -31,8 +32,8 @@ func (s *Service) addExcerpts(ctx context.Context, user uuid.UUID, items []Item)
 	}
 	rows, err := s.pool.Query(ctx, `SELECT c.id, c.body FROM comments c
 		WHERE c.id = ANY($2) AND c.trash_item_id IS NULL
-		  AND (NOT c.editors_only OR c.page_id IN (SELECT e.page_id FROM perm_editable_pages($1) e WHERE e.page_id = c.page_id))`,
-		user, ids)
+		  AND (NOT c.editors_only OR c.page_id IN (SELECT e.page_id FROM perm_editable_pages($1, $3) e WHERE e.page_id = c.page_id))`,
+		user, ids, permissions.CredentialSpaces(ctx))
 	if err != nil {
 		return err
 	}

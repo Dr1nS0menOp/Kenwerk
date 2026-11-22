@@ -93,8 +93,8 @@ func resolveEntries(ctx context.Context, q db.Querier, spaceID uuid.UUID, entrie
 			      WHERE e.type = 'role' AND ra.role_id = e.id AND ra.space_id = $1 AND ra.subject_type = 'group'
 		) cand ON true
 		LEFT JOIN users m ON m.id = cand.user_id AND m.type = 'member'
-			AND $1 IN (SELECT ps.space_id FROM perm_spaces(m.id, 'space.view') ps)
-		ORDER BY e.ord, lower(m.display_name), m.id`, spaceID, raw)
+			AND $1 IN (SELECT ps.space_id FROM perm_spaces(m.id, 'space.view', $3) ps)
+		ORDER BY e.ord, lower(m.display_name), m.id`, spaceID, raw, permissions.CredentialSpaces(ctx))
 	if err != nil {
 		return nil, nil, err
 	}

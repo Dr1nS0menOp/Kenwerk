@@ -19,6 +19,7 @@ import (
 
 	"github.com/kenwerk/kenwerk/internal/apperr"
 	"github.com/kenwerk/kenwerk/internal/db"
+	"github.com/kenwerk/kenwerk/internal/permissions"
 )
 
 const (
@@ -258,7 +259,7 @@ func optID(id uuid.UUID) *uuid.UUID {
 // never get here: perm_visible_pages leaves it out.
 const searchFilters = `
 	JOIN pages p ON p.id = d.page_id AND p.status = 'published'
-	JOIN perm_visible_pages($1) v ON v.page_id = p.id
+	JOIN perm_visible_pages($1, $17) v ON v.page_id = p.id
 	JOIN spaces s ON s.id = p.space_id
 	WHERE ($3::uuid IS NULL OR p.space_id = $3)
 	  AND ($4::uuid IS NULL OR p.updated_by = $4)
@@ -288,10 +289,10 @@ const (
 		p.archived_at IS NOT NULL OR s.status <> 'active', s.pair_role IS NOT DISTINCT FROM 'draft', s.home_page_id IS NOT DISTINCT FROM p.id, `
 	headlineOptions = `'StartSel=[[[, StopSel=]]], MaxFragments=2, MaxWords=25, MinWords=8, FragmentDelimiter=" … "'`
 	resultEnd       = `, p.updated_at, p.updated_by `
-	orderByDate     = ` ORDER BY CASE WHEN $17 THEN 0 ELSE 0 END, p.updated_at DESC, p.id LIMIT $18 OFFSET $19`
+	orderByDate     = ` ORDER BY CASE WHEN $18 THEN 0 ELSE 0 END, p.updated_at DESC, p.id LIMIT $19 OFFSET $20`
 
 	filtersSQL    = resultColumns + "left(d.body, 200)" + resultEnd + withoutWords + orderByDate
-	filtersCount  = `SELECT count(*) FROM (SELECT 1 ` + withoutWords + ` LIMIT $17) c`
+	filtersCount  = `SELECT count(*) FROM (SELECT 1 ` + withoutWords + ` LIMIT $18) c`
 	statementTime = "SET LOCAL statement_timeout = 3000"
 	// wordSettings go in one round trip. A cached plan cannot know how common a word is,
 	// and the right plan for a word in every page is the wrong one for a word in ten. A
@@ -314,7 +315,7 @@ const (
 	commentWords = `jsonb_path_query_array(c.body, '$.**.text')`
 	commentsFrom = `FROM to_tsquery('simple', $2) AS q(query)
 	JOIN comments c ON jsonb_to_tsvector('simple', ` + commentWords + `, '["string"]') @@ q.query
-	JOIN perm_visible_comments($1) v ON v.comment_id = c.id
+	JOIN perm_visible_comments($1, $8) v ON v.comment_id = c.id
 	JOIN pages p ON p.id = c.page_id
 	JOIN spaces s ON s.id = p.space_id
 	WHERE ($3::uuid IS NULL OR p.space_id = $3)
@@ -326,8 +327,8 @@ const (
 		p.archived_at IS NOT NULL OR s.status <> 'active', s.pair_role IS NOT DISTINCT FROM 'draft', s.home_page_id IS NOT DISTINCT FROM p.id,
 		ts_headline('simple', (SELECT string_agg(w, ' ') FROM jsonb_array_elements_text(` + commentWords + `) AS w), q.query,
 			'StartSel=[[[, StopSel=]]], MaxFragments=2, MaxWords=25, MinWords=8, FragmentDelimiter=" … "'),
-		c.created_at, c.author_id ` + commentsFrom + ` ORDER BY c.created_at DESC, c.id LIMIT $8 OFFSET $9`
-	commentsCount = `SELECT count(*) FROM (SELECT 1 ` + commentsFrom + ` LIMIT $8) n`
+		c.created_at, c.author_id ` + commentsFrom + ` ORDER BY c.created_at DESC, c.id LIMIT $9 OFFSET $10`
+	commentsCount = `SELECT count(*) FROM (SELECT 1 ` + commentsFrom + ` LIMIT $9) n`
 )
 
 // KindTask asks for tasks instead of pages (COL-040).
@@ -340,7 +341,7 @@ const KindTask = "task"
 const (
 	tasksFrom = `FROM to_tsquery('simple', $2) AS q(query)
 	JOIN page_tasks t ON to_tsvector('simple', t.text) @@ q.query
-	JOIN perm_visible_pages($1) v ON v.page_id = t.page_id
+	JOIN perm_visible_pages($1, $6) v ON v.page_id = t.page_id
 	JOIN pages p ON p.id = t.page_id AND p.status = 'published'
 	JOIN spaces s ON s.id = p.space_id
 	LEFT JOIN users u ON u.id = t.assignee_id
@@ -351,8 +352,8 @@ const (
 		p.id, p.space_id, s.key, s.name, p.title, p.emoji, p.kind, p.stage_text, p.stage_color,
 		p.archived_at IS NOT NULL OR s.status <> 'active', s.pair_role IS NOT DISTINCT FROM 'draft', s.home_page_id IS NOT DISTINCT FROM p.id,
 		ts_headline('simple', t.text, q.query, ` + headlineOptions + `), t.updated_at, p.updated_by ` + tasksFrom + `
-		ORDER BY t.done, t.due_on NULLS LAST, t.updated_at DESC, t.id LIMIT $6 OFFSET $7`
-	tasksCount = `SELECT count(*) FROM (SELECT 1 ` + tasksFrom + ` LIMIT $6) n`
+		ORDER BY t.done, t.due_on NULLS LAST, t.updated_at DESC, t.id LIMIT $7 OFFSET $8`
+	tasksCount = `SELECT count(*) FROM (SELECT 1 ` + tasksFrom + ` LIMIT $7) n`
 )
 
 func nilIfEmpty[T any](list []T) []T {
@@ -362,10 +363,12 @@ func nilIfEmpty[T any](list []T) []T {
 	return list
 }
 
-func filterArgs(userID uuid.UUID, q Query, parsed Parsed) []any {
+// filterArgs are $1 to $17 of a search by filters; $17 holds the spaces of the credential.
+func filterArgs(ctx context.Context, userID uuid.UUID, q Query, parsed Parsed) []any {
 	return []any{userID, parsed.TSQuery, optID(q.SpaceID), optID(q.AuthorID), optTime(q.Since), optTime(q.Until), q.IncludeArchived,
 		nilIfEmpty(q.Kinds), nilIfEmpty(allLabels(q, parsed)), nilIfEmpty(q.Contributors), q.Stage, optID(q.Below),
-		nilIfEmpty(parsed.Spaces), nilIfEmpty(allowedAuthors(q, parsed)), nilIfEmpty(parsed.Patterns), nilIfEmpty(q.Templates)}
+		nilIfEmpty(parsed.Spaces), nilIfEmpty(allowedAuthors(q, parsed)), nilIfEmpty(parsed.Patterns), nilIfEmpty(q.Templates),
+		permissions.CredentialSpaces(ctx)}
 }
 
 // findsNothing says a search names templates through template: and none of them is one the
@@ -560,7 +563,7 @@ func (s *Service) searchWithoutPicking(ctx context.Context, userID uuid.UUID, q 
 	if parsed.TSQuery != "" || !hasFilters(q, parsed) {
 		return Results{Results: []Result{}}, nil
 	}
-	return s.run(ctx, filtersSQL, filtersCount, filterArgs(userID, q, parsed), []any{q.ByDate, q.Limit, max(q.Offset, 0)}, scanResults)
+	return s.run(ctx, filtersSQL, filtersCount, filterArgs(ctx, userID, q, parsed), []any{q.ByDate, q.Limit, max(q.Offset, 0)}, scanResults)
 }
 
 func scanComments(rows pgx.Rows) ([]Result, error) {
@@ -579,7 +582,8 @@ func (s *Service) searchComments(ctx context.Context, userID uuid.UUID, q Query,
 	if parsed.TSQuery == "" {
 		return Results{Results: []Result{}}, nil
 	}
-	args := []any{userID, parsed.TSQuery, optID(q.SpaceID), optID(q.AuthorID), optTime(q.Since), optTime(q.Until), q.IncludeArchived}
+	args := []any{userID, parsed.TSQuery, optID(q.SpaceID), optID(q.AuthorID), optTime(q.Since), optTime(q.Until), q.IncludeArchived,
+		permissions.CredentialSpaces(ctx)}
 	out, err := s.run(ctx, commentsSQL, commentsCount, args, []any{q.Limit, max(q.Offset, 0)}, scanComments)
 	if err != nil {
 		return out, err
@@ -606,7 +610,8 @@ func (s *Service) searchTasks(ctx context.Context, userID uuid.UUID, q Query) (R
 	if parsed.TSQuery == "" {
 		return Results{Results: []Result{}}, nil
 	}
-	args := []any{userID, parsed.TSQuery, optID(q.SpaceID), q.IncludeArchived, nilIfEmpty(parsed.Spaces)}
+	args := []any{userID, parsed.TSQuery, optID(q.SpaceID), q.IncludeArchived, nilIfEmpty(parsed.Spaces),
+		permissions.CredentialSpaces(ctx)}
 	out, err := s.run(ctx, tasksSQL, tasksCount, args, []any{q.Limit, max(q.Offset, 0)}, scanTasks)
 	if err != nil {
 		return out, err
@@ -622,7 +627,7 @@ func (s *Service) belowHidden(ctx context.Context, userID, below uuid.UUID) (boo
 		return false, nil
 	}
 	var visible bool
-	err := s.pool.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM perm_visible_pages($1) v WHERE v.page_id = $2)", userID, below).Scan(&visible)
+	err := s.pool.QueryRow(ctx, "SELECT EXISTS (SELECT 1 FROM perm_visible_pages($1, $3) v WHERE v.page_id = $2)", userID, below, permissions.CredentialSpaces(ctx)).Scan(&visible)
 	return !visible, err
 }
 
@@ -631,10 +636,10 @@ func (s *Service) belowHidden(ctx context.Context, userID, below uuid.UUID) (boo
 func (s *Service) spelling(ctx context.Context, userID uuid.UUID, text string) (string, error) {
 	rows, err := s.pool.Query(ctx, `SELECT w.title FROM search_pages w
 		WHERE w.published AND NOT w.archived AND w.kind <> 'template'
-		  AND w.space_id IN (SELECT g.space_id FROM perm_spaces($1, 'space.view') g)
+		  AND w.space_id IN (SELECT g.space_id FROM perm_spaces($1, 'space.view', $3) g)
 		  AND w.page_id NOT IN (SELECT h.page_id FROM perm_hidden_pages($1) h)
 		  AND w.page_id NOT IN (SELECT c.page_id FROM perm_control_hidden_pages($1) c)
-		ORDER BY w.updated_at DESC, w.page_id DESC LIMIT $2`, userID, maxSpellingTitles)
+		ORDER BY w.updated_at DESC, w.page_id DESC LIMIT $2`, userID, maxSpellingTitles, permissions.CredentialSpaces(ctx))
 	if err != nil {
 		return "", err
 	}

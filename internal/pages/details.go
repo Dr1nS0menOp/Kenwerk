@@ -74,11 +74,14 @@ func collectRefs(rows pgx.Rows, err error) ([]PageRef, error) {
 
 // refColumns and refJoins read a page through perm_listed_pages, the only way a
 // list sees content. A page the caller may not see can never become a reference.
-const (
-	refColumns = "p.id, p.title, p.emoji, s.key, s.name"
-	refJoins   = `JOIN perm_listed_pages($1) v ON v.page_id = p.id
+const refColumns = "p.id, p.title, p.emoji, s.key, s.name"
+
+// refJoins joins what refColumns read. spaces names the parameter that holds the spaces of the
+// credential (spec 096).
+func refJoins(spaces string) string {
+	return `JOIN perm_listed_pages($1, ` + spaces + `) v ON v.page_id = p.id
 		JOIN spaces s ON s.id = p.space_id`
-)
+}
 
 // maxReachableIDs is more links than a page can sensibly hold.
 const maxReachableIDs = 500
@@ -89,7 +92,7 @@ func (s *Service) Reachable(ctx context.Context, c identity.Caller, ids []uuid.U
 	if len(ids) > maxReachableIDs {
 		return nil, apperr.Invalid("That is too many pages to ask about at once.")
 	}
-	rows, err := s.pool.Query(ctx, "SELECT v.page_id FROM perm_visible_pages($1) v WHERE v.page_id = ANY($2)", c.UserID, ids)
+	rows, err := s.pool.Query(ctx, "SELECT v.page_id FROM perm_visible_pages($1, $3) v WHERE v.page_id = ANY($2)", c.UserID, ids, permissions.CredentialSpaces(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -103,8 +106,8 @@ func (s *Service) RefsOf(ctx context.Context, c identity.Caller, ids []uuid.UUID
 	if len(ids) > maxReachableIDs {
 		return nil, apperr.Invalid("That is too many pages to ask about at once.")
 	}
-	rows, err := s.pool.Query(ctx, `SELECT `+refColumns+` FROM pages p `+refJoins+`
-		WHERE p.id = ANY($2) ORDER BY lower(p.title), p.id`, c.UserID, ids)
+	rows, err := s.pool.Query(ctx, `SELECT `+refColumns+` FROM pages p `+refJoins("$3")+`
+		WHERE p.id = ANY($2) ORDER BY lower(p.title), p.id`, c.UserID, ids, permissions.CredentialSpaces(ctx))
 	return collectRefs(rows, err)
 }
 
@@ -123,24 +126,24 @@ func syncLinks(ctx context.Context, tx pgx.Tx, pageID uuid.UUID, doc document.No
 
 func incomingLinks(ctx context.Context, q db.Querier, userID, pageID uuid.UUID) ([]PageRef, error) {
 	rows, err := q.Query(ctx, `SELECT `+refColumns+` FROM page_links l
-		JOIN pages p ON p.id = l.source_id `+refJoins+`
+		JOIN pages p ON p.id = l.source_id `+refJoins("$4")+`
 		WHERE l.target_id = $2 AND l.source_id <> $2 AND p.status = 'published'
-		ORDER BY lower(p.title), p.id LIMIT $3`, userID, pageID, maxListedLinks)
+		ORDER BY lower(p.title), p.id LIMIT $3`, userID, pageID, maxListedLinks, permissions.CredentialSpaces(ctx))
 	return collectRefs(rows, err)
 }
 
 func outgoingLinks(ctx context.Context, q db.Querier, userID, pageID uuid.UUID) ([]PageRef, error) {
 	rows, err := q.Query(ctx, `SELECT `+refColumns+` FROM page_links l
-		JOIN pages p ON p.id = l.target_id `+refJoins+`
+		JOIN pages p ON p.id = l.target_id `+refJoins("$4")+`
 		WHERE l.source_id = $2 AND l.target_id <> $2 AND p.status = 'published'
-		ORDER BY lower(p.title), p.id LIMIT $3`, userID, pageID, maxListedLinks)
+		ORDER BY lower(p.title), p.id LIMIT $3`, userID, pageID, maxListedLinks, permissions.CredentialSpaces(ctx))
 	return collectRefs(rows, err)
 }
 
 func childPages(ctx context.Context, q db.Querier, userID, pageID uuid.UUID) ([]PageRef, error) {
-	rows, err := q.Query(ctx, `SELECT `+refColumns+` FROM pages p `+refJoins+`
+	rows, err := q.Query(ctx, `SELECT `+refColumns+` FROM pages p `+refJoins("$5")+`
 		WHERE p.parent_id = $2 AND p.status = 'published' AND p.kind = ANY($4)
-		ORDER BY p.position, p.id LIMIT $3`, userID, pageID, maxListedChildren, treeKinds)
+		ORDER BY p.position, p.id LIMIT $3`, userID, pageID, maxListedChildren, treeKinds, permissions.CredentialSpaces(ctx))
 	return collectRefs(rows, err)
 }
 
@@ -224,15 +227,15 @@ func (s *Service) DeleteImpact(ctx context.Context, c identity.Caller, id uuid.U
 	}
 	var out Impact
 	err := s.pool.QueryRow(ctx, `SELECT count(*) FROM page_tree t
-		JOIN perm_visible_pages($1) v ON v.page_id = t.descendant_id WHERE t.ancestor_id = $2`, c.UserID, id).Scan(&out.Pages)
+		JOIN perm_visible_pages($1, $3) v ON v.page_id = t.descendant_id WHERE t.ancestor_id = $2`, c.UserID, id, permissions.CredentialSpaces(ctx)).Scan(&out.Pages)
 	if err != nil {
 		return out, err
 	}
 	rows, err := s.pool.Query(ctx, `SELECT `+refColumns+` FROM page_links l
-		JOIN pages p ON p.id = l.source_id `+refJoins+`
+		JOIN pages p ON p.id = l.source_id `+refJoins("$3")+`
 		WHERE l.target_id = $2 AND p.status = 'published'
 		  AND l.source_id NOT IN (SELECT descendant_id FROM page_tree WHERE ancestor_id = $2)
-		ORDER BY lower(p.title), p.id`, c.UserID, id)
+		ORDER BY lower(p.title), p.id`, c.UserID, id, permissions.CredentialSpaces(ctx))
 	all, err := collectRefs(rows, err)
 	if err != nil {
 		return out, err

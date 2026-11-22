@@ -436,13 +436,13 @@ func (s *Service) find(ctx context.Context, r *run, a Action) error {
 		at := s.now().AddDate(0, 0, -a.OlderDays)
 		before = &at
 	}
-	rows, err := s.Pool.Query(ctx, `SELECT p.id FROM pages p JOIN perm_visible_pages($1) v ON v.page_id = p.id
+	rows, err := s.Pool.Query(ctx, `SELECT p.id FROM pages p JOIN perm_visible_pages($1, $8) v ON v.page_id = p.id
 		WHERE p.status = 'published' AND ($2::uuid IS NULL OR p.space_id = $2)
 			AND ($3 = '' OR EXISTS (SELECT 1 FROM page_labels l WHERE l.page_id = p.id AND l.label = lower($3)))
 			AND ($4 = '' OR p.title ILIKE '%' || $4 || '%')
 			AND ($5::timestamptz IS NULL OR p.updated_at < $5)
 			AND (cardinality($7::uuid[]) = 0 OR p.space_id = ANY($7))
-		ORDER BY p.updated_at, p.id LIMIT $6`, r.caller.UserID, r.rule.SpaceID, a.Label, a.Title, before, maxLookupPages, spacesOf(r.rule.Definition))
+		ORDER BY p.updated_at, p.id LIMIT $6`, r.caller.UserID, r.rule.SpaceID, a.Label, a.Title, before, maxLookupPages, spacesOf(r.rule.Definition), permissions.CredentialSpaces(ctx))
 	if err != nil {
 		return err
 	}

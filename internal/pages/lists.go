@@ -69,10 +69,10 @@ func (s *Service) Recent(ctx context.Context, c identity.Caller, kind string) ([
 	case "", RecentVisited:
 		rows, err := s.pool.Query(ctx, `SELECT p.id, p.title, p.emoji, p.space_id, s.key, s.name, r.viewed_at, p.status = 'draft'
 			FROM recent_pages r
-			JOIN perm_listed_pages($1) v ON v.page_id = r.page_id
+			JOIN perm_listed_pages($1, $3) v ON v.page_id = r.page_id
 			JOIN pages p ON p.id = r.page_id
 			JOIN spaces s ON s.id = p.space_id AND s.status = 'active'
-			WHERE r.user_id = $1 ORDER BY r.viewed_at DESC LIMIT $2`, c.UserID, maxRecentPages)
+			WHERE r.user_id = $1 ORDER BY r.viewed_at DESC LIMIT $2`, c.UserID, maxRecentPages, permissions.CredentialSpaces(ctx))
 		return collectList(rows, err)
 	case RecentWorked:
 		rows, err := s.pool.Query(ctx, `SELECT p.id, p.title, p.emoji, p.space_id, s.key, s.name, w.at, false
@@ -81,20 +81,20 @@ func (s *Service) Recent(ctx context.Context, c identity.Caller, kind string) ([
 					UNION ALL
 					SELECT page_id, created_at FROM comments WHERE author_id = $1 AND trash_item_id IS NULL
 				) made GROUP BY page_id) w
-			JOIN perm_listed_pages($1) v ON v.page_id = w.page_id
+			JOIN perm_listed_pages($1, $3) v ON v.page_id = w.page_id
 			JOIN pages p ON p.id = w.page_id
 			JOIN spaces s ON s.id = p.space_id AND s.status = 'active'
-			ORDER BY w.at DESC LIMIT $2`, c.UserID, maxRecentPages)
+			ORDER BY w.at DESC LIMIT $2`, c.UserID, maxRecentPages, permissions.CredentialSpaces(ctx))
 		return collectList(rows, err)
 	case RecentDrafts:
 		rows, err := s.pool.Query(ctx, `SELECT p.id, COALESCE(NULLIF(d.title, ''), p.title), p.emoji, p.space_id, s.key, s.name,
 				COALESCE(d.updated_at, p.updated_at), p.status = 'draft'
 			FROM pages p
-			JOIN perm_listed_pages($1) v ON v.page_id = p.id
+			JOIN perm_listed_pages($1, $3) v ON v.page_id = p.id
 			JOIN spaces s ON s.id = p.space_id AND s.status = 'active'
 			LEFT JOIN drafts d ON d.page_id = p.id AND d.user_id = $1
 			WHERE d.page_id IS NOT NULL OR (p.status = 'draft' AND p.created_by = $1)
-			ORDER BY COALESCE(d.updated_at, p.updated_at) DESC LIMIT $2`, c.UserID, maxDraftPages)
+			ORDER BY COALESCE(d.updated_at, p.updated_at) DESC LIMIT $2`, c.UserID, maxDraftPages, permissions.CredentialSpaces(ctx))
 		return collectList(rows, err)
 	}
 	return nil, apperr.Invalid("Recent lists are visited, worked or drafts.")
@@ -105,18 +105,18 @@ func (s *Service) Recent(ctx context.Context, c identity.Caller, kind string) ([
 func (s *Service) Favourites(ctx context.Context, c identity.Caller) ([]ListItem, error) {
 	rows, err := s.pool.Query(ctx, `SELECT p.id, p.title, p.emoji, p.space_id, s.key, s.name, f.created_at, p.status = 'draft'
 		FROM favourites f
-		JOIN perm_listed_pages($1) v ON v.page_id = f.page_id
+		JOIN perm_listed_pages($1, $3) v ON v.page_id = f.page_id
 		JOIN pages p ON p.id = f.page_id
 		JOIN spaces s ON s.id = p.space_id
-		WHERE f.user_id = $1 ORDER BY f.position NULLS FIRST, f.created_at DESC LIMIT $2`, c.UserID, maxFavouritePages)
+		WHERE f.user_id = $1 ORDER BY f.position NULLS FIRST, f.created_at DESC LIMIT $2`, c.UserID, maxFavouritePages, permissions.CredentialSpaces(ctx))
 	return collectList(rows, err)
 }
 
 // AuditCensor says what a reader of the audit log may not see: the title of a page
 // they cannot open (ADR-029). A page that is gone counts as one they cannot open.
 func (s *Service) AuditCensor(ctx context.Context, c identity.Caller) (func(*audit.Event), error) {
-	rows, err := s.pool.Query(ctx, `SELECT page_id::text FROM perm_visible_pages($1)
-		UNION SELECT a.id::text FROM attachments a JOIN perm_visible_pages($1) v ON v.page_id = a.page_id`, c.UserID)
+	rows, err := s.pool.Query(ctx, `SELECT page_id::text FROM perm_visible_pages($1, $2)
+		UNION SELECT a.id::text FROM attachments a JOIN perm_visible_pages($1, $2) v ON v.page_id = a.page_id`, c.UserID, permissions.CredentialSpaces(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -162,8 +162,8 @@ func (s *Service) Note(ctx context.Context, c identity.Caller, id uuid.UUID) (Pa
 	note := PageNote{ID: id}
 	err := s.pool.QueryRow(ctx, `SELECT p.title, s.key, s.name, p.status, p.updated_at,
 			EXISTS (SELECT 1 FROM page_restrictions r WHERE r.page_id = p.id),
-			EXISTS (SELECT 1 FROM perm_visible_pages($2) v WHERE v.page_id = p.id)
-		FROM pages p JOIN spaces s ON s.id = p.space_id WHERE p.id = $1`, id, c.UserID).
+			EXISTS (SELECT 1 FROM perm_visible_pages($2, $3) v WHERE v.page_id = p.id)
+		FROM pages p JOIN spaces s ON s.id = p.space_id WHERE p.id = $1`, id, c.UserID, permissions.CredentialSpaces(ctx)).
 		Scan(&note.Title, &note.SpaceKey, &note.SpaceName, &note.Status, &note.UpdatedAt, &note.Restricted, &note.Readable)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return note, apperr.NotFound()
@@ -182,10 +182,10 @@ func (s *Service) Note(ctx context.Context, c identity.Caller, id uuid.UUID) (Pa
 func (s *Service) ByPerson(ctx context.Context, c identity.Caller, personID uuid.UUID) ([]ListItem, error) {
 	rows, err := s.pool.Query(ctx, `SELECT p.id, p.title, p.emoji, p.space_id, s.key, s.name, w.at, false
 		FROM (SELECT page_id, max(created_at) AS at FROM page_versions WHERE author_id = $2 GROUP BY page_id) w
-		JOIN perm_visible_pages($1) v ON v.page_id = w.page_id
+		JOIN perm_visible_pages($1, $4) v ON v.page_id = w.page_id
 		JOIN pages p ON p.id = w.page_id
 		JOIN spaces s ON s.id = p.space_id
-		ORDER BY w.at DESC LIMIT $3`, c.UserID, personID, recentChangeCount)
+		ORDER BY w.at DESC LIMIT $3`, c.UserID, personID, recentChangeCount, permissions.CredentialSpaces(ctx))
 	return collectList(rows, err)
 }
 
@@ -194,19 +194,19 @@ func (s *Service) ByPerson(ctx context.Context, c identity.Caller, personID uuid
 func (s *Service) MentionsOf(ctx context.Context, c identity.Caller, personID uuid.UUID) ([]ListItem, error) {
 	rows, err := s.pool.Query(ctx, `SELECT p.id, p.title, p.emoji, p.space_id, s.key, s.name, p.updated_at, false
 		FROM page_mentions m
-		JOIN perm_visible_pages($1) v ON v.page_id = m.page_id
+		JOIN perm_visible_pages($1, $4) v ON v.page_id = m.page_id
 		JOIN pages p ON p.id = m.page_id
 		JOIN spaces s ON s.id = p.space_id
 		WHERE m.user_id = $2
-		ORDER BY p.updated_at DESC LIMIT $3`, c.UserID, personID, recentChangeCount)
+		ORDER BY p.updated_at DESC LIMIT $3`, c.UserID, personID, recentChangeCount, permissions.CredentialSpaces(ctx))
 	return collectList(rows, err)
 }
 
 // OwnTitles lists the titles of pages a person made and can still see, for the
 // download of their own data.
 func (s *Service) OwnTitles(ctx context.Context, c identity.Caller) ([]string, error) {
-	rows, err := s.pool.Query(ctx, `SELECT p.title FROM pages p JOIN perm_visible_pages($1) v ON v.page_id = p.id
-		WHERE p.created_by = $1 ORDER BY lower(p.title)`, c.UserID)
+	rows, err := s.pool.Query(ctx, `SELECT p.title FROM pages p JOIN perm_visible_pages($1, $2) v ON v.page_id = p.id
+		WHERE p.created_by = $1 ORDER BY lower(p.title)`, c.UserID, permissions.CredentialSpaces(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -242,7 +242,7 @@ func (s *Service) SpaceAudit(ctx context.Context, c identity.Caller, spaceID uui
 	if err != nil {
 		return nil, err
 	}
-	rows, err := s.pool.Query(ctx, "SELECT p.id::text FROM pages p JOIN perm_visible_pages($1) v ON v.page_id = p.id WHERE p.space_id = $2", c.UserID, spaceID)
+	rows, err := s.pool.Query(ctx, "SELECT p.id::text FROM pages p JOIN perm_visible_pages($1, $3) v ON v.page_id = p.id WHERE p.space_id = $2", c.UserID, spaceID, permissions.CredentialSpaces(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -289,9 +289,9 @@ func (s *Service) OrderFavourites(ctx context.Context, c identity.Caller, pageID
 // RecentSpaceIDs lists the spaces of recently visited pages, newest first.
 func (s *Service) RecentSpaceIDs(ctx context.Context, c identity.Caller) ([]uuid.UUID, error) {
 	rows, err := s.pool.Query(ctx, `SELECT p.space_id FROM recent_pages r
-		JOIN perm_listed_pages($1) v ON v.page_id = r.page_id
+		JOIN perm_listed_pages($1, $3) v ON v.page_id = r.page_id
 		JOIN pages p ON p.id = r.page_id
-		WHERE r.user_id = $1 GROUP BY p.space_id ORDER BY max(r.viewed_at) DESC LIMIT $2`, c.UserID, maxRecentSpaces*2)
+		WHERE r.user_id = $1 GROUP BY p.space_id ORDER BY max(r.viewed_at) DESC LIMIT $2`, c.UserID, maxRecentSpaces*2, permissions.CredentialSpaces(ctx))
 	if err != nil {
 		return nil, err
 	}
@@ -310,17 +310,17 @@ func (s *Service) Activity(ctx context.Context, c identity.Caller, spaceID uuid.
 	if err := s.perms.RequireSpace(ctx, s.pool, c.UserID, spaceID, permissions.SpaceView); err != nil {
 		return out, err
 	}
-	err := s.pool.QueryRow(ctx, `SELECT count(*) FROM pages p JOIN perm_listed_pages($1) v ON v.page_id = p.id
-		WHERE p.space_id = $2 AND p.status = 'published'`, c.UserID, spaceID).Scan(&out.PageCount)
+	err := s.pool.QueryRow(ctx, `SELECT count(*) FROM pages p JOIN perm_listed_pages($1, $3) v ON v.page_id = p.id
+		WHERE p.space_id = $2 AND p.status = 'published'`, c.UserID, spaceID, permissions.CredentialSpaces(ctx)).Scan(&out.PageCount)
 	if err != nil {
 		return out, err
 	}
 	rows, err := s.pool.Query(ctx, `SELECT p.id, p.title, p.emoji, p.space_id, s.key, s.name, p.updated_at, false
 		FROM pages p
-		JOIN perm_listed_pages($1) v ON v.page_id = p.id
+		JOIN perm_listed_pages($1, $4) v ON v.page_id = p.id
 		JOIN spaces s ON s.id = p.space_id
 		WHERE p.space_id = $2 AND p.status = 'published'
-		ORDER BY p.updated_at DESC, p.id LIMIT $3`, c.UserID, spaceID, recentChangeCount)
+		ORDER BY p.updated_at DESC, p.id LIMIT $3`, c.UserID, spaceID, recentChangeCount, permissions.CredentialSpaces(ctx))
 	out.Recent, err = collectList(rows, err)
 	return out, err
 }

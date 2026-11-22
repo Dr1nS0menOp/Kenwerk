@@ -11,6 +11,7 @@ import (
 
 	"github.com/kenwerk/kenwerk/internal/db"
 	"github.com/kenwerk/kenwerk/internal/identity"
+	"github.com/kenwerk/kenwerk/internal/permissions"
 	"github.com/kenwerk/kenwerk/internal/trash"
 )
 
@@ -204,8 +205,8 @@ func LinkingInto(ctx context.Context, q db.Querier, user, spaceID uuid.UUID, lim
 		JOIN pages t ON t.id = l.target_id AND t.space_id = $1
 		JOIN pages src ON src.id = l.source_id AND src.space_id <> $1 AND src.status = 'published'
 		JOIN spaces sp ON sp.id = src.space_id
-		WHERE src.id IN (SELECT v.page_id FROM perm_visible_pages($2) v)
-		ORDER BY src.title, src.id LIMIT $3`, spaceID, user, limit)
+		WHERE src.id IN (SELECT v.page_id FROM perm_visible_pages($2, $4) v)
+		ORDER BY src.title, src.id LIMIT $3`, spaceID, user, limit, permissions.CredentialSpaces(ctx))
 	if err != nil {
 		return nil, err
 	}

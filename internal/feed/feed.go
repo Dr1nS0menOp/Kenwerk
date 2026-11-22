@@ -16,6 +16,7 @@ import (
 
 	"github.com/kenwerk/kenwerk/internal/apperr"
 	"github.com/kenwerk/kenwerk/internal/identity"
+	"github.com/kenwerk/kenwerk/internal/permissions"
 )
 
 // The tabs of the start screen.
@@ -73,9 +74,9 @@ func NewService(pool *pgxpool.Pool) *Service { return &Service{pool: pool} }
 // or builds the whole set first and gives up reading the newest versions first: 230 to
 // 360 ms for twenty items on real data (spec 061). Inside an expression the set is built
 // once, as a hash, about 30 ms, and the newest-first walk stays. perm_visible_pages stays
-// the rule.
-func visible(column string) string {
-	return `(CASE WHEN ` + column + ` IN (SELECT page_id FROM perm_visible_pages($1)) THEN true END)`
+// the rule. spaces names the parameter that holds the spaces of the credential (spec 096).
+func visible(column, spaces string) string {
+	return `(CASE WHEN ` + column + ` IN (SELECT page_id FROM perm_visible_pages($1, ` + spaces + `)) THEN true END)`
 }
 
 // readable keeps a version that readers may see: none above the current one, which on a
@@ -96,7 +97,7 @@ var changesSQL = `WITH changes AS (
 		WHERE NOT v.silent AND ` + readable("v") + `
 		  AND NOT EXISTS (SELECT 1 FROM page_versions n WHERE n.page_id = v.page_id AND n.number > v.number AND NOT n.silent
 			AND ` + readable("n") + `)
-		  AND ` + visible("v.page_id") + `
+		  AND ` + visible("v.page_id", "$8") + `
 		  AND NOT ` + byRun("v") + `
 		UNION ALL ` + runItems + `
 	)` + changesTail
@@ -114,9 +115,9 @@ func byRun(version string) string {
 // silent run is in the feed too, as it only keeps people from being told (PUB-821).
 var runItems = `SELECT pub.home_page_id, r.actor_id, r.finished_at, 'released', r.note,
 			(SELECT count(*)::int FROM release_run_pages rp WHERE rp.run_id = r.id AND rp.outcome = 'released'
-				AND ` + visible("rp.twin_page_id") + `)
+				AND ` + visible("rp.twin_page_id", "$8") + `)
 		FROM release_runs r JOIN space_pairs sp ON sp.id = r.pair_id JOIN spaces pub ON pub.id = sp.published_space_id
-		WHERE r.scope NOT IN ('page', 'start') AND r.status = 'done' AND pub.home_page_id IS NOT NULL AND ` + visible("pub.home_page_id")
+		WHERE r.scope NOT IN ('page', 'start') AND r.status = 'done' AND pub.home_page_id IS NOT NULL AND ` + visible("pub.home_page_id", "$8")
 
 // "For you" holds only pages a person watches, pages below a branch they watch, pages
 // of spaces they watch, and pages of people they follow. Walking every version newest
@@ -146,7 +147,7 @@ var forYouSQL = `WITH candidates AS (
 			SELECT n.page_id, n.author_id, n.created_at, n.number FROM page_versions n
 			WHERE n.page_id = k.page_id AND NOT n.silent AND n.number <= cp.current_version
 			ORDER BY n.number DESC LIMIT 1) v
-		WHERE ` + visible("v.page_id") + ` AND NOT ` + byRun("v") + `
+		WHERE ` + visible("v.page_id", "$8") + ` AND NOT ` + byRun("v") + `
 		UNION ALL ` + runItems + ` AND pub.id IN (SELECT w.target_id FROM watches w WHERE w.user_id = $1 AND w.target_type = 'space')
 	)` + changesTail
 
@@ -205,7 +206,7 @@ var popularSQL = `WITH counted AS (
 	scores AS (
 		SELECT v.page_id, v.reactions, v.comments
 		FROM counted v
-		WHERE ` + visible("v.page_id") + `
+		WHERE ` + visible("v.page_id", "$6") + `
 	),
 	-- The top pages first; the excerpt and the name are read for those alone.
 	top AS (
@@ -250,11 +251,11 @@ func (s *Service) List(ctx context.Context, c identity.Caller, q Query) ([]Item,
 	var err error
 	switch q.Tab {
 	case TabPopular:
-		rows, err = s.pool.Query(ctx, popularSQL, c.UserID, space, limit, popularDays, excerptChars)
+		rows, err = s.pool.Query(ctx, popularSQL, c.UserID, space, limit, popularDays, excerptChars, permissions.CredentialSpaces(ctx))
 	case TabForYou:
-		rows, err = s.pool.Query(ctx, forYouSQL, c.UserID, space, before, limit, excerptChars, true, beforeID)
+		rows, err = s.pool.Query(ctx, forYouSQL, c.UserID, space, before, limit, excerptChars, true, beforeID, permissions.CredentialSpaces(ctx))
 	default:
-		rows, err = s.pool.Query(ctx, changesSQL, c.UserID, space, before, limit, excerptChars, false, beforeID)
+		rows, err = s.pool.Query(ctx, changesSQL, c.UserID, space, before, limit, excerptChars, false, beforeID, permissions.CredentialSpaces(ctx))
 	}
 	if err != nil {
 		return nil, err

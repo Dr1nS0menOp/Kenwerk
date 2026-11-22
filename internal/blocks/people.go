@@ -86,7 +86,7 @@ func contributors(ctx context.Context, r reader) (Answer, error) {
 // contributionActs counts versions and comments for a page and all below it that the
 // reader may see. The rest of the query groups them.
 const contributionActs = `WITH seen AS (SELECT t.descendant_id AS page FROM page_tree t
-		JOIN perm_visible_pages($1) v ON v.page_id = t.descendant_id
+		JOIN perm_visible_pages($1, $4) v ON v.page_id = t.descendant_id
 		JOIN pages p ON p.id = t.descendant_id WHERE t.ancestor_id = $2 AND p.status = 'published'),
 	acts AS (SELECT v.page_id AS page, v.author_id AS person, 1 AS versions, 0 AS comments
 			FROM page_versions v JOIN seen s ON s.page = v.page_id
@@ -107,7 +107,7 @@ func contributionTable(ctx context.Context, r reader) (Answer, error) {
 			FROM acts a JOIN pages p ON p.id = a.page GROUP BY a.page, p.title
 			ORDER BY sum(a.versions) + sum(a.comments) DESC, a.page LIMIT $3`
 	}
-	rows, err := r.s.pool.Query(ctx, query, r.userID, id, r.max(defaultRows))
+	rows, err := r.s.pool.Query(ctx, query, r.userID, id, r.max(defaultRows), permissions.CredentialSpaces(ctx))
 	out, err := scanRows(rows, err, func(row pgx.CollectableRow, v *Row) error {
 		var versions, comments int
 		err := row.Scan(&v.ID, &v.Title, &versions, &comments)

@@ -160,11 +160,11 @@ func (s *Service) Posts(ctx context.Context, c identity.Caller, spaceID *uuid.UU
 	rows, err := s.pool.Query(ctx, `SELECT p.id, p.title, p.emoji, p.space_id, sp.key, sp.name, COALESCE(u.display_name, ''),
 			p.published_at, count(*) OVER ()
 		FROM pages p
-		JOIN perm_listed_pages($1) v ON v.page_id = p.id
+		JOIN perm_listed_pages($1, $5) v ON v.page_id = p.id
 		JOIN spaces sp ON sp.id = p.space_id
 		LEFT JOIN users u ON u.id = p.created_by
 		WHERE p.kind = 'post' AND p.status = 'published' AND ($2::uuid IS NULL OR p.space_id = $2)
-		ORDER BY p.published_at DESC, p.id LIMIT $3 OFFSET $4`, c.UserID, spaceID, limit, max(offset, 0))
+		ORDER BY p.published_at DESC, p.id LIMIT $3 OFFSET $4`, c.UserID, spaceID, limit, max(offset, 0), permissions.CredentialSpaces(ctx))
 	if err != nil {
 		return nil, 0, err
 	}

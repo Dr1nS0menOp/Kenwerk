@@ -24,13 +24,18 @@ func operation(method, path string, a Access) map[string]any {
 		"200":     map[string]any{"description": "Done. Most routes answer with JSON."},
 		"default": map[string]any{"description": `An error, as {"error": {"code", "message"}}.`},
 	}
-	return map[string]any{
+	op := map[string]any{
 		"operationId": strings.ToLower(method) + " " + path,
 		"tags":        []string{parts[0]},
 		"parameters":  parameters,
 		"x-access":    a.String(),
 		"responses":   answers,
 	}
+	if a.Scope() != "" {
+		// The scope a token needs (spec 096); docs/api/README.md lists them and the old words.
+		op["x-scope"] = a.Scope()
+	}
+	return op
 }
 
 // OpenAPI describes the API from the route table, so no route can go missing and no
