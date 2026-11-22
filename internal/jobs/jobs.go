@@ -185,15 +185,27 @@ func (s *Service) RunOnce(ctx context.Context) (bool, error) { return s.runNext(
 
 // runNext runs the oldest queued job that is not of a skipped kind.
 func (s *Service) runNext(ctx context.Context, skippedKinds []string) (bool, error) {
-	if s.held != nil {
-		held, err := s.held(ctx)
-		if err != nil {
-			return false, err
-		}
-		if held {
-			return false, nil
-		}
+	if held, err := s.isHeld(ctx); err != nil || held {
+		return false, err
 	}
+	j, found, err := s.claimNext(ctx, skippedKinds)
+	if err != nil || !found {
+		return false, err
+	}
+	return true, s.runClaimed(ctx, j)
+}
+
+// isHeld says whether queued jobs must wait now, as HoldWhile set.
+func (s *Service) isHeld(ctx context.Context) (bool, error) {
+	if s.held == nil {
+		return false, nil
+	}
+	return s.held(ctx)
+}
+
+// claimNext marks the oldest queued job that is not of a skipped kind as running. found
+// is false when there is none.
+func (s *Service) claimNext(ctx context.Context, skippedKinds []string) (Job, bool, error) {
 	var j Job
 	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
 		// Only kinds this node has a handler for: during an upgrade a newer node may queue a
@@ -211,12 +223,17 @@ func (s *Service) runNext(ctx context.Context, skippedKinds []string) (bool, err
 		return err
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return false, nil
+		return Job{}, false, nil
 	}
 	if err != nil {
-		return false, err
+		return Job{}, false, err
 	}
+	return j, true, nil
+}
 
+// runClaimed runs a claimed job and stores how it ended, or queues it again when its
+// handler says it is too early.
+func (s *Service) runClaimed(ctx context.Context, j Job) error {
 	spanCtx, end := tracing.Span(ctx, "job", j.Kind)
 	result, runErr := s.run(spanCtx, j)
 	end(runErr)
@@ -225,7 +242,7 @@ func (s *Service) runNext(ctx context.Context, skippedKinds []string) (bool, err
 		defer cancel()
 		// started_at stays: it marks when the job last tried, which the claim reads.
 		_, err := s.pool.Exec(requeue, "UPDATE jobs SET status = 'queued' WHERE id = $1", j.ID)
-		return true, err
+		return err
 	}
 	status := StatusDone
 	if runErr != nil {
@@ -239,13 +256,13 @@ func (s *Service) runNext(ctx context.Context, skippedKinds []string) (bool, err
 	}
 	body, err := json.Marshal(result)
 	if err != nil {
-		return true, err
+		return err
 	}
 	// A fresh context: the outcome must be stored even during shutdown.
 	store, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 	defer cancel()
 	_, err = s.pool.Exec(store, "UPDATE jobs SET status = $2, result = $3, finished_at = now() WHERE id = $1", j.ID, status, body)
-	return true, err
+	return err
 }
 
 func (s *Service) run(ctx context.Context, j Job) (result any, err error) {

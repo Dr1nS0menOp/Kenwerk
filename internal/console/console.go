@@ -106,15 +106,8 @@ func (s *Service) OrphanedPages(ctx context.Context) ([]OrphanedPage, error) {
 	return out, err
 }
 
-// Attention lists what needs a look. An empty list is good news.
-func (s *Service) Attention(ctx context.Context, mailReady bool) ([]Item, error) {
-	out := []Item{}
-	if !mailReady {
-		out = append(out, Item{Kind: "mail_not_set"})
-	}
-	var failed, expiring, removal, oldNodes, tokens, gaveUp, waiting, orphaned, invitations, helpersDown int
-	var damaged bool
-	err := s.pool.QueryRow(ctx, `SELECT
+// attentionSQL counts, in one query, everything Attention may list.
+const attentionSQL = `SELECT
 			(SELECT count(*) FROM jobs WHERE status = 'failed'),
 			(SELECT count(*) FROM users WHERE status = 'active' AND expires_at IS NOT NULL
 				AND expires_at <= now() + $1::interval),
@@ -125,13 +118,23 @@ func (s *Service) Attention(ctx context.Context, mailReady bool) ([]Item, error)
 				+ (SELECT count(*) FROM api_tokens t JOIN users u ON u.id = t.user_id
 					WHERE u.type = 'service' AND t.revoked_at IS NULL AND t.expires_at > now() AND t.expires_at <= now() + $3::interval),
 			(SELECT count(*) FROM event_failures WHERE replayed_at IS NULL),
-			(SELECT count(*) FROM (`+orphanedRestrictions+`) orphaned),
+			(SELECT count(*) FROM (` + orphanedRestrictions + `) orphaned),
 			(SELECT count(*) FROM outbox_events WHERE published_at IS NULL AND created_at < now() - interval '1 day'),
 			(SELECT count(*) FROM invitation_requests WHERE status = 'waiting'),
 			(SELECT count(*) FROM helper_health WHERE NOT ok),
 			COALESCE((SELECT a.result <> 'success' FROM audit_entries a
-				WHERE a.action = 'audit.verified' AND a.actor_id = 'worker' ORDER BY a.occurred_at DESC LIMIT 1), false)`,
-		expiryWarning, staleNodeMinute, tokenWarning).Scan(&failed, &expiring, &removal, &oldNodes, &tokens, &gaveUp, &orphaned, &waiting, &invitations, &helpersDown, &damaged)
+				WHERE a.action = 'audit.verified' AND a.actor_id = 'worker' ORDER BY a.occurred_at DESC LIMIT 1), false)`
+
+// Attention lists what needs a look. An empty list is good news.
+func (s *Service) Attention(ctx context.Context, mailReady bool) ([]Item, error) {
+	out := []Item{}
+	if !mailReady {
+		out = append(out, Item{Kind: "mail_not_set"})
+	}
+	var failed, expiring, removal, oldNodes, tokens, gaveUp, waiting, orphaned, invitations, helpersDown int
+	var damaged bool
+	err := s.pool.QueryRow(ctx, attentionSQL, expiryWarning, staleNodeMinute, tokenWarning).
+		Scan(&failed, &expiring, &removal, &oldNodes, &tokens, &gaveUp, &orphaned, &waiting, &invitations, &helpersDown, &damaged)
 	if err != nil {
 		return nil, err
 	}
@@ -156,16 +159,27 @@ func (s *Service) Attention(ctx context.Context, mailReady bool) ([]Item, error)
 	if damaged {
 		out = append(out, Item{Kind: "audit_damaged"})
 	}
-	// Uploads fail on a full disk while text still saves (docs/operations/limits.md), so
-	// this warns early. The count is the percentage still free.
-	if disk, ok := s.store.(storage.Spacer); ok {
-		if free, total, err := disk.Space(ctx); err == nil {
-			if percent, full := DiskNearlyFull(free, total, s.diskWarnLevel()); full {
-				out = append(out, Item{Kind: "disk_nearly_full", Count: percent})
-			}
-		}
+	if item, full := s.diskItem(ctx); full {
+		out = append(out, item)
 	}
 	return out, nil
+}
+
+// diskItem warns early that the disk of the files is filling up, as uploads fail on a full
+// disk while text still saves (docs/operations/limits.md). The count is the percentage
+// still free.
+func (s *Service) diskItem(ctx context.Context) (Item, bool) {
+	disk, ok := s.store.(storage.Spacer)
+	if !ok {
+		return Item{}, false
+	}
+	free, total, err := disk.Space(ctx)
+	if err != nil {
+		// A size that cannot be read is unknown, and an unknown size never warns, as before.
+		return Item{}, false
+	}
+	percent, full := DiskNearlyFull(free, total, s.diskWarnLevel())
+	return Item{Kind: "disk_nearly_full", Count: percent}, full
 }
 
 // DiskNearlyFull says whether the free part of a disk is below warnPercent, the warning of
@@ -178,7 +192,7 @@ func DiskNearlyFull(free, total uint64, warnPercent int) (percent int, full bool
 	if warnPercent <= 0 {
 		warnPercent = health.DiskWarnPercent
 	}
-	percent = int(free * 100 / total)
+	percent = int(free * 100 / total) // #nosec G115 -- free is at most total, so this is 0 to 100
 	return percent, percent < warnPercent
 }
 

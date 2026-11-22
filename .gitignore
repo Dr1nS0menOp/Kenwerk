@@ -15,6 +15,9 @@ node_modules/
 !/internal/webui/dist/.placeholder
 /web/test-results/
 /web/playwright-report/
+# Stryker's reports and its working copy (spec 097).
+/web/reports/
+/web/.stryker-tmp/
 .mutation-changed
 
 # Archives dropped into the checkout by hand never belong in the repository.

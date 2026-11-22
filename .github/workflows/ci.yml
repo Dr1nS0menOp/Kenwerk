@@ -57,6 +57,9 @@ jobs:
         run: make staticcheck
       - name: vulnerabilities
         run: make vuln
+      # Spec 097: complexity, length, copies and security patterns, with the ratchet.
+      - name: lint
+        run: make lint
       - name: tests (race detector, integration against PostgreSQL)
         # A job log needs a login to read, while annotations are public, so the lines that
         # name a failing test also go out as annotations.
@@ -86,14 +89,28 @@ jobs:
       - name: types, lint, translation strings, unit tests
         run: make web-check
       - run: make collab-check
-      - name: known vulnerabilities in shipped packages
-        run: npm audit --omit=dev --audit-level=high
-        working-directory: web
-      - name: known vulnerabilities in the packages of the service for editing together
-        run: npm audit --omit=dev --audit-level=high
-        working-directory: collab
+      # Spec 097: every package, development ones too, of the frontend and of the service
+      # for editing together. This covers what the shipped-only audit covered before.
+      - name: known vulnerabilities in all packages
+        run: make audit
       - name: licences
         run: make licenses
+
+  # Spec 097: no secret in any commit of any branch, nor in the working tree.
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - name: every commit
+        run: make secrets-history
+      - name: the working tree
+        run: make secrets
 
   e2e:
     runs-on: ubuntu-latest
@@ -385,5 +402,9 @@ jobs:
             while IFS= read -r line; do echo "::error title=mutation::$line"; done || true
           tail -1 mutation.txt
           exit "$status"
+      # Spec 097: Stryker on the frontend logic; no file's score may fall below its floor.
+      # Nightly, as the Go mutation check: a full run takes over half an hour.
+      - name: do the frontend tests catch changed code?
+        run: make mutation-web
       - name: can an encrypted backup be restored on a clean installation?
         run: bash scripts/restore-drill.sh

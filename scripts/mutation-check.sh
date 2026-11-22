@@ -697,7 +697,7 @@ mutate "a changed anchor passes" internal/audit/prune.go \
 mutate "a damaged chain is pruned" internal/audit/prune.go \
   's.replace("if !check.OK {", "if !check.OK && len(check.Reason) < 0 {")' $app -run TestPruningADamaged
 mutate "jobs run during maintenance" internal/jobs/jobs.go \
-  's.replace("if held {", "if held && s == nil {")' $app -run TestMaintenanceHolds
+  's.replace("err != nil || held {", "err != nil || held \x26\x26 s == nil {")' $app -run TestMaintenanceHolds
 mutate "a passkey login needs no local check" internal/identity/passkeys.go \
   's.replace("webauthn.WithUserVerification(protocol.VerificationRequired)", "webauthn.WithUserVerification(protocol.VerificationDiscouraged)")' $app -run TestPasskeysRequire
 mutate "a passkey is registered without a local check" internal/identity/passkeys.go \

@@ -241,17 +241,10 @@ func (s *Service) List(ctx context.Context, c identity.Caller, q Query) ([]Item,
 	if limit <= 0 || limit > maxItems {
 		limit = defaultItems
 	}
-	var space *uuid.UUID
-	if q.SpaceID != uuid.Nil {
-		space = &q.SpaceID
-	}
+	space, beforeID := idOrNil(q.SpaceID), idOrNil(q.BeforeID)
 	var before *time.Time
 	if !q.Before.IsZero() {
 		before = &q.Before
-	}
-	var beforeID *uuid.UUID
-	if q.BeforeID != uuid.Nil {
-		beforeID = &q.BeforeID
 	}
 	var rows pgx.Rows
 	var err error
@@ -271,4 +264,12 @@ func (s *Service) List(ctx context.Context, c identity.Caller, q Query) ([]Item,
 		out = []Item{}
 	}
 	return out, err
+}
+
+// idOrNil is nil for no id, which the queries read as no filter.
+func idOrNil(id uuid.UUID) *uuid.UUID {
+	if id == uuid.Nil {
+		return nil
+	}
+	return &id
 }

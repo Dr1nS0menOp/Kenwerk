@@ -118,12 +118,16 @@ func Sync(ctx context.Context, tx pgx.Tx, pageID, spaceID, author uuid.UUID, doc
 			t.ID, pageID, spaceID, t.Text, t.AssigneeID, author, due, t.Done, position, keepsReminder); err != nil {
 			return nil, err
 		}
-		isNewAssignee := t.AssigneeID != nil && !t.Done && (!known || old.assignee == nil || *old.assignee != *t.AssigneeID)
-		if isNewAssignee && !slices.Contains(assigned, *t.AssigneeID) {
+		if newlyAssigned(t, old, known) && !slices.Contains(assigned, *t.AssigneeID) {
 			assigned = append(assigned, *t.AssigneeID)
 		}
 	}
 	return assigned, nil
+}
+
+// newlyAssigned says whether an open task has an assignee it did not have before.
+func newlyAssigned(t document.Task, old stored, known bool) bool {
+	return t.AssigneeID != nil && !t.Done && (!known || old.assignee == nil || *old.assignee != *t.AssigneeID)
 }
 
 // PageOf says which page holds a task.

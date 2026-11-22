@@ -189,6 +189,12 @@ func (s *Service) verify(ctx context.Context, tx pgx.Tx, code string, use bool) 
 	if !ok {
 		return ErrClosed, nil
 	}
+	return s.checkCode(ctx, tx, code, use)
+}
+
+// checkCode compares the code with the newest unused one, under the lock verify took. Its
+// results are those of verify.
+func (s *Service) checkCode(ctx context.Context, tx pgx.Tx, code string, use bool) (verdict, err error) {
 	var (
 		id        string
 		hash      []byte

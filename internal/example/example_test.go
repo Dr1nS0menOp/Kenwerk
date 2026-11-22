@@ -59,60 +59,66 @@ func TestEveryDocumentPassesTheGate(t *testing.T) {
 // "Everything that is possible" would go stale without anyone noticing. When this
 // fails, the format gained something: show it in internal/example/content.
 func TestTheExampleShowsEverythingTheFormatCanHold(t *testing.T) {
-	nodes, marks := map[string]bool{}, map[string]bool{}
-	panels, colours, highlights := map[string]bool{}, map[string]bool{}, map[string]bool{}
-	for _, doc := range documents(t) {
-		document.Walk(doc, func(n document.Node) {
-			nodes[n.Type] = true
-			if n.Type == document.TypePanel {
-				kind, _ := n.Attrs["kind"].(string)
-				panels[kind] = true
-			}
-			for _, m := range n.Marks {
-				marks[m.Type] = true
-				color, _ := m.Attrs["color"].(string)
-				if m.Type == document.MarkTextColor {
-					colours[color] = true
-				}
-				if m.Type == document.MarkHighlight {
-					highlights[color] = true
-				}
-			}
-		})
-	}
+	s := shownIn(documents(t))
+	// Nobody writes the unknown block: it is what a block of a newer release turns into.
+	// A value of a template makes its template a guided one (spec 074), which a new
+	// installation does not offer while that experimental part is off, so the example's
+	// template stays plain. A section a condition shows makes it guided as well.
+	notWritten := map[string]bool{document.TypeUnknownBlock: true, document.TypeTemplateValue: true, document.TypeConditional: true}
 	missing := []string{}
 	for _, name := range document.NodeTypes() {
-		// Nobody writes the unknown block: it is what a block of a newer release turns into.
-		// A value of a template makes its template a guided one (spec 074), which a new
-		// installation does not offer while that experimental part is off, so the example's
-		// template stays plain. A section a condition shows makes it guided as well.
-		if !nodes[name] && name != document.TypeUnknownBlock && name != document.TypeTemplateValue && name != document.TypeConditional {
+		if !s.nodes[name] && !notWritten[name] {
 			missing = append(missing, "node "+name)
 		}
 	}
-	for _, name := range document.MarkTypes() {
-		if !marks[name] {
-			missing = append(missing, "mark "+name)
-		}
-	}
-	for _, name := range document.PanelKinds() {
-		if !panels[name] {
-			missing = append(missing, "panel "+name)
-		}
-	}
-	for _, name := range document.TextColors() {
-		if !colours[name] {
-			missing = append(missing, "text colour "+name)
-		}
-	}
-	for _, name := range document.MarkColors() {
-		if !highlights[name] {
-			missing = append(missing, "highlight "+name)
-		}
-	}
+	missing = append(missing, absent("mark", document.MarkTypes(), s.marks)...)
+	missing = append(missing, absent("panel", document.PanelKinds(), s.panels)...)
+	missing = append(missing, absent("text colour", document.TextColors(), s.colours)...)
+	missing = append(missing, absent("highlight", document.MarkColors(), s.highlights)...)
 	if len(missing) > 0 {
 		t.Fatalf("the example does not show: %s. Add it to internal/example/content.", strings.Join(missing, ", "))
 	}
+}
+
+// shown is what the documents of the example hold, by kind.
+type shown struct{ nodes, marks, panels, colours, highlights map[string]bool }
+
+func shownIn(docs map[string]document.Node) shown {
+	s := shown{nodes: map[string]bool{}, marks: map[string]bool{}, panels: map[string]bool{},
+		colours: map[string]bool{}, highlights: map[string]bool{}}
+	for _, doc := range docs {
+		document.Walk(doc, s.add)
+	}
+	return s
+}
+
+func (s shown) add(n document.Node) {
+	s.nodes[n.Type] = true
+	if n.Type == document.TypePanel {
+		kind, _ := n.Attrs["kind"].(string)
+		s.panels[kind] = true
+	}
+	for _, m := range n.Marks {
+		s.marks[m.Type] = true
+		color, _ := m.Attrs["color"].(string)
+		if m.Type == document.MarkTextColor {
+			s.colours[color] = true
+		}
+		if m.Type == document.MarkHighlight {
+			s.highlights[color] = true
+		}
+	}
+}
+
+// absent lists the names the example does not show, each after the kind it is.
+func absent(kind string, names []string, have map[string]bool) []string {
+	var out []string
+	for _, name := range names {
+		if !have[name] {
+			out = append(out, kind+" "+name)
+		}
+	}
+	return out
 }
 
 func TestTheExampleShowsAStretchedTableAndAnUncommonLanguage(t *testing.T) {

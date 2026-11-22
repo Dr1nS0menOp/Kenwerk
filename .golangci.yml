@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: Apache-2.0
+# golangci-lint (spec 097). Only the linters that go vet and staticcheck do not already run,
+# which keep their own make targets: complexity, length, copies and security patterns.
+# The limits hold for all code. Packages that do not meet them yet are listed in
+# scripts/lint-ratchet.txt and shrink wave by wave; a package off that list must stay clean.
+version: "2"
+
+run:
+  timeout: 15m
+  tests: true
+
+linters:
+  default: none
+  enable:
+    - gocyclo
+    - funlen
+    - dupl
+    - gosec
+  settings:
+    gocyclo:
+      # Reported above this number.
+      min-complexity: 10
+    funlen:
+      lines: 40
+      statements: -1
+    dupl:
+      threshold: 150
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  # A long function is often also a complex one, on the same line: both are reported.
+  uniq-by-line: false

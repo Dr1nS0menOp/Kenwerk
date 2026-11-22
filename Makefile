@@ -5,8 +5,12 @@ LDFLAGS := -s -w -X github.com/kenwerk/kenwerk/internal/version.Version=$(VERSIO
 	-X github.com/kenwerk/kenwerk/internal/version.Date=$(BUILD_DATE)
 STATICCHECK := honnef.co/go/tools/cmd/staticcheck@v0.8.2
 GOVULNCHECK := golang.org/x/vuln/cmd/govulncheck@v1.9.0
+# Spec 097. Run as separate programs, never linked into Kenwerk; golangci-lint is GPL-3.0,
+# which blueprint 02 allows for a tool called as a separate process.
+GOLANGCI_LINT := github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
+GITLEAKS := github.com/zricethezav/gitleaks/v8@v8.30.1
 
-.PHONY: all build web run test test-race fmt fmt-check vet staticcheck vuln licenses web-check collab-check mutation reproducible fuzz check clean
+.PHONY: all build web run test test-race fmt fmt-check vet staticcheck vuln lint secrets secrets-history audit licenses web-check collab-check mutation mutation-web reproducible fuzz check clean
 
 all: web build
 
@@ -43,6 +47,25 @@ staticcheck:
 vuln:
 	go run $(GOVULNCHECK) ./...
 
+# Complexity, length, copies and security patterns (spec 097). A package listed in
+# scripts/lint-ratchet.txt may not get worse; every other package must be clean.
+lint:
+	@mkdir -p bin
+	go run $(GOLANGCI_LINT) run --issues-exit-code=0 --output.json.path=bin/golangci.json --output.text.path=/dev/null ./...
+	go run ./cmd/ratchet lint scripts/lint-ratchet.txt bin/golangci.json
+
+# No secret in the working tree (fast), or in any commit (CI).
+secrets:
+	GITLEAKS=$(GITLEAKS) bash scripts/secret-scan.sh tree
+
+secrets-history:
+	GITLEAKS=$(GITLEAKS) bash scripts/secret-scan.sh history
+
+# Known vulnerabilities of high or critical severity in any package, development ones too.
+audit:
+	cd web && npm audit --audit-level=high
+	cd collab && npm audit --audit-level=high
+
 licenses:
 	node scripts/check-licenses.mjs
 
@@ -60,6 +83,11 @@ reproducible:
 mutation:
 	bash scripts/mutation-check.sh
 
+# The same for the frontend logic, with Stryker; no file's score may fall (spec 097).
+mutation-web:
+	cd web && KENWERK_REPO=$(CURDIR) npx stryker run
+	go run ./cmd/ratchet mutation scripts/stryker-ratchet.txt web/reports/mutation/mutation.json
+
 fuzz:
 	go test ./internal/document/ -run '^$$' -fuzz FuzzFromMarkdown -fuzztime 60s
 	go test ./internal/office/ -run '^$$' -fuzz FuzzReadDOCX -fuzztime 60s
@@ -70,7 +98,7 @@ fuzz:
 	go test ./internal/scim/ -run '^$$' -fuzz FuzzParseFilter -fuzztime 30s
 	go test ./internal/search/ -run '^$$' -fuzz FuzzParseQuery -fuzztime 30s
 
-check: fmt-check vet staticcheck vuln licenses web-check collab-check test-race
+check: fmt-check vet staticcheck vuln lint secrets audit licenses web-check collab-check test-race
 
 clean:
 	rm -rf bin dist

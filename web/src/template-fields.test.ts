@@ -3,6 +3,7 @@
 // disagree on a case it holds.
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { readRepoFile, readSharedCases } from './shared-cases';
 import { checkAnswer, checkField, defaultValue, type FieldSpec } from './template-fields';
 
 const CREATOR = '01938f2e-7b3a-7cde-8f00-00000000c0de';
@@ -22,9 +23,7 @@ interface Table {
   defaults: { name: string; field: Record<string, unknown>; value: string }[];
 }
 
-const table = JSON.parse(
-  readFileSync(new URL('../../internal/templates/fields/testdata/cases.json', import.meta.url), 'utf8'),
-) as Table;
+const table = readSharedCases('internal/templates/fields/testdata/cases.json') as Table;
 
 /** Makes the long values the table names with @, as the Go suite does. */
 function expand(v: string): string {
@@ -79,7 +78,7 @@ describe('fields as their author writes them, from the shared table', () => {
 
 describe('the words of every problem', () => {
   it('has words in the form for each problem the server can give', () => {
-    const go = readFileSync(new URL('../../internal/templates/fields/fields.go', import.meta.url), 'utf8');
+    const go = readRepoFile('internal/templates/fields/fields.go');
     const codes = [...go.matchAll(/^\t"(\w+)": +"/gm)].map((m) => m[1] ?? '');
     const words = (
       JSON.parse(readFileSync(new URL('./locales/en.json', import.meta.url), 'utf8')) as {

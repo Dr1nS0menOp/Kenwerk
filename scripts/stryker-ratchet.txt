@@ -1,0 +1,23 @@
+# The floor of the mutation score of each file Stryker mutates (spec 097), in percent, for
+# the files listed under `mutate` in web/stryker.config.mjs; paths are relative to web/.
+# `make mutation-web` fails when a score falls below its floor, when a mutated file is not
+# listed, and when a listed file is no longer mutated. Raise a floor with
+#   go run ./cmd/ratchet mutation -update scripts/stryker-ratchet.txt web/reports/mutation/mutation.json
+# after `make mutation-web`; an update never lowers one. A file joins the list at the score
+# it has the day it is added to `mutate`.
+src/capabilities.ts 65.6
+src/components/editor/dynamic/kinds.ts 22.8
+src/components/editor/shared-clean.ts 77.3
+src/components/editor/table-rules.ts 60.0
+src/components/frame-messages.ts 42.8
+src/components/restriction-state.ts 35.1
+src/components/search-filters.ts 83.6
+src/components/sheet/csv.ts 82.9
+src/components/sheet/formula.ts 81.2
+src/components/tree-model.ts 80.0
+src/create-permission.ts 96.0
+src/kept-fields.ts 19.2
+src/permission-words.ts 90.5
+src/template-conditions.ts 84.9
+src/template-fields.ts 82.1
+src/views/admin-search.ts 98.6

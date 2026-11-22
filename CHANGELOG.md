@@ -3,6 +3,12 @@
 Plain-language notes per release. Every entry has an "Upgrade impact" line.
 
 ## Unreleased
+### Changed: stronger quality gates, held by a ratchet (spec 097, wave QG1)
+- New checks in `make check` and CI: golangci-lint with gocyclo (at most 10), funlen (40 lines), dupl and gosec over all code, tests included; a secret scan with gitleaks over the working tree, and in CI over every commit of every branch; and `npm audit` at high and up over every package of the frontend and of the service for editing together, development ones too
+- Packages that do not meet the lint limits yet are listed in `scripts/lint-ratchet.txt` with their number of findings, which may only fall; every other package must be clean, and a package that becomes clean is held to that from then on. QG1 cleaned 14 packages; 36 remain for the waves QG2 and later
+- Stryker mutation testing for 16 files of frontend logic (`make mutation-web`), with a floor per file in `scripts/stryker-ratchet.txt` that may only rise
+- No secret was found in the repository or its history; three test values that look like one are allowed by name, with the reason
+- Upgrade impact: none. Nothing in the product changed: functions were split into smaller ones with the same behaviour
 ### Changed: the space key in every address, and what a person without access sees (spec 094, wave UR1)
 - The home page of a space is at `/spaces/<key>`, every other page at `/spaces/<key>/pages/<id>`, and the edit, history, compare and insights screens follow it. `/pages/<id>` and all its screens keep working forever, in sent mail and bookmarks too: the page opens and the bar shows its canonical address, without a new history entry. An old key, a key in another case and the key of another space lead to the page's own space, so a change of key and a move break no address
 - Copy link (the header row, Share, the tree, a heading, a block, a selection) copies the canonical address, and Details shows it. Mail, notifications and the automation placeholder `page.url` link to it too. A pasted canonical address is stored in a document as `/pages/<id>`, so no document holds a key

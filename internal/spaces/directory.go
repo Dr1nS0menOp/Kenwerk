@@ -134,13 +134,24 @@ func (s *Service) Directory(ctx context.Context, c identity.Caller, in Directory
 	if err != nil {
 		return nil, 0, err
 	}
+	if err := s.addAdministrators(ctx, list); err != nil {
+		return nil, 0, err
+	}
+	if list == nil {
+		list = []DirectoryRow{}
+	}
+	return list, total, nil
+}
+
+// addAdministrators fills in who administers each listed space, never nil.
+func (s *Service) addAdministrators(ctx context.Context, list []DirectoryRow) error {
 	ids := make([]uuid.UUID, len(list))
 	for i, d := range list {
 		ids[i] = d.ID
 	}
 	admins, err := s.perms.Administrators(ctx, s.pool, ids)
 	if err != nil {
-		return nil, 0, err
+		return err
 	}
 	for i := range list {
 		list[i].Administrators = admins[list[i].ID]
@@ -148,10 +159,7 @@ func (s *Service) Directory(ctx context.Context, c identity.Caller, in Directory
 			list[i].Administrators = []string{}
 		}
 	}
-	if list == nil {
-		list = []DirectoryRow{}
-	}
-	return list, total, nil
+	return nil
 }
 
 // Mine is what the Spaces menu shows first.

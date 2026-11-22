@@ -248,18 +248,9 @@ func (s *Service) OnNewInstance(ctx context.Context) error {
 
 // Create makes the example space with the caller as its owner.
 func (s *Service) Create(ctx context.Context, c identity.Caller) (spaces.Space, error) {
-	p, err := loadPlan()
+	p, err := s.planHere(ctx)
 	if err != nil {
 		return spaces.Space{}, err
-	}
-	// The example shows what this installation offers: without databases (spec 069),
-	// it leaves its database out.
-	databases, err := s.pages.DatabasesOn(ctx)
-	if err != nil {
-		return spaces.Space{}, err
-	}
-	if !databases {
-		p.Pages = withoutDatabases(p.Pages)
 	}
 	sp, err := s.spaces.Create(ctx, c, spaces.Input{Key: p.Key, Name: p.Name, Description: p.Description, Icon: p.Icon})
 	if err != nil {
@@ -271,16 +262,39 @@ func (s *Service) Create(ctx context.Context, c identity.Caller) (spaces.Space, 
 	if sp.HomePageID == nil {
 		return sp, fmt.Errorf("example: the space has no home page")
 	}
+	return sp, s.fillSpace(ctx, c, p, sp)
+}
+
+// planHere is the plan of the example as this installation can show it: without
+// databases (spec 069), it leaves its database out.
+func (s *Service) planHere(ctx context.Context) (plan, error) {
+	p, err := loadPlan()
+	if err != nil {
+		return plan{}, err
+	}
+	databases, err := s.pages.DatabasesOn(ctx)
+	if err != nil {
+		return plan{}, err
+	}
+	if !databases {
+		p.Pages = withoutDatabases(p.Pages)
+	}
+	return p, nil
+}
+
+// fillSpace makes the files, pages, posts, templates and shortcuts of the plan in a new
+// space whose home page exists.
+func (s *Service) fillSpace(ctx context.Context, c identity.Caller, p plan, sp spaces.Space) error {
 	refs := references{files: map[string]uuid.UUID{}, pages: map[string]uuid.UUID{}, owner: c.UserID}
 	if err := s.upload(ctx, c, *sp.HomePageID, p.HomeFiles, refs); err != nil {
-		return sp, err
+		return err
 	}
 	if err := s.makePages(ctx, c, p, sp, refs); err != nil {
-		return sp, err
+		return err
 	}
 	// The pages exist by now, so documents can link to each other.
 	if err := s.fillIn(ctx, c, *sp.HomePageID, p.Name, p.Home, 1, refs); err != nil {
-		return sp, err
+		return err
 	}
 	var failure error
 	p.walk(func(page planPage, _ *planPage) {
@@ -289,18 +303,18 @@ func (s *Service) Create(ctx context.Context, c identity.Caller) (spaces.Space, 
 		}
 	})
 	if failure != nil {
-		return sp, failure
+		return failure
 	}
 	if err := s.makePosts(ctx, c, p, sp.ID, refs); err != nil {
-		return sp, err
+		return err
 	}
 	if err := s.makeTemplates(ctx, c, p, sp.ID, refs); err != nil {
-		return sp, err
+		return err
 	}
 	if err := s.spaces.SetOwners(ctx, c, sp.ID, []uuid.UUID{c.UserID}); err != nil {
-		return sp, err
+		return err
 	}
-	return sp, s.setShortcuts(ctx, c, sp.ID, p, refs)
+	return s.setShortcuts(ctx, c, sp.ID, p, refs)
 }
 
 func (s *Service) makePosts(ctx context.Context, c identity.Caller, p plan, spaceID uuid.UUID, refs references) error {

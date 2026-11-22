@@ -191,21 +191,8 @@ func (s *Service) Record(ctx context.Context, c identity.Caller, v Visit) error 
 	if err := s.perms.RequirePage(ctx, s.pool, c.UserID, v.PageID, permissions.ActionPageView, uuid.Nil); err != nil {
 		return err
 	}
-	st, err := s.Settings(ctx)
-	if err != nil || !st.Enabled {
-		return err
-	}
-	f, err := loadFacts(ctx, s.pool, v.PageID)
-	if err != nil {
-		return err
-	}
-	on, err := s.features.Enabled(ctx, s.pool, f.spaceID, features.Analytics)
-	if err != nil || !on || !f.active || f.owner == c.UserID {
-		return err
-	}
-	// The version this person read: an author of a controlled page reads its working
-	// version, a reader the approved one (spec 064, DOC-571).
-	if f.version, err = pages.VersionSeen(ctx, s.pool, s.perms, c.UserID, v.PageID); err != nil {
+	st, f, counts, err := s.counted(ctx, c, v)
+	if err != nil || !counts {
 		return err
 	}
 	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
@@ -220,6 +207,30 @@ func (s *Service) Record(ctx context.Context, c identity.Caller, v Visit) error 
 		}
 		return s.countOpen(ctx, tx, st, c.UserID, day, reader, f, v)
 	})
+}
+
+// counted says whether a visit counts: analytics on for the instance and the space, a
+// page that is active, and a reader who is not its owner. It returns the settings and the
+// facts of the page that counting needs.
+func (s *Service) counted(ctx context.Context, c identity.Caller, v Visit) (Settings, pageFacts, bool, error) {
+	st, err := s.Settings(ctx)
+	if err != nil || !st.Enabled {
+		return Settings{}, pageFacts{}, false, err
+	}
+	f, err := loadFacts(ctx, s.pool, v.PageID)
+	if err != nil {
+		return Settings{}, pageFacts{}, false, err
+	}
+	on, err := s.features.Enabled(ctx, s.pool, f.spaceID, features.Analytics)
+	if err != nil || !on || !f.active || f.owner == c.UserID {
+		return Settings{}, pageFacts{}, false, err
+	}
+	// The version this person read: an author of a controlled page reads its working
+	// version, a reader the approved one (spec 064, DOC-571).
+	if f.version, err = pages.VersionSeen(ctx, s.pool, s.perms, c.UserID, v.PageID); err != nil {
+		return Settings{}, pageFacts{}, false, err
+	}
+	return st, f, true, nil
 }
 
 func (s *Service) markEngaged(ctx context.Context, tx pgx.Tx, day time.Time, reader []byte, page uuid.UUID) error {
@@ -257,11 +268,8 @@ func (s *Service) countOpen(ctx context.Context, tx pgx.Tx, st Settings, user uu
 		v.PageID, day, readers); err != nil {
 		return err
 	}
-	if v.From != nil && *v.From != v.PageID {
-		if _, err := tx.Exec(ctx, `INSERT INTO page_view_links (day, from_id, to_id) SELECT $1, id, $3 FROM pages WHERE id = $2
-			ON CONFLICT (day, from_id, to_id) DO UPDATE SET count = page_view_links.count + 1`, day, *v.From, v.PageID); err != nil {
-			return err
-		}
+	if err := countLink(ctx, tx, day, v); err != nil {
+		return err
 	}
 	if st.Mode != ModeNames {
 		return nil
@@ -269,6 +277,16 @@ func (s *Service) countOpen(ctx context.Context, tx pgx.Tx, st Settings, user uu
 	_, err = tx.Exec(ctx, `INSERT INTO page_view_people (page_id, user_id, first_at, last_at, last_version) VALUES ($1, $2, $3, $3, $4)
 		ON CONFLICT (page_id, user_id) DO UPDATE SET last_at = EXCLUDED.last_at, views = page_view_people.views + 1,
 			last_version = EXCLUDED.last_version`, v.PageID, user, now, f.version)
+	return err
+}
+
+// countLink counts the way from the page a visit came from, when it came from another one.
+func countLink(ctx context.Context, tx pgx.Tx, day time.Time, v Visit) error {
+	if v.From == nil || *v.From == v.PageID {
+		return nil
+	}
+	_, err := tx.Exec(ctx, `INSERT INTO page_view_links (day, from_id, to_id) SELECT $1, id, $3 FROM pages WHERE id = $2
+		ON CONFLICT (day, from_id, to_id) DO UPDATE SET count = page_view_links.count + 1`, day, *v.From, v.PageID)
 	return err
 }
 

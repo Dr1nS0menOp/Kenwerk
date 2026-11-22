@@ -109,6 +109,22 @@ func newClient(o Options) *http.Client {
 
 // Target checks an address before it is stored or called.
 func (s *Service) Target(ctx context.Context, address string) (*url.URL, error) {
+	u, err := s.parseTarget(address)
+	if err != nil {
+		return nil, err
+	}
+	allowed, err := s.allowed(ctx, u.Hostname())
+	if err != nil {
+		return nil, err
+	}
+	if !allowed {
+		return nil, apperr.Invalid("An administrator must allow this host first, under Outgoing calls.")
+	}
+	return u, nil
+}
+
+// parseTarget checks the form of an address: https on its normal port, no user in it.
+func (s *Service) parseTarget(address string) (*url.URL, error) {
 	u, err := url.Parse(address)
 	if err != nil || u.Hostname() == "" || u.User != nil {
 		return nil, apperr.Invalid("That is not an address.")
@@ -118,13 +134,6 @@ func (s *Service) Target(ctx context.Context, address string) (*url.URL, error) 
 	}
 	if port := u.Port(); port != "" && port != "443" && !s.options.AllowPrivate {
 		return nil, apperr.Invalid("Calls go to the normal https port.")
-	}
-	allowed, err := s.allowed(ctx, u.Hostname())
-	if err != nil {
-		return nil, err
-	}
-	if !allowed {
-		return nil, apperr.Invalid("An administrator must allow this host first, under Outgoing calls.")
 	}
 	return u, nil
 }

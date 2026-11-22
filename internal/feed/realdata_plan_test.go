@@ -22,30 +22,8 @@ import (
 // versions through their index rather than reading them all. It runs only against a restored dump of the seeded data
 // (scripts/stress/real-data.sh) after the pages are put under control.
 func TestTheFeedKeepsItsHashOnRealData(t *testing.T) {
-	url := os.Getenv("KENWERK_REALDATA_URL")
-	if url == "" {
-		t.Skip("KENWERK_REALDATA_URL is not set; see scripts/stress/real-data.sh")
-	}
+	pool, controlled := controlledRealData(t)
 	ctx := context.Background()
-	pool, err := db.Open(ctx, url)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer pool.Close()
-	var migrated bool
-	if err := pool.QueryRow(ctx, "SELECT to_regclass('page_control') IS NOT NULL").Scan(&migrated); err != nil {
-		t.Fatal(err)
-	}
-	if !migrated {
-		t.Skip("the dump is from before spec 064: run TestDocumentControlOnRealData first")
-	}
-	var controlled int
-	if err := pool.QueryRow(ctx, "SELECT count(*) FROM page_control").Scan(&controlled); err != nil {
-		t.Fatal(err)
-	}
-	if controlled == 0 {
-		t.Skip("no page is controlled yet: run TestDocumentControlOnRealData first")
-	}
 	var member uuid.UUID
 	if err := pool.QueryRow(ctx, `SELECT u.id FROM users u
 		WHERE NOT EXISTS (SELECT 1 FROM global_grants g WHERE g.subject_id = u.id AND g.permission = 'administrator')
@@ -71,6 +49,37 @@ func TestTheFeedKeepsItsHashOnRealData(t *testing.T) {
 	compareWithFormerFeed(t, pool, member)
 }
 
+// controlledRealData opens the restored dump of seeded data and says how many of its pages
+// are under document control. It skips the test without a dump, or without controlled pages.
+func controlledRealData(t *testing.T) (*pgxpool.Pool, int) {
+	t.Helper()
+	url := os.Getenv("KENWERK_REALDATA_URL")
+	if url == "" {
+		t.Skip("KENWERK_REALDATA_URL is not set; see scripts/stress/real-data.sh")
+	}
+	ctx := context.Background()
+	pool, err := db.Open(ctx, url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+	var migrated bool
+	if err := pool.QueryRow(ctx, "SELECT to_regclass('page_control') IS NOT NULL").Scan(&migrated); err != nil {
+		t.Fatal(err)
+	}
+	if !migrated {
+		t.Skip("the dump is from before spec 064: run TestDocumentControlOnRealData first")
+	}
+	var controlled int
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM page_control").Scan(&controlled); err != nil {
+		t.Fatal(err)
+	}
+	if controlled == 0 {
+		t.Skip("no page is controlled yet: run TestDocumentControlOnRealData first")
+	}
+	return pool, controlled
+}
+
 // formerSQL is a feed query as it was before spec 064, which never asked for the current
 // version: the same database and moment then show what document control costs.
 func formerSQL(query string) string {
@@ -90,18 +99,6 @@ func compareWithFormerFeed(t *testing.T, pool *pgxpool.Pool, member uuid.UUID) {
 	if err := pool.QueryRow(ctx, "SELECT user_id FROM watches GROUP BY 1 ORDER BY count(*) DESC LIMIT 1").Scan(&watcher); err != nil {
 		t.Fatal(err)
 	}
-	run := func(query string, who uuid.UUID, forYou bool) time.Duration {
-		started := time.Now()
-		rows, err := pool.Query(ctx, query, who, nil, nil, defaultItems, excerptChars, forYou, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		rows.Close()
-		if rows.Err() != nil {
-			t.Fatal(rows.Err())
-		}
-		return time.Since(started)
-	}
 	for _, c := range []struct {
 		name   string
 		query  string
@@ -114,8 +111,8 @@ func compareWithFormerFeed(t *testing.T, pool *pgxpool.Pool, member uuid.UUID) {
 		for who, id := range map[string]uuid.UUID{"member": member, "watcher": watcher} {
 			var now, before []time.Duration
 			for range 5 {
-				before = append(before, run(formerSQL(c.query), id, c.forYou))
-				now = append(now, run(c.query, id, c.forYou))
+				before = append(before, timeFeed(t, pool, formerSQL(c.query), id, c.forYou))
+				now = append(now, timeFeed(t, pool, c.query, id, c.forYou))
 			}
 			slices.Sort(now)
 			slices.Sort(before)
@@ -125,4 +122,19 @@ func compareWithFormerFeed(t *testing.T, pool *pgxpool.Pool, member uuid.UUID) {
 			}
 		}
 	}
+}
+
+// timeFeed runs one feed query for a person and says how long it took.
+func timeFeed(t *testing.T, pool *pgxpool.Pool, query string, who uuid.UUID, forYou bool) time.Duration {
+	t.Helper()
+	started := time.Now()
+	rows, err := pool.Query(context.Background(), query, who, nil, nil, defaultItems, excerptChars, forYou, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows.Close()
+	if rows.Err() != nil {
+		t.Fatal(rows.Err())
+	}
+	return time.Since(started)
 }

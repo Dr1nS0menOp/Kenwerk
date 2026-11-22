@@ -22,6 +22,18 @@ func factsReport(ctx context.Context, r reader) (Answer, error) {
 	if err != nil {
 		return Answer{}, err
 	}
+	values, columns, err := r.factValues(ctx, pages)
+	if err != nil {
+		return Answer{}, err
+	}
+	out := tableOfFacts(pages, values, columns)
+	sortFacts(out, slices.Index(columns, r.text("sort_key")), r.on("descending"))
+	return Answer{Rows: out, Columns: columns}, nil
+}
+
+// factValues reads the facts of these pages, per page and key. Without chosen columns,
+// every key found becomes a column, in the order it first appears.
+func (r reader) factValues(ctx context.Context, pages []Row) (map[uuid.UUID]map[string]string, []string, error) {
 	ids := make([]uuid.UUID, len(pages))
 	for i, p := range pages {
 		ids[i] = p.ID
@@ -29,7 +41,7 @@ func factsReport(ctx context.Context, r reader) (Answer, error) {
 	rows, err := r.s.pool.Query(ctx, `SELECT page_id, key, value FROM page_facts
 		WHERE page_id = ANY($1) AND facts_id = $2 ORDER BY position`, ids, r.text("facts_id"))
 	if err != nil {
-		return Answer{}, err
+		return nil, nil, err
 	}
 	defer rows.Close()
 	columns := r.list("columns")
@@ -39,7 +51,7 @@ func factsReport(ctx context.Context, r reader) (Answer, error) {
 		var id uuid.UUID
 		var key, value string
 		if err := rows.Scan(&id, &key, &value); err != nil {
-			return Answer{}, err
+			return nil, nil, err
 		}
 		if !wanted && !slices.Contains(columns, key) {
 			columns = append(columns, key)
@@ -53,8 +65,13 @@ func factsReport(ctx context.Context, r reader) (Answer, error) {
 		values[id][key] = value
 	}
 	if err := rows.Err(); err != nil {
-		return Answer{}, err
+		return nil, nil, err
 	}
+	return values, columns, nil
+}
+
+// tableOfFacts gives each page that has facts one cell per column.
+func tableOfFacts(pages []Row, values map[uuid.UUID]map[string]string, columns []string) []Row {
 	out := []Row{}
 	for _, p := range pages {
 		if values[p.ID] == nil {
@@ -66,8 +83,7 @@ func factsReport(ctx context.Context, r reader) (Answer, error) {
 		}
 		out = append(out, p)
 	}
-	sortFacts(out, slices.Index(columns, r.text("sort_key")), r.on("descending"))
-	return Answer{Rows: out, Columns: columns}, nil
+	return out
 }
 
 // showInclude shows text from another page. The server walks includes, so no client

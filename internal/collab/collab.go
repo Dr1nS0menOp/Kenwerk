@@ -93,22 +93,9 @@ func (s *Service) Ticket(ctx context.Context, p identity.Principal, pageID uuid.
 // reads the session without counting as activity, so an open editor does not keep a
 // session alive. Every doubt is a no.
 func (s *Service) Recheck(ctx context.Context, raw string, pageID uuid.UUID) (Person, error) {
-	t, err := openTicket(s.options.Keyring, raw, time.Now())
-	if errors.Is(err, errBadTicket) || (err == nil && t.PageID != pageID) {
-		return Person{}, nil
-	}
-	if err != nil {
+	t, p, ok, err := s.holderOf(ctx, raw, pageID)
+	if err != nil || !ok {
 		return Person{}, err
-	}
-	p, err := s.identity.PeekSessionByID(ctx, t.SessionID)
-	if errors.Is(err, identity.ErrNoSession) {
-		return Person{}, nil
-	}
-	if err != nil {
-		return Person{}, err
-	}
-	if p.User.ID != t.UserID || p.NeedsSecondFactor {
-		return Person{}, nil
 	}
 	person, err := s.Authorize(ctx, p, pageID)
 	if err != nil || !person.Allowed {
@@ -119,6 +106,29 @@ func (s *Service) Recheck(ctx context.Context, raw string, pageID uuid.UUID) (Pe
 		return Person{}, err
 	}
 	return person, nil
+}
+
+// holderOf opens a ticket for this page and reads the session behind it without counting
+// as activity. ok is false for a ticket or session that does not hold up.
+func (s *Service) holderOf(ctx context.Context, raw string, pageID uuid.UUID) (ticket, identity.Principal, bool, error) {
+	t, err := openTicket(s.options.Keyring, raw, time.Now())
+	if errors.Is(err, errBadTicket) || (err == nil && t.PageID != pageID) {
+		return ticket{}, identity.Principal{}, false, nil
+	}
+	if err != nil {
+		return ticket{}, identity.Principal{}, false, err
+	}
+	p, err := s.identity.PeekSessionByID(ctx, t.SessionID)
+	if errors.Is(err, identity.ErrNoSession) {
+		return ticket{}, identity.Principal{}, false, nil
+	}
+	if err != nil {
+		return ticket{}, identity.Principal{}, false, err
+	}
+	if p.User.ID != t.UserID || p.NeedsSecondFactor {
+		return ticket{}, identity.Principal{}, false, nil
+	}
+	return t, p, true, nil
 }
 
 // Authorize decides about a session and a page. Edit is needed: a person with view

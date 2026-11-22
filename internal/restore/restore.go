@@ -151,22 +151,8 @@ func Request(ctx context.Context, pool *pgxpool.Pool, a Ask) (Restore, error) {
 	}
 	var out Restore
 	err := pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
-		ready, err := backups.ReadinessToRestore(ctx, tx, a.BackupName)
-		if err != nil {
+		if err := mayRestore(ctx, tx, a.BackupName); err != nil {
 			return err
-		}
-		if !ready.Complete {
-			return apperr.Invalid("Only a backup the worker reported complete can be restored.")
-		}
-		if ready.BackupOpen {
-			return apperr.Conflict("backup_requested", "A backup was asked for and is not finished yet. Restore after it.")
-		}
-		var today int
-		if err := tx.QueryRow(ctx, `SELECT count(*) FROM ops.restores WHERE requested_at > now() - interval '1 day'`).Scan(&today); err != nil {
-			return err
-		}
-		if today >= PerDay {
-			return apperr.Conflict("restore_limit", fmt.Sprintf("At most %d restore a day can be asked for.", PerDay))
 		}
 		var by *uuid.UUID
 		if a.Caller.UserID != uuid.Nil {
@@ -189,6 +175,29 @@ func Request(ctx context.Context, pool *pgxpool.Pool, a Ask) (Restore, error) {
 		return err
 	})
 	return out, err
+}
+
+// mayRestore refuses a backup the worker never reported complete, a restore while a
+// backup is still open, and more than PerDay restores a day.
+func mayRestore(ctx context.Context, tx pgx.Tx, backupName string) error {
+	ready, err := backups.ReadinessToRestore(ctx, tx, backupName)
+	if err != nil {
+		return err
+	}
+	if !ready.Complete {
+		return apperr.Invalid("Only a backup the worker reported complete can be restored.")
+	}
+	if ready.BackupOpen {
+		return apperr.Conflict("backup_requested", "A backup was asked for and is not finished yet. Restore after it.")
+	}
+	var today int
+	if err := tx.QueryRow(ctx, `SELECT count(*) FROM ops.restores WHERE requested_at > now() - interval '1 day'`).Scan(&today); err != nil {
+		return err
+	}
+	if today >= PerDay {
+		return apperr.Conflict("restore_limit", fmt.Sprintf("At most %d restore a day can be asked for.", PerDay))
+	}
+	return nil
 }
 
 // Cancel takes back a restore the worker has not picked up yet.

@@ -13,13 +13,15 @@ cd "$dir/repo"
 echo "clean clone of $(git rev-parse --short HEAD)"
 
 echo "--- go job"
-make fmt-check vet staticcheck vuln test-race build
+make fmt-check vet staticcheck vuln lint test-race build
 
 echo "--- web job"
 (cd web && npm ci --no-fund --no-audit)
 make web-check
-(cd web && npm audit --omit=dev --audit-level=high)
-make licenses
+make audit licenses
+
+echo "--- secrets job"
+make secrets-history secrets
 
 echo "--- a frontend build must not touch tracked files"
 (cd web && npx vite build >/dev/null)

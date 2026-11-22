@@ -4,6 +4,7 @@
 // reads says what the table says (TPL-1014).
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { readRepoFile, readSharedCases } from './shared-cases';
 import {
   conditionSentence,
   holds,
@@ -49,9 +50,7 @@ interface Table {
   sentences: { name: string; condition: Condition; names?: Record<string, string>; sentence: string }[];
 }
 
-const table = JSON.parse(
-  readFileSync(new URL('../../internal/conditions/testdata/cases.json', import.meta.url), 'utf8'),
-) as Table;
+const table = readSharedCases('internal/conditions/testdata/cases.json') as Table;
 
 /** Makes the long parts the table names with @, as the Go suite does. */
 function expand(raw: Record<string, unknown>): Condition {
@@ -132,7 +131,7 @@ describe('the sentence of a condition, from the shared table', () => {
 
 describe('the words of every problem', () => {
   it('has words in the editor for each problem the server can give', () => {
-    const go = readFileSync(new URL('../../internal/conditions/conditions.go', import.meta.url), 'utf8');
+    const go = readRepoFile('internal/conditions/conditions.go');
     const codes = [...go.matchAll(/^\t"(\w+)": +"/gm)].map((m) => m[1] ?? '');
     const words = (
       JSON.parse(readFileSync(new URL('./locales/en.json', import.meta.url), 'utf8')) as {

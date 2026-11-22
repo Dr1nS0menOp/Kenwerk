@@ -24,7 +24,7 @@ const (
 )
 
 func readList(path string) ([]string, error) {
-	f, err := os.Open(path) // #nosec G304 -- a path given by the person running this tool
+	f, err := os.Open(path) // #nosec G304 G703 -- a path given by the person running this tool
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +55,7 @@ func run(args []string) error {
 	for _, password := range list {
 		filter.Add(password)
 	}
-	if err := os.WriteFile(args[1], filter.Bytes(), 0o600); err != nil {
+	if err := os.WriteFile(args[1], filter.Bytes(), 0o600); err != nil { // #nosec G703 -- the person running this tool names the output
 		return err
 	}
 	fmt.Printf("%d passwords\n", len(list))

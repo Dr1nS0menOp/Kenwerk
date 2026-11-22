@@ -86,9 +86,7 @@ var operations = map[string]bool{
 // INTO or UPDATE. It reads words and identifiers only, so a literal in the statement can
 // never become a name.
 func Statement(sql string) (operation, table string) {
-	words := strings.FieldsFunc(sql, func(r rune) bool {
-		return !(r == '_' || r == '.' || r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9')
-	})
+	words := strings.FieldsFunc(sql, isNotInWord)
 	if len(words) == 0 {
 		return "OTHER", ""
 	}
@@ -106,6 +104,12 @@ func Statement(sql string) (operation, table string) {
 		}
 	}
 	return operation, ""
+}
+
+// isNotInWord splits a statement into words and identifiers: ASCII letters, digits, the
+// underscore and the dot of a qualified name.
+func isNotInWord(r rune) bool {
+	return !(r == '_' || r == '.' || r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9')
 }
 
 // isIdentifier accepts a plain SQL name: it starts with a letter or an underscore, is not

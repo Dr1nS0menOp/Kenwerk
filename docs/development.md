@@ -5,10 +5,13 @@ Written for: developers and build sessions. Everything runs in containers, so th
 ```sh
 scripts/dev up                 # database and toolbox (Go, Node)
 scripts/dev sh -c "cd web && npm ci"
-scripts/dev make check         # what CI runs: format, vet, staticcheck, govulncheck, licences, frontend, tests
+scripts/dev make check         # what CI runs: format, vet, staticcheck, govulncheck, lint with its ratchet,
+                               # secret scan of the tree, npm audit, licences, frontend, tests
 scripts/e2e                    # real binary, PostgreSQL and Chromium; add -g "passkey" for a selection
 scripts/dev sh scripts/ci-local.sh   # the CI steps in a fresh clone of what is committed
 scripts/dev make mutation      # breaks security rules on purpose and fails if the tests stay green
+scripts/dev make mutation-web  # Stryker on the frontend logic; no file's score may fall (spec 097)
+scripts/dev make secrets-history   # the secret scan of every commit, as CI runs it (needs a normal clone)
 scripts/dev make fuzz          # fuzzes the parsers
 scripts/dev down
 ```

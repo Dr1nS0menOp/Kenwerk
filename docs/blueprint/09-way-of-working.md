@@ -23,14 +23,14 @@ Because the product owner does not read code, **the automated checks are the cod
 
 | Gate | Tools |
 |---|---|
-| Formatting and lint | `gofmt`, `golangci-lint` (incl. `gosec`, `staticcheck`), ESLint, Prettier, TypeScript strict mode |
+| Formatting and lint | `gofmt`, `go vet`, `staticcheck`, `golangci-lint` with gocyclo (at most 10), funlen (40 lines), dupl and gosec for all code, the packages that do not meet it yet held by a ratchet (spec 097), ESLint, Prettier, TypeScript strict mode |
 | Unit tests | `go test -race`, Vitest. Coverage must not go down. |
 | Integration tests | Real PostgreSQL and NATS in containers (Testcontainers) |
 | Permission matrix | Generated tests from 05. Must be 100% green. |
 | End-to-end | Playwright on the built app, including accessibility checks (axe) |
 | Design | `docs/design/README.md`: tokens, contrast, icons and dialogs through `npm run design`; approved pictures of every screen in the end-to-end run |
 | Upgrade test | Start the previous release with traffic, upgrade to this build, no failed requests allowed, then roll back to the previous release. In CI as the job `upgrade`, with the target branch or the previous commit of main as the previous release (OPS-036) |
-| Security | In CI: `govulncheck`, Trivy (image and dependencies), `npm audit` of shipped packages, licence scan, Semgrep (Go, TypeScript, React and secrets rules), CodeQL (extended security queries, Go and TypeScript), an OWASP ZAP baseline against the real image, and the mutation check (nightly). A finding fails the build; an exception sits on its line with the reason (SEC-1023, ADR-038) |
+| Security | In CI: `govulncheck`, Trivy (image and dependencies), `npm audit` of every package, development ones too, gitleaks over the tree and every commit (spec 097), licence scan, Semgrep (Go, TypeScript, React and secrets rules), CodeQL (extended security queries, Go and TypeScript), an OWASP ZAP baseline against the real image, and the mutation checks: the Go one nightly, Stryker on the frontend logic with a ratchet per file (spec 097). A finding fails the build; an exception sits on its line with the reason (SEC-1023, ADR-038) |
 | Fuzzing | Go native fuzzing on parsers (Markdown, imports, sanitiser), nightly |
 | Load | k6 smoke test per pull request, full 5,000-user test nightly |
 | API contract | The OpenAPI spec matches the code, and every endpoint has a permission annotation |

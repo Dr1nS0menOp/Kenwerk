@@ -123,10 +123,16 @@ func TestARequestSpanIsNamedByItsRouteAndHoldsNoPath(t *testing.T) {
 	if got["http.route"] != "/api/v1/pages/{id}" || got["http.request.method"] != "GET" || got["http.response.status_code"] != "204" {
 		t.Errorf("attributes %v", got)
 	}
-	for key, value := range got {
-		for _, private := range []string{id, "private-words", "agent-of-someone", "192.0.2.7"} {
-			if strings.Contains(value, private) {
-				t.Errorf("%s holds %q", key, private)
+	holdsNone(t, got, id, "private-words", "agent-of-someone", "192.0.2.7")
+}
+
+// holdsNone fails the test for every attribute that holds one of the private values.
+func holdsNone(t *testing.T, attributes map[string]string, private ...string) {
+	t.Helper()
+	for key, value := range attributes {
+		for _, p := range private {
+			if strings.Contains(value, p) {
+				t.Errorf("%s holds %q", key, p)
 			}
 		}
 	}
@@ -324,8 +330,15 @@ func TestAStoredEventCarriesItsTraceToItsConsumer(t *testing.T) {
 	if got := attrs(consume); got["messaging.system"] != "postgresql" || got["messaging.destination.name"] != "page.published" {
 		t.Errorf("attributes %v", got)
 	}
-	if consume.Status.Code != codes.Error || consume.Status.Description != "error" {
-		t.Errorf("status %v", consume.Status)
+	markedFailed(t, consume)
+}
+
+// markedFailed fails the test unless the span has the error status with only the word
+// "error", never the message of the error.
+func markedFailed(t *testing.T, span tracetest.SpanStub) {
+	t.Helper()
+	if span.Status.Code != codes.Error || span.Status.Description != "error" {
+		t.Errorf("status %v", span.Status)
 	}
 }
 

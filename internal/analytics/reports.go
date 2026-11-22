@@ -131,41 +131,60 @@ func (s *Service) PageReport(ctx context.Context, c identity.Caller, id uuid.UUI
 	for _, d := range out.Days {
 		out.Views += d.Views
 	}
-	rows, err = s.pool.Query(ctx, `SELECT p.id, p.title, sum(l.count)::int FROM page_view_links l
-		JOIN perm_visible_pages($1) v ON v.page_id = l.from_id JOIN pages p ON p.id = l.from_id
-		WHERE l.to_id = $2 AND l.day BETWEEN $3 AND $4 GROUP BY p.id, p.title ORDER BY 3 DESC LIMIT 10`, c.UserID, id, p.From, p.To)
-	if out.From, err = collect(rows, err, scanLink); err != nil {
-		return out, err
-	}
-	rows, err = s.pool.Query(ctx, `SELECT p.id, p.title, sum(l.count)::int FROM page_view_links l
-		JOIN perm_visible_pages($1) v ON v.page_id = l.to_id JOIN pages p ON p.id = l.to_id
-		WHERE l.from_id = $2 AND l.day BETWEEN $3 AND $4 GROUP BY p.id, p.title ORDER BY 3 DESC LIMIT 10`, c.UserID, id, p.From, p.To)
-	if out.To, err = collect(rows, err, scanLink); err != nil {
+	if out.From, out.To, err = s.linksOf(ctx, c.UserID, id, p); err != nil {
 		return out, err
 	}
 	out.Readers, out.Mentioned = []Reader{}, []MentionedReader{}
 	if st.Mode != ModeNames {
 		return out, nil
 	}
-	rows, err = s.pool.Query(ctx, `SELECT v.user_id, COALESCE(u.display_name, ''), v.first_at, v.last_at, v.views, v.last_version
+	out.Readers, out.Mentioned, err = s.readersOf(ctx, id)
+	return out, err
+}
+
+// linksOf lists the pages people came from to this page, and the pages they went to from
+// it, among the pages the user may see.
+func (s *Service) linksOf(ctx context.Context, user, id uuid.UUID, p Period) (from, to []LinkCount, err error) {
+	rows, err := s.pool.Query(ctx, `SELECT p.id, p.title, sum(l.count)::int FROM page_view_links l
+		JOIN perm_visible_pages($1) v ON v.page_id = l.from_id JOIN pages p ON p.id = l.from_id
+		WHERE l.to_id = $2 AND l.day BETWEEN $3 AND $4 GROUP BY p.id, p.title ORDER BY 3 DESC LIMIT 10`, user, id, p.From, p.To)
+	if from, err = collect(rows, err, scanLink); err != nil {
+		return nil, nil, err
+	}
+	rows, err = s.pool.Query(ctx, `SELECT p.id, p.title, sum(l.count)::int FROM page_view_links l
+		JOIN perm_visible_pages($1) v ON v.page_id = l.to_id JOIN pages p ON p.id = l.to_id
+		WHERE l.from_id = $2 AND l.day BETWEEN $3 AND $4 GROUP BY p.id, p.title ORDER BY 3 DESC LIMIT 10`, user, id, p.From, p.To)
+	if to, err = collect(rows, err, scanLink); err != nil {
+		return nil, nil, err
+	}
+	return from, to, nil
+}
+
+// readersOf lists who read the page, by name, and whether each person it mentions read it.
+func (s *Service) readersOf(ctx context.Context, id uuid.UUID) ([]Reader, []MentionedReader, error) {
+	rows, err := s.pool.Query(ctx, `SELECT v.user_id, COALESCE(u.display_name, ''), v.first_at, v.last_at, v.views, v.last_version
 		FROM page_view_people v LEFT JOIN users u ON u.id = v.user_id
 		WHERE v.page_id = $1 ORDER BY v.last_at DESC LIMIT $2`, id, maxListRows)
-	if out.Readers, err = collect(rows, err, func(r pgx.CollectableRow) (Reader, error) {
+	readers, err := collect(rows, err, func(r pgx.CollectableRow) (Reader, error) {
 		var v Reader
 		err := r.Scan(&v.ID, &v.Name, &v.FirstAt, &v.LastAt, &v.Views, &v.LastVersion)
 		return v, err
-	}); err != nil {
-		return out, err
+	})
+	if err != nil {
+		return nil, nil, err
 	}
 	rows, err = s.pool.Query(ctx, `SELECT m.user_id, COALESCE(u.display_name, ''),
 			EXISTS (SELECT 1 FROM page_view_people v WHERE v.page_id = m.page_id AND v.user_id = m.user_id)
 		FROM page_mentions m LEFT JOIN users u ON u.id = m.user_id WHERE m.page_id = $1 ORDER BY 2`, id)
-	out.Mentioned, err = collect(rows, err, func(r pgx.CollectableRow) (MentionedReader, error) {
+	mentioned, err := collect(rows, err, func(r pgx.CollectableRow) (MentionedReader, error) {
 		var v MentionedReader
 		err := r.Scan(&v.ID, &v.Name, &v.Read)
 		return v, err
 	})
-	return out, err
+	if err != nil {
+		return nil, nil, err
+	}
+	return readers, mentioned, nil
 }
 
 // ContentRow is a row of the content table of a space.

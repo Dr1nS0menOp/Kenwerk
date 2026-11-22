@@ -100,6 +100,19 @@ See `web/package.json`. The list and its reasons are below, and `scripts/check-l
 
 Development only: `vite`, `typescript`, `vitest`, `eslint`, `prettier`, `@playwright/test`, `@axe-core/playwright`, all named in blueprint 09.
 
+| Package (development only) | Licence | Why | Approved |
+|---|---|---|---|
+| `@stryker-mutator/core` 10.1.1, `@stryker-mutator/vitest-runner` 10.1.1 | Apache-2.0, read from each package | Mutation testing of the frontend logic (`make mutation-web`, spec 097): it proves the unit tests catch changed code, which coverage cannot. Writing a mutation tester ourselves would be a large, non-critical project. They bring 157 packages, all development only and never in a build: MIT, Apache-2.0, ISC, BSD and 0BSD, apart from `caniuse-lite` (CC-BY-4.0, browser data, through Babel). Pinned exactly, installed with `npm install --before` a date two weeks back | The product owner, 2026-11-21 (wave QG1) |
+
+## Quality tools (make check and CI only, never in the product)
+
+Run as separate programs with `go run module@version`, so the Go checksum database verifies every module they are built from, as for staticcheck and govulncheck. Nothing of them is linked into Kenwerk or shipped. Spec 097 says what each catches.
+
+| Tool | Licence | Why | Approved |
+|---|---|---|---|
+| golangci-lint 2.15.0 | GPL-3.0, read from its `LICENSE` | Runs gocyclo (BSD-3), funlen (MIT), dupl (MIT) and gosec (Apache-2.0) with one configuration, `.golangci.yml`, and one JSON report for the ratchet. A GPL tool called as a separate process is allowed by blueprint 02; it never touches our code's licence | The product owner, 2026-11-21 (wave QG1) |
+| gitleaks 8.30.1 | MIT, read from its `LICENSE` | The secret scan of the working tree and of every commit, with `.gitleaks.toml` | The product owner, 2026-11-21 (wave QG1) |
+
 ## Wanted, waiting for the product owner
 
 | What | For | Why it is not here |

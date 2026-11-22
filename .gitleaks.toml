@@ -1,0 +1,43 @@
+# SPDX-License-Identifier: Apache-2.0
+# Secret scan (spec 097). gitleaks runs its own default rules, and these allowlists say what
+# it may pass. Every entry names one value in one file and gives the reason, so a real secret
+# placed beside it is still found. A new entry needs the same: a reason, and a match as
+# narrow as the finding.
+title = "Kenwerk"
+
+[extend]
+useDefault = true
+
+# What git ignores is not part of the repository, and the fast scan of the working tree
+# (make secrets) must not read it: installed packages, builds, and local secrets that never
+# leave the machine. The scan of the git history in CI does not need this, as none of it is
+# committed.
+[[allowlists]]
+description = "Ignored by git: packages, builds and local secrets, never committed"
+paths = [
+  '''(^|/)node_modules/''',
+  '''(^|/)\.git/''',
+  '''^(\./)?(bin|dist|build|data|secrets|backups|backup-key)/''',
+  '''^(\./)?internal/webui/dist/''',
+  '''^(\./)?web/(test-results|playwright-report)/''',
+  '''^(\./)?\.env$''',
+  '''^(\./)?web/(reports|\.stryker-tmp)/''',
+]
+
+[[allowlists]]
+description = "The published test vector of the Standard Webhooks signature (its key and message id), not a secret of ours"
+condition = "AND"
+paths = ['''internal/webhooks/webhooks_test\.go$''']
+regexes = ['''MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw''', '''msg_p5jXN8AQM9LWM0D4loKWxJek''']
+
+[[allowlists]]
+description = "A made-up key fingerprint in a test of the backup page"
+condition = "AND"
+paths = ['''internal/app/backups_test\.go$''']
+regexes = ['''0123456789abcdef''']
+
+[[allowlists]]
+description = "The bootstrap token of a throwaway Authentik that the identity-provider test starts and removes"
+condition = "AND"
+paths = ['''scripts/idp-test/''']
+regexes = ['''bootstrap-token-for-testing-0123456789''']

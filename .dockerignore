@@ -11,5 +11,7 @@ backup-key
 web/node_modules
 web/test-results
 web/playwright-report
+web/reports
+web/.stryker-tmp
 internal/webui/dist/assets
 internal/webui/dist/index.html

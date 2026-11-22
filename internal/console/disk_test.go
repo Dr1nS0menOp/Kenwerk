@@ -38,7 +38,7 @@ func TestDiskNearlyFullFollowsTheWarnLevelOfTheHealthSettings(t *testing.T) {
 		{free: 4, warn: 5, full: true},
 	}
 	for _, c := range cases {
-		percent, full := DiskNearlyFull(uint64(c.free), 100, c.warn)
+		percent, full := DiskNearlyFull(uint64(c.free), 100, c.warn) // #nosec G115 -- the cases are small positive percentages
 		if percent != c.free || full != c.full {
 			t.Fatalf("DiskNearlyFull(%d, 100, %d) = %d, %v; want %d, %v", c.free, c.warn, percent, full, c.free, c.full)
 		}
