@@ -24,7 +24,7 @@ Because the product owner does not read code, **the automated checks are the cod
 | Gate | Tools |
 |---|---|
 | Formatting and lint | `gofmt`, `go vet`, `staticcheck`, `golangci-lint` with gocyclo (at most 10), funlen (40 lines), dupl and gosec for all code, the packages that do not meet it yet held by a ratchet (spec 097), ESLint, Prettier, TypeScript strict mode |
-| Unit tests | `go test -race`, Vitest. Coverage must not go down. |
+| Unit tests | `go test -race`, Vitest. Coverage is a diagnostic, never a target; the mutation checks show whether the tests catch faults (decided by the product owner on 2026-11-22). |
 | Integration tests | Real PostgreSQL and NATS in containers (Testcontainers) |
 | Permission matrix | Generated tests from 05. Must be 100% green. |
 | End-to-end | Playwright on the built app, including accessibility checks (axe) |
