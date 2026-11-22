@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # A release (spec 057). Runs only when a tag vX.Y.Z is pushed: never on a pull request or a
 # branch. Builds the archives, .deb and .rpm with GoReleaser, the images of the app, the
-# backup service and the service for editing together for amd64 and arm64, SBOMs for all of
-# them, signs keylessly with Sigstore, attests SLSA provenance, and leaves a draft
+# backup service and the service for editing together for amd64 and arm64, the Helm chart
+# as an OCI artifact (spec 099), SBOMs for all of them, signs keylessly with Sigstore,
+# attests SLSA provenance, and leaves a draft
 # release for a maintainer to read and publish. Every action is pinned by commit SHA.
 name: release
 
@@ -161,6 +162,27 @@ jobs:
           subject-name: ghcr.io/${{ env.IMAGE_OWNER }}/kenwerk-collab
           subject-digest: ${{ steps.collab-image.outputs.digest }}
           push-to-registry: true
+      # The Helm chart as an OCI artifact beside the images (spec 099), so that
+      # helm install oci://ghcr.io/<owner>/charts/kenwerk --version X.Y.Z works directly. The
+      # chart gets the version of the tag, and the images' tag as appVersion. It is checked
+      # first, with the helm that scripts/deploy-check.sh pins, and signed like the images.
+      - name: check the Helm chart
+        run: bash scripts/deploy-check.sh helm
+      - name: publish and sign the Helm chart
+        run: |
+          helm=bin/deploy-tools/helm
+          version=${GITHUB_REF_NAME#v}
+          "$helm" package deploy/helm/kenwerk --version "$version" --app-version "$GITHUB_REF_NAME" \
+            --destination "$RUNNER_TEMP/chart"
+          printf '%s' "$GH_TOKEN" | "$helm" registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          "$helm" push "$RUNNER_TEMP/chart/kenwerk-$version.tgz" "oci://ghcr.io/${IMAGE_OWNER}/charts" \
+            2>&1 | tee "$RUNNER_TEMP/chart-push.txt"
+          digest=$(grep -oE 'sha256:[0-9a-f]{64}' "$RUNNER_TEMP/chart-push.txt" | head -n 1)
+          test -n "$digest" || { echo "::error::helm push printed no digest"; exit 1; }
+          cosign sign --yes "ghcr.io/${IMAGE_OWNER}/charts/kenwerk@${digest}"
+          gh release upload "$GITHUB_REF_NAME" "$RUNNER_TEMP/chart/kenwerk-$version.tgz"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: SBOM of the image, on the release
         run: |
           image="ghcr.io/${IMAGE_OWNER}/kenwerk@${DIGEST}"

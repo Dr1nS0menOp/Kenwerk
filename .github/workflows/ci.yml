@@ -124,6 +124,17 @@ jobs:
       - name: real binary, real PostgreSQL, real Chromium, accessibility checks
         run: bash scripts/e2e
 
+  # Spec 099: every way to deploy is checked without a cloud account. The Helm chart with helm
+  # lint, helm template and kubeconform, the Terraform module with OpenTofu and Terraform, the
+  # Azure template with Bicep, the AWS template with cfn-lint, and the step that makes the
+  # application role against PostgreSQL. Each tool is pinned by version and sha256 in the script.
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: deployment templates
+        run: bash scripts/deploy-check.sh
+
   # Blueprint 07, rule 2: the release before keeps serving while this one migrates
   # the same database, and still runs on it afterwards, as a rollback does.
   upgrade:

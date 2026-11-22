@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 image:
-  repository: kenwerk
-  tag: ""   # empty = the chart's appVersion
+  # The image the release workflow publishes. Its packages on ghcr.io must be public for a
+  # cluster to pull them without a login (spec 099).
+  repository: ghcr.io/dr1ns0menop/kenwerk
+  tag: ""   # empty = the chart's appVersion, which the release sets to its tag
   pullPolicy: IfNotPresent
 
 # The address people use. Required.
@@ -25,6 +27,16 @@ worker:
 #   metrics-token         optional: turns on /metrics
 existingSecret: kenwerk
 
+# A managed database runs no script when it is made, so nothing makes the application role
+# there. With this on, each pod first runs "kenwerk-backup app-role" from the backup image:
+# as the owner, it makes the role of database-url, or gives it that address's password, and
+# refuses a role that is the owner or holds more rights than it needs (spec 099).
+databaseInit:
+  enabled: false
+  image:
+    repository: ghcr.io/dr1ns0menop/kenwerk-backup
+    tag: ""   # empty = the chart's appVersion
+
 # Files live on this volume until an S3 store exists. With mode split it must be
 # ReadWriteMany.
 persistence:
@@ -42,11 +54,17 @@ service:
 ingress:
   enabled: false
   className: ""
+  # Annotations of the Ingress, such as those of a cloud's load balancer.
+  annotations: {}
   host: ""
   tlsSecret: ""
 
 # Extra environment for all pods, as name and value pairs or valueFrom.
 extraEnv: []
+
+# Further objects to install with the release, such as a cloud's certificate resource. Each
+# is a map, or a string, and goes through tpl, so it may use the release's values.
+extraObjects: []
 
 resources:
   requests:

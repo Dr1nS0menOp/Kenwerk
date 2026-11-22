@@ -64,6 +64,20 @@ They build, list and sign a release in `.github/workflows/release.yml` and the C
 | syft 1.57.1 | Apache-2.0 | The SBOMs in SPDX and CycloneDX | Spec 048, OPS-094 |
 | `actions/attest-build-provenance` 4.2.2 | MIT | SLSA provenance through GitHub | Spec 048, OPS-094 |
 
+## Deployment checks (CI only, never in the product)
+
+They check the deployment templates in `scripts/deploy-check.sh` and the CI job `deploy` (spec 099), and the release workflow publishes the Helm chart with the same `helm`. Nothing of them ends up in the binary, the packages or the images. Each is pinned by version and sha256 in the script; cfn-lint and its packages by hash in `scripts/deploy-check/cfn-lint.txt`. An operator who deploys with a template uses the platform's own tools, which are theirs to choose.
+
+| Tool | Licence | Why | Approved |
+|---|---|---|---|
+| Helm 4.3.1 | Apache-2.0 | `helm lint`, `helm template`, and packaging and pushing the chart | Spec 099 D15 |
+| kubeconform 0.8.0 | Apache-2.0 | The rendered chart against the schemas of Kubernetes 1.33 | Spec 099 D15 |
+| Bicep 0.48.1 | MIT | `bicep lint`, and building `azuredeploy.json` | Spec 099 D15 |
+| OpenTofu 1.13.8 | MPL-2.0 | `tofu validate` and `fmt` of the module and examples | The coordinator allowed MPL-2.0 for these CLIs; spec 099 D16 |
+| Terraform 1.5.7 | MPL-2.0 | The same with Terraform. The last MPL-2.0 release: later ones are BUSL-1.1, which is not allowed | As above |
+| `hashicorp/helm`, `kubernetes`, `random`, `google` providers | MPL-2.0 | Downloaded by `init` so `validate` can check the module and examples | Decided on the product owner's behalf, spec 099 D16, may be overruled |
+| cfn-lint 1.60.0, with jsonpatch, jsonpointer, networkx (BSD-3-Clause), mpmath, sympy (BSD), PyYAML (MIT), regex (Apache-2.0 and CNRI-Python), typing_extensions (PSF-2.0) | MIT-0 | The CloudFormation template, with warnings as failures | As above: MIT-0 and PSF-2.0 are permissive, but not on the list |
+
 ## Deliberately not a dependency
 
 | Part | Decision | Why |

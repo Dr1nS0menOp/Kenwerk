@@ -20,7 +20,10 @@ A pushed tag `vX.Y.Z` on `main` runs `.github/workflows/release.yml` (spec 057),
 - `checksums.txt`, signed with Sigstore;
 - SBOMs in SPDX and CycloneDX;
 - SLSA provenance for every file;
-- the image on `ghcr.io` for both architectures, signed and attested.
+- the image on `ghcr.io` for both architectures, signed and attested;
+- the Helm chart as `oci://ghcr.io/<owner>/charts/kenwerk`, version `X.Y.Z` and appVersion `vX.Y.Z`, signed, and its `.tgz` on the release (spec 099).
+
+**The first release only:** packages that a workflow pushes to ghcr.io start private. Make `kenwerk`, `kenwerk-backup`, `kenwerk-collab` and `charts/kenwerk` public under the repository's Packages, or no button, chart or template can pull them (spec 099).
 
 It leaves a **draft** release with the notes of that version from `CHANGELOG.md`. CI's `release-dry-run` builds the same files on every push to main, and checks that two builds are the same byte for byte.
 
@@ -39,9 +42,10 @@ It leaves a **draft** release with the notes of that version from `CHANGELOG.md`
 5. **The example configuration still loads.** `TestTheExampleFileLoads` passes, and every setting added since the last release is in `deploy/kenwerk.example.yaml` or `.env.example` with a word on when to change it (spec 056).
 6. **The release still builds.** The last `release-dry-run` job on main passed: the configuration is valid, two builds are the same byte for byte, and the `.deb` and `.rpm` install.
 7. **Tag.** Tag the commit on `main` as `v1.x.y` and push the tag. The release workflow builds everything. It takes the version from the tag and the build date from the date of the commit, which the console's warning about an old release reads (spec 051).
-8. **Check the draft.** In the release workflow's run, every step passed. Download `checksums.txt`, its `.sigstore.json` bundle and one package, and verify them as `install.md` says ("Checking what you downloaded"). Run `cosign verify` on the image. Install the `.deb` in a clean Debian machine or container and run `kenwerk version`. Then read the notes and publish the draft.
-9. **Restore from the new version.** Run `bash scripts/restore-drill.sh` on the tagged commit, so the backup of this release is known to restore.
-10. **Announce it.** Point to the notes, and to [upgrade.md](upgrade.md). From 1.0, say that the release line before it is no longer supported.
+8. **The deployment templates.** The last `deploy` job on main passed (spec 099). After the release, try at least one button or module with the new version, as `deploy-*.md` describes.
+9. **Check the draft.** In the release workflow's run, every step passed. Download `checksums.txt`, its `.sigstore.json` bundle and one package, and verify them as `install.md` says ("Checking what you downloaded"). Run `cosign verify` on the image. Install the `.deb` in a clean Debian machine or container and run `kenwerk version`. Then read the notes and publish the draft.
+10. **Restore from the new version.** Run `bash scripts/restore-drill.sh` on the tagged commit, so the backup of this release is known to restore.
+11. **Announce it.** Point to the notes, and to [upgrade.md](upgrade.md). From 1.0, say that the release line before it is no longer supported.
 
 ## Code that ships dark
 

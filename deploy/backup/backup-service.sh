@@ -7,6 +7,9 @@
 #   kenwerk-backup way-back
 #                            after a restore from the console stopped halfway, restore the
 #                            safety backup it made first (spec 059)
+#   kenwerk-backup app-role  make the application role of the database address, or give it
+#                            the password of that address, as the owner; for a managed
+#                            database, where no script runs when it is created (spec 099)
 # It reads the database as the owner, the data volume and ./secrets read-only, and the key
 # from /key/backup.key. Backups go to /backups, encrypted with gpg as backup.sh does, so
 # scripts/restore.sh restores them.
@@ -25,6 +28,10 @@ key=/key/backup.key
 # What this service holds to: how many backups it keeps at least, and how long it waits at
 # most. It sits in the backup folder, which the server never reaches (spec 076).
 held=$target/.kenwerk-held.json
+# Where the two database addresses are: Compose mounts them here, and a cloud template may
+# put them elsewhere through the variables the kenwerk binary reads as well.
+owner_url_file=${KENWERK_MIGRATE_DATABASE_URL_FILE:-/run/secrets/migrate_database_url}
+app_url_file=${KENWERK_DATABASE_URL_FILE:-/run/secrets/database_url}
 interval=${KENWERK_BACKUP_INTERVAL:-4h}
 keep=${KENWERK_BACKUP_KEEP:-42}
 export GNUPGHOME=/tmp/gnupg
@@ -75,7 +82,7 @@ tend() {
 # environment (spec 072). A key=value address is passed whole.
 as_owner() {
   local url rest auth pass
-  url=$(cat /run/secrets/migrate_database_url) || return 1
+  url=$(cat "$owner_url_file") || return 1
   rest=${url#*://}
   auth=${rest%@*}
   case "$url" in
@@ -90,6 +97,72 @@ as_owner() {
       ;;
   esac
   "$@" --dbname="$url"
+}
+
+# url_decode undoes the percent-encoding of one part of an address.
+url_decode() {
+  local s=${1//\\/\\\\}
+  printf '%b' "${s//%/\\x}"
+}
+
+# app_role makes the role of the application's address, as the owner of the tables, or sets
+# its password to the one in that address, and lets it connect and see the schema: what
+# deploy/postgres-init.sh does when Compose creates the database. A managed database runs no
+# such script, so a cloud template runs this before the server starts (spec 099). The tables
+# themselves are granted by Kenwerk after each migration. Running it twice changes nothing.
+#
+# It refuses a role that is the owner, or that could undo the protection of the audit log:
+# the reason the application has a role of its own.
+app_role() {
+  local url rest auth role pass owner_url owner strong
+  url=$(cat "$app_url_file") || return 1
+  owner_url=$(cat "$owner_url_file") || return 1
+  case "$url" in
+    postgres://*:*@* | postgresql://*:*@*) ;;
+    *)
+      log "the application's database address must be postgres://role:password@host/database"
+      return 1
+      ;;
+  esac
+  rest=${url#*://}
+  auth=${rest%@*}
+  role=$(url_decode "${auth%%:*}")
+  pass=$(url_decode "${auth#*:}")
+  rest=${owner_url#*://}
+  owner=$(url_decode "${rest%%[:@]*}")
+  if [ -z "$role" ] || [ -z "$pass" ]; then
+    log "the application's database address has no role or no password"
+    return 1
+  fi
+  if [ "$role" = "$owner" ]; then
+    log "the application role may not be the owner of the tables: give it a role of its own"
+    return 1
+  fi
+  # The name and the password reach psql through its environment, never its command line,
+  # and psql quotes each as an identifier or a literal (spec 072).
+  if ! KENWERK_APP_ROLE=$role KENWERK_APP_PASSWORD=$pass as_owner psql -X -q -v ON_ERROR_STOP=1 <<'SQL'; then
+\getenv app_role KENWERK_APP_ROLE
+\getenv app_password KENWERK_APP_PASSWORD
+SELECT format('CREATE ROLE %I LOGIN', :'app_role')
+  WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'app_role') \gexec
+ALTER ROLE :"app_role" WITH LOGIN PASSWORD :'app_password';
+SELECT format('GRANT CONNECT ON DATABASE %I TO %I', current_database(), :'app_role') \gexec
+GRANT USAGE ON SCHEMA public TO :"app_role";
+SQL
+    log "the application role could not be made or given its password"
+    return 1
+  fi
+  strong=$(KENWERK_APP_ROLE=$role as_owner psql -X -tA -v ON_ERROR_STOP=1 <<'SQL'
+\getenv app_role KENWERK_APP_ROLE
+SELECT rolsuper OR rolcreaterole OR rolbypassrls OR pg_has_role(:'app_role', current_user, 'USAGE')
+  FROM pg_roles WHERE rolname = :'app_role';
+SQL
+  ) || { log "could not check the rights of the application role"; return 1; }
+  if [ "$strong" != f ]; then
+    log "the application role is a superuser, may create roles, bypasses row security or holds the owner's rights: give it a plain role"
+    return 1
+  fi
+  log "the application role is ready"
 }
 
 # schema_ready is whether Kenwerk has made its tables, so a backup can be noted.
@@ -258,6 +331,9 @@ case "${1:-loop}" in
   way-back)
     kenwerk backup restore-way-back --dir "$target" --key "$key"
     ;;
+  app-role)
+    app_role
+    ;;
   loop)
     if ! every=$(seconds_of "$interval"); then
       log "KENWERK_BACKUP_INTERVAL must look like 4h, 30m or 1d, not $interval"
@@ -323,7 +399,7 @@ case "${1:-loop}" in
     done
     ;;
   *)
-    echo "usage: kenwerk-backup [loop|once|way-back]" >&2
+    echo "usage: kenwerk-backup [loop|once|way-back|app-role]" >&2
     exit 2
     ;;
 esac

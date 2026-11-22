@@ -48,11 +48,28 @@ printf '%s\n' 'a long password' | docker compose exec -T kenwerk kenwerk user cr
 
 For a real installation, read [the install guide](docs/operations/install.md).
 
+## Deploy
+
+> The buttons and modules pull the released images and chart from ghcr.io, so **they work from the first release on**. None is published yet. Every template is checked in CI, but none has been run on a cloud yet: try it in a scratch account first ([spec 099](docs/specs/099-deploy-anywhere.md)).
+
+| Where | How | What you get |
+|---|---|---|
+| **Azure** | [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FDr1nS0menOp%2FKenwerk%2Fmain%2Fdeploy%2Fazure%2Fazuredeploy.json) | Container Apps, PostgreSQL flexible server on a private network, Azure Files, backups every 4 hours, https on an Azure address. [Guide](docs/operations/deploy-azure.md) |
+| **Google Cloud** | [![Open in Cloud Shell](https://gstatic.com/cloudssh/images/open-btn.svg)](https://shell.cloud.google.com/cloudshell/editor?cloudshell_git_repo=https%3A%2F%2Fgithub.com%2FDr1nS0menOp%2FKenwerk&cloudshell_workspace=deploy%2Fterraform%2Fexamples%2Fgoogle-cloud&cloudshell_tutorial=tutorial.md) | GKE Autopilot, Cloud SQL on a private address, a managed certificate for your domain. [Guide](docs/operations/deploy-google-cloud.md) |
+| **AWS** | `aws cloudformation deploy --stack-name kenwerk --template-file deploy/aws/kenwerk.yaml --capabilities CAPABILITY_IAM --parameter-overrides KenwerkVersion=v0.1.0` | ECS on Fargate, RDS for PostgreSQL, EFS, backups every 4 hours, https through CloudFront or your own domain. [Guide](docs/operations/deploy-aws.md) |
+| **Terraform / OpenTofu** | `module "kenwerk" { source = "github.com/Dr1nS0menOp/Kenwerk//deploy/terraform/modules/kenwerk" ... }` | Kenwerk on any Kubernetes cluster against your PostgreSQL, with the secrets generated. [Guide](docs/operations/deploy-kubernetes.md#the-terraform-and-opentofu-module) |
+| **Helm** | `helm install wiki oci://ghcr.io/dr1ns0menop/charts/kenwerk --version 0.1.0 --set publicUrl=https://wiki.example.com` | The chart, signed, from its OCI repository. [Guide](docs/operations/deploy-kubernetes.md) |
+| **Docker Compose** | `sh scripts/setup-secrets.sh && docker compose up -d --wait` | The reference installation on one machine. [Guide](docs/operations/install.md) |
+| **Debian, Ubuntu, Fedora, RHEL** | `.deb` and `.rpm` of each release, with a systemd unit | [Guide](docs/operations/install.md#packages-deb-and-rpm) |
+
+Each runs one node, as Kenwerk is sized for, and generates its own passwords: no template holds a secret.
+
 ## Documentation
 
 | | |
 |---|---|
 | [Install](docs/operations/install.md) | Docker Compose and LXC |
+| Deploy on [Azure](docs/operations/deploy-azure.md), [AWS](docs/operations/deploy-aws.md), [Google Cloud](docs/operations/deploy-google-cloud.md), [Kubernetes](docs/operations/deploy-kubernetes.md) | Buttons, templates, the Helm chart and the Terraform module |
 | [Upgrade](docs/operations/upgrade.md) | One command, no downtime |
 | [Backup and restore](docs/operations/backup-restore.md) | With a drill that proves it works |
 | [Identity providers](docs/operations/identity-providers.md) | Authentik, Entra ID, others |

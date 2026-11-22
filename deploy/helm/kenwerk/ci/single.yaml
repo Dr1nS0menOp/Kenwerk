@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+# Values that scripts/deploy-check.sh renders and checks: one pod, the embedded queue.
+publicUrl: https://wiki.example.com
+ingress:
+  enabled: true
+  className: nginx
+  host: wiki.example.com
+  tlsSecret: wiki-tls

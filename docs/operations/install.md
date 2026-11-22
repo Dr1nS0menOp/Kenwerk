@@ -257,6 +257,8 @@ Kenwerk passes `/collab` on to the service, so your reverse proxy must allow Web
 helm install wiki deploy/helm/kenwerk --set publicUrl=https://wiki.example.com
 ```
 
+Each release also publishes it as `oci://ghcr.io/dr1ns0menop/charts/kenwerk`, and `deploy/terraform/modules/kenwerk` installs it with OpenTofu or Terraform and generates the Secret. With a managed database, `databaseInit.enabled=true` makes the application role first. See [deploy-kubernetes.md](deploy-kubernetes.md), and for clouds [Azure](deploy-azure.md), [AWS](deploy-aws.md) and [Google Cloud](deploy-google-cloud.md).
+
 `mode: single` is one pod with the embedded queue. `mode: split` gives API and worker pods, and needs an external NATS, an odd number of servers with three replicas per stream, and a volume all pods can write to, because files stay on a volume until an S3 store exists.
 
 The chart has been checked with `helm lint` and `helm template`, not yet on a cluster. PostgreSQL scales up, not out, and reads stay on the primary, because a person who was just restricted must not read from a stale copy. If you use PgBouncer in transaction mode, it must be 1.21 or newer, and migrations must use a direct connection, because they hold a session lock. Put a limit per address in your proxy: the limits inside Kenwerk count per node.

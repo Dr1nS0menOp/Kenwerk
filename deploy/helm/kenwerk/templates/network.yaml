@@ -21,6 +21,10 @@ metadata:
   name: {{ .Release.Name }}
   labels:
     {{- include "kenwerk.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 spec:
   {{- with .Values.ingress.className }}
   ingressClassName: {{ . }}

@@ -64,7 +64,7 @@ internal/testutil/     helpers for integration tests (fresh database per test)
 web/                   frontend: React, TipTap, i18next; e2e/ holds the browser tests
 web/src/design/        the design system: tokens and all styles (docs/design/README.md)
 scripts/               dev environment, drills, gates; docs/development.md explains them
-deploy/                database init, systemd unit, LXC install
+deploy/                database init, systemd unit, LXC install, Helm, Terraform, Azure and AWS templates (spec 099)
 docs/                  blueprint, specs, operations, security, handoff notes
 ```
 Modules talk through their exported Go API and events, never through each other's tables. ARC-027 allows a list to join a display column of another module's table; every such read is listed in `internal/db/boundary_list_test.go`, and a new one fails the check (spec 072).

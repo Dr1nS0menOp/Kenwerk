@@ -10,7 +10,7 @@ GOVULNCHECK := golang.org/x/vuln/cmd/govulncheck@v1.9.0
 GOLANGCI_LINT := github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
 GITLEAKS := github.com/zricethezav/gitleaks/v8@v8.30.1
 
-.PHONY: all build web run test test-race fmt fmt-check vet staticcheck vuln lint secrets secrets-history audit licenses web-check collab-check mutation mutation-web reproducible fuzz check clean
+.PHONY: all build web run test test-race fmt fmt-check vet staticcheck vuln lint secrets secrets-history audit licenses web-check collab-check deploy-check mutation mutation-web reproducible fuzz check clean
 
 all: web build
 
@@ -78,6 +78,11 @@ web-check:
 # Do two builds of the binary and the web assets match byte for byte? (spec 057)
 reproducible:
 	bash scripts/reproducible.sh
+
+# Are the deployment templates valid (spec 099)? Needs Docker and the network, so it runs on
+# the host, not in the development container, and is its own CI job.
+deploy-check:
+	bash scripts/deploy-check.sh
 
 # Do the tests catch real bugs? Slow, so not part of every check.
 mutation:

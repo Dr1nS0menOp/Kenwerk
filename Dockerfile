@@ -29,9 +29,11 @@ RUN mkdir -p /out/data
 FROM postgres:16@sha256:63e83b5a3dc36a917dccb76fe1bd2ac51f1ec9c1deb47ff20d4f04233bf6eae9 AS backup
 # The base is pinned by digest, so Debian's security updates since then come in here. gosu
 # serves the entrypoint of the postgres image, which this stage replaces, so it goes (spec 067).
+# ca-certificates lets pg_dump check a managed database's certificate with sslrootcert=system
+# (spec 099).
 RUN apt-get update \
  && apt-get upgrade -y --no-install-recommends \
- && apt-get install -y --no-install-recommends gnupg \
+ && apt-get install -y --no-install-recommends gnupg ca-certificates \
  && rm -rf /var/lib/apt/lists/* /usr/local/bin/gosu
 COPY --from=build /out/kenwerk /usr/local/bin/kenwerk
 COPY deploy/backup/backup-service.sh /usr/local/bin/kenwerk-backup

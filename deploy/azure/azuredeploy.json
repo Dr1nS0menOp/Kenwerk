@@ -1,0 +1,624 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.48.1.52935",
+      "templateHash": "8067558533205601831"
+    }
+  },
+  "parameters": {
+    "kenwerkVersion": {
+      "type": "string",
+      "metadata": {
+        "description": "A released version of Kenwerk, such as v0.1.0. Its images must be published and public."
+      }
+    },
+    "name": {
+      "type": "string",
+      "defaultValue": "kenwerk",
+      "minLength": 3,
+      "maxLength": 24,
+      "metadata": {
+        "description": "Name of the app, which is also the start of its address."
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Region of every part."
+      }
+    },
+    "imageRegistry": {
+      "type": "string",
+      "defaultValue": "ghcr.io/dr1ns0menop",
+      "metadata": {
+        "description": "Where the images are: ghcr.io/<owner> of the repository that released them."
+      }
+    },
+    "databaseSku": {
+      "type": "string",
+      "defaultValue": "Standard_B1ms",
+      "metadata": {
+        "description": "Machine of the database. Standard_B1ms suits a trial; give a few hundred people Standard_D2ds_v5 with the tier GeneralPurpose."
+      }
+    },
+    "databaseTier": {
+      "type": "string",
+      "defaultValue": "Burstable",
+      "allowedValues": [
+        "Burstable",
+        "GeneralPurpose",
+        "MemoryOptimized"
+      ],
+      "metadata": {
+        "description": "Tier of that machine: Burstable, GeneralPurpose or MemoryOptimized."
+      }
+    },
+    "databaseBackupDays": {
+      "type": "int",
+      "defaultValue": 7,
+      "minValue": 7,
+      "maxValue": 35,
+      "metadata": {
+        "description": "Days the database keeps its own backups, to restore to any minute in them."
+      }
+    },
+    "ownerPassword": {
+      "type": "securestring",
+      "defaultValue": "[format('{0}-{1}', newGuid(), newGuid())]",
+      "metadata": {
+        "description": "Leave as it is: a new random password at each deployment."
+      }
+    },
+    "appPassword": {
+      "type": "securestring",
+      "defaultValue": "[format('{0}-{1}', newGuid(), newGuid())]",
+      "metadata": {
+        "description": "Leave as it is: a new random password at each deployment."
+      }
+    }
+  },
+  "variables": {
+    "suffix": "[uniqueString(resourceGroup().id, parameters('name'))]",
+    "serverName": "[format('{0}-db-{1}', parameters('name'), variables('suffix'))]",
+    "ownerRole": "kenwerk_owner",
+    "appRole": "kenwerk_app",
+    "databaseName": "kenwerk",
+    "databaseHost": "[format('{0}.postgres.database.azure.com', variables('serverName'))]",
+    "databaseQuery": "sslmode=verify-full&sslrootcert=system",
+    "ownerUrl": "[format('postgres://{0}:{1}@{2}:5432/{3}?{4}', variables('ownerRole'), parameters('ownerPassword'), variables('databaseHost'), variables('databaseName'), variables('databaseQuery'))]",
+    "appUrl": "[format('postgres://{0}:{1}@{2}:5432/{3}?{4}', variables('appRole'), parameters('appPassword'), variables('databaseHost'), variables('databaseName'), variables('databaseQuery'))]",
+    "appsSubnetPrefix": "10.20.0.0/23",
+    "shares": [
+      "data",
+      "backups",
+      "keys"
+    ],
+    "ownerSecretFiles": [
+      {
+        "secretRef": "database-url",
+        "path": "database_url"
+      },
+      {
+        "secretRef": "migrate-database-url",
+        "path": "migrate_database_url"
+      }
+    ]
+  },
+  "resources": [
+    {
+      "type": "Microsoft.OperationalInsights/workspaces",
+      "apiVersion": "2023-09-01",
+      "name": "[format('{0}-logs-{1}', parameters('name'), variables('suffix'))]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "sku": {
+          "name": "PerGB2018"
+        },
+        "retentionInDays": 30
+      }
+    },
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2024-05-01",
+      "name": "[format('{0}-net', parameters('name'))]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "10.20.0.0/16"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "apps",
+            "properties": {
+              "addressPrefix": "[variables('appsSubnetPrefix')]",
+              "delegations": [
+                {
+                  "name": "apps",
+                  "properties": {
+                    "serviceName": "Microsoft.App/environments"
+                  }
+                }
+              ],
+              "serviceEndpoints": [
+                {
+                  "service": "Microsoft.Storage"
+                }
+              ]
+            }
+          },
+          {
+            "name": "database",
+            "properties": {
+              "addressPrefix": "10.20.2.0/24",
+              "delegations": [
+                {
+                  "name": "database",
+                  "properties": {
+                    "serviceName": "Microsoft.DBforPostgreSQL/flexibleServers"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/privateDnsZones",
+      "apiVersion": "2024-06-01",
+      "name": "[format('{0}.private.postgres.database.azure.com', variables('serverName'))]",
+      "location": "global"
+    },
+    {
+      "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+      "apiVersion": "2024-06-01",
+      "name": "[format('{0}/{1}', format('{0}.private.postgres.database.azure.com', variables('serverName')), 'kenwerk')]",
+      "location": "global",
+      "properties": {
+        "registrationEnabled": false,
+        "virtualNetwork": {
+          "id": "[resourceId('Microsoft.Network/virtualNetworks', format('{0}-net', parameters('name')))]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/privateDnsZones', format('{0}.private.postgres.database.azure.com', variables('serverName')))]",
+        "[resourceId('Microsoft.Network/virtualNetworks', format('{0}-net', parameters('name')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.DBforPostgreSQL/flexibleServers",
+      "apiVersion": "2024-08-01",
+      "name": "[variables('serverName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "[parameters('databaseSku')]",
+        "tier": "[parameters('databaseTier')]"
+      },
+      "properties": {
+        "version": "16",
+        "administratorLogin": "[variables('ownerRole')]",
+        "administratorLoginPassword": "[parameters('ownerPassword')]",
+        "storage": {
+          "storageSizeGB": 32,
+          "autoGrow": "Enabled"
+        },
+        "backup": {
+          "backupRetentionDays": "[parameters('databaseBackupDays')]",
+          "geoRedundantBackup": "Disabled"
+        },
+        "highAvailability": {
+          "mode": "Disabled"
+        },
+        "network": {
+          "delegatedSubnetResourceId": "[reference(resourceId('Microsoft.Network/virtualNetworks', format('{0}-net', parameters('name'))), '2024-05-01').subnets[1].id]",
+          "privateDnsZoneArmResourceId": "[resourceId('Microsoft.Network/privateDnsZones', format('{0}.private.postgres.database.azure.com', variables('serverName')))]",
+          "publicNetworkAccess": "Disabled"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/privateDnsZones', format('{0}.private.postgres.database.azure.com', variables('serverName')))]",
+        "[resourceId('Microsoft.Network/privateDnsZones/virtualNetworkLinks', format('{0}.private.postgres.database.azure.com', variables('serverName')), 'kenwerk')]",
+        "[resourceId('Microsoft.Network/virtualNetworks', format('{0}-net', parameters('name')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.DBforPostgreSQL/flexibleServers/configurations",
+      "apiVersion": "2024-08-01",
+      "name": "[format('{0}/{1}', variables('serverName'), 'azure.extensions')]",
+      "properties": {
+        "value": "PG_TRGM",
+        "source": "user-override"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers', variables('serverName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.DBforPostgreSQL/flexibleServers/databases",
+      "apiVersion": "2024-08-01",
+      "name": "[format('{0}/{1}', variables('serverName'), variables('databaseName'))]",
+      "properties": {
+        "charset": "UTF8",
+        "collation": "en_US.utf8"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers/configurations', variables('serverName'), 'azure.extensions')]",
+        "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers', variables('serverName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2023-05-01",
+      "name": "[format('kw{0}', variables('suffix'))]",
+      "location": "[parameters('location')]",
+      "kind": "StorageV2",
+      "sku": {
+        "name": "Standard_LRS"
+      },
+      "properties": {
+        "minimumTlsVersion": "TLS1_2",
+        "supportsHttpsTrafficOnly": true,
+        "allowBlobPublicAccess": false,
+        "networkAcls": {
+          "defaultAction": "Deny",
+          "bypass": "AzureServices",
+          "virtualNetworkRules": [
+            {
+              "id": "[reference(resourceId('Microsoft.Network/virtualNetworks', format('{0}-net', parameters('name'))), '2024-05-01').subnets[0].id]",
+              "action": "Allow"
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', format('{0}-net', parameters('name')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts/fileServices",
+      "apiVersion": "2023-05-01",
+      "name": "[format('{0}/{1}', format('kw{0}', variables('suffix')), 'default')]",
+      "properties": {
+        "shareDeleteRetentionPolicy": {
+          "enabled": true,
+          "days": 14
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts', format('kw{0}', variables('suffix')))]"
+      ]
+    },
+    {
+      "copy": {
+        "name": "share",
+        "count": "[length(variables('shares'))]"
+      },
+      "type": "Microsoft.Storage/storageAccounts/fileServices/shares",
+      "apiVersion": "2023-05-01",
+      "name": "[format('{0}/{1}/{2}', format('kw{0}', variables('suffix')), 'default', variables('shares')[copyIndex()])]",
+      "properties": {
+        "shareQuota": 100,
+        "enabledProtocols": "SMB"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Storage/storageAccounts/fileServices', format('kw{0}', variables('suffix')), 'default')]"
+      ]
+    },
+    {
+      "type": "Microsoft.App/managedEnvironments",
+      "apiVersion": "2024-03-01",
+      "name": "[format('{0}-env', parameters('name'))]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "workloadProfiles": [
+          {
+            "name": "Consumption",
+            "workloadProfileType": "Consumption"
+          }
+        ],
+        "vnetConfiguration": {
+          "infrastructureSubnetId": "[reference(resourceId('Microsoft.Network/virtualNetworks', format('{0}-net', parameters('name'))), '2024-05-01').subnets[0].id]",
+          "internal": false
+        },
+        "appLogsConfiguration": {
+          "destination": "log-analytics",
+          "logAnalyticsConfiguration": {
+            "customerId": "[reference(resourceId('Microsoft.OperationalInsights/workspaces', format('{0}-logs-{1}', parameters('name'), variables('suffix'))), '2023-09-01').customerId]",
+            "sharedKey": "[listKeys(resourceId('Microsoft.OperationalInsights/workspaces', format('{0}-logs-{1}', parameters('name'), variables('suffix'))), '2023-09-01').primarySharedKey]"
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.OperationalInsights/workspaces', format('{0}-logs-{1}', parameters('name'), variables('suffix')))]",
+        "[resourceId('Microsoft.Network/virtualNetworks', format('{0}-net', parameters('name')))]"
+      ]
+    },
+    {
+      "copy": {
+        "name": "environmentStorage",
+        "count": "[length(variables('shares'))]"
+      },
+      "type": "Microsoft.App/managedEnvironments/storages",
+      "apiVersion": "2024-03-01",
+      "name": "[format('{0}/{1}', format('{0}-env', parameters('name')), variables('shares')[copyIndex()])]",
+      "properties": {
+        "azureFile": {
+          "accountName": "[format('kw{0}', variables('suffix'))]",
+          "accountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', format('kw{0}', variables('suffix'))), '2023-05-01').keys[0].value]",
+          "shareName": "[variables('shares')[copyIndex()]]",
+          "accessMode": "ReadWrite"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.App/managedEnvironments', format('{0}-env', parameters('name')))]",
+        "[resourceId('Microsoft.Storage/storageAccounts/fileServices/shares', format('kw{0}', variables('suffix')), 'default', variables('shares')[copyIndex()])]",
+        "[resourceId('Microsoft.Storage/storageAccounts', format('kw{0}', variables('suffix')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.App/containerApps",
+      "apiVersion": "2024-03-01",
+      "name": "[parameters('name')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "environmentId": "[resourceId('Microsoft.App/managedEnvironments', format('{0}-env', parameters('name')))]",
+        "workloadProfileName": "Consumption",
+        "configuration": {
+          "activeRevisionsMode": "Single",
+          "ingress": {
+            "external": true,
+            "targetPort": 8080,
+            "transport": "auto",
+            "allowInsecure": false
+          },
+          "secrets": [
+            {
+              "name": "database-url",
+              "value": "[variables('appUrl')]"
+            },
+            {
+              "name": "migrate-database-url",
+              "value": "[variables('ownerUrl')]"
+            }
+          ]
+        },
+        "template": {
+          "initContainers": [
+            {
+              "name": "prepare",
+              "image": "[format('{0}/kenwerk-backup:{1}', parameters('imageRegistry'), parameters('kenwerkVersion'))]",
+              "command": [
+                "bash",
+                "-c",
+                "set -eu; umask 077; [ -s /key/backup.key ] || head -c 32 /dev/urandom | base64 >/key/backup.key; exec bash /usr/local/bin/kenwerk-backup app-role"
+              ],
+              "resources": {
+                "cpu": "[json('0.25')]",
+                "memory": "0.5Gi"
+              },
+              "env": [
+                {
+                  "name": "KENWERK_DATABASE_URL_FILE",
+                  "value": "/run/secrets/kenwerk/database_url"
+                },
+                {
+                  "name": "KENWERK_MIGRATE_DATABASE_URL_FILE",
+                  "value": "/run/secrets/kenwerk/migrate_database_url"
+                }
+              ],
+              "volumeMounts": [
+                {
+                  "volumeName": "owner-secrets",
+                  "mountPath": "/run/secrets/kenwerk"
+                },
+                {
+                  "volumeName": "keys",
+                  "mountPath": "/key"
+                }
+              ]
+            }
+          ],
+          "containers": [
+            {
+              "name": "kenwerk",
+              "image": "[format('{0}/kenwerk:{1}', parameters('imageRegistry'), parameters('kenwerkVersion'))]",
+              "resources": {
+                "cpu": "[json('0.5')]",
+                "memory": "1Gi"
+              },
+              "env": [
+                {
+                  "name": "KENWERK_ROLE",
+                  "value": "all"
+                },
+                {
+                  "name": "KENWERK_PUBLIC_URL",
+                  "value": "[format('https://{0}.{1}', parameters('name'), reference(resourceId('Microsoft.App/managedEnvironments', format('{0}-env', parameters('name'))), '2024-03-01').defaultDomain)]"
+                },
+                {
+                  "name": "KENWERK_DATABASE_URL_FILE",
+                  "value": "/run/secrets/kenwerk/database_url"
+                },
+                {
+                  "name": "KENWERK_MIGRATE_ON_START",
+                  "value": "false"
+                },
+                {
+                  "name": "KENWERK_TRUSTED_PROXIES",
+                  "value": "[variables('appsSubnetPrefix')]"
+                }
+              ],
+              "probes": [
+                {
+                  "type": "Startup",
+                  "httpGet": {
+                    "path": "/livez",
+                    "port": 8080
+                  },
+                  "periodSeconds": 5,
+                  "failureThreshold": 60
+                },
+                {
+                  "type": "Liveness",
+                  "httpGet": {
+                    "path": "/livez",
+                    "port": 8080
+                  }
+                },
+                {
+                  "type": "Readiness",
+                  "httpGet": {
+                    "path": "/readyz",
+                    "port": 8080
+                  }
+                }
+              ],
+              "volumeMounts": [
+                {
+                  "volumeName": "data",
+                  "mountPath": "/var/lib/kenwerk"
+                },
+                {
+                  "volumeName": "queue",
+                  "mountPath": "/var/lib/kenwerk/nats"
+                },
+                {
+                  "volumeName": "app-secrets",
+                  "mountPath": "/run/secrets/kenwerk"
+                }
+              ]
+            },
+            {
+              "name": "backup",
+              "image": "[format('{0}/kenwerk-backup:{1}', parameters('imageRegistry'), parameters('kenwerkVersion'))]",
+              "resources": {
+                "cpu": "[json('0.25')]",
+                "memory": "0.5Gi"
+              },
+              "env": [
+                {
+                  "name": "KENWERK_DATABASE_URL_FILE",
+                  "value": "/run/secrets/kenwerk/database_url"
+                },
+                {
+                  "name": "KENWERK_MIGRATE_DATABASE_URL_FILE",
+                  "value": "/run/secrets/kenwerk/migrate_database_url"
+                },
+                {
+                  "name": "KENWERK_DATA_DIR",
+                  "value": "/data"
+                },
+                {
+                  "name": "KENWERK_BACKUP_INTERVAL",
+                  "value": "4h"
+                },
+                {
+                  "name": "KENWERK_BACKUP_KEEP",
+                  "value": "42"
+                }
+              ],
+              "volumeMounts": [
+                {
+                  "volumeName": "data",
+                  "mountPath": "/data"
+                },
+                {
+                  "volumeName": "backups",
+                  "mountPath": "/backups"
+                },
+                {
+                  "volumeName": "keys",
+                  "mountPath": "/key"
+                },
+                {
+                  "volumeName": "owner-secrets",
+                  "mountPath": "/run/secrets/kenwerk"
+                },
+                {
+                  "volumeName": "no-secret-files",
+                  "mountPath": "/secrets"
+                }
+              ]
+            }
+          ],
+          "scale": {
+            "minReplicas": 1,
+            "maxReplicas": 1
+          },
+          "volumes": [
+            {
+              "name": "data",
+              "storageType": "AzureFile",
+              "storageName": "[variables('shares')[0]]",
+              "mountOptions": "uid=65532,gid=65532,dir_mode=0700,file_mode=0600"
+            },
+            {
+              "name": "backups",
+              "storageType": "AzureFile",
+              "storageName": "[variables('shares')[1]]",
+              "mountOptions": "dir_mode=0700,file_mode=0600"
+            },
+            {
+              "name": "keys",
+              "storageType": "AzureFile",
+              "storageName": "[variables('shares')[2]]",
+              "mountOptions": "dir_mode=0700,file_mode=0600"
+            },
+            {
+              "name": "queue",
+              "storageType": "EmptyDir"
+            },
+            {
+              "name": "no-secret-files",
+              "storageType": "EmptyDir"
+            },
+            {
+              "name": "app-secrets",
+              "storageType": "Secret",
+              "secrets": [
+                {
+                  "secretRef": "database-url",
+                  "path": "database_url"
+                }
+              ]
+            },
+            {
+              "name": "owner-secrets",
+              "storageType": "Secret",
+              "secrets": "[variables('ownerSecretFiles')]"
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers/databases', variables('serverName'), variables('databaseName'))]",
+        "[resourceId('Microsoft.App/managedEnvironments', format('{0}-env', parameters('name')))]",
+        "[resourceId('Microsoft.App/managedEnvironments/storages', format('{0}-env', parameters('name')), variables('shares')[0])]",
+        "[resourceId('Microsoft.App/managedEnvironments/storages', format('{0}-env', parameters('name')), variables('shares')[1])]",
+        "[resourceId('Microsoft.App/managedEnvironments/storages', format('{0}-env', parameters('name')), variables('shares')[2])]"
+      ]
+    }
+  ],
+  "outputs": {
+    "url": {
+      "type": "string",
+      "metadata": {
+        "description": "The address of the wiki. Open /setup there with the code from the log."
+      },
+      "value": "[format('https://{0}.{1}', parameters('name'), reference(resourceId('Microsoft.App/managedEnvironments', format('{0}-env', parameters('name'))), '2024-03-01').defaultDomain)]"
+    },
+    "setupCodeCommand": {
+      "type": "string",
+      "metadata": {
+        "description": "Prints the line of the log with the one-time setup code."
+      },
+      "value": "[format('az containerapp logs show --name {0} --resource-group {1} --container kenwerk --tail 300 | grep \"first setup\"', parameters('name'), resourceGroup().name)]"
+    }
+  }
+}

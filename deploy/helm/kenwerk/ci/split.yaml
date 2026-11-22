@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0
+# Values that scripts/deploy-check.sh renders and checks: API and worker pods, external NATS.
+publicUrl: https://wiki.example.com
+mode: split
+natsUrl: nats://nats:4222
+persistence:
+  accessMode: ReadWriteMany

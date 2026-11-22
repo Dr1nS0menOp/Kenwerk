@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: Apache-2.0
+# Values that scripts/deploy-check.sh renders and checks: a managed database, where the chart
+# makes the application role, behind a cloud's load balancer, as the Google Cloud example has it.
+publicUrl: https://wiki.example.com
+image:
+  tag: v1.2.3
+databaseInit:
+  enabled: true
+  image:
+    tag: v1.2.3
+trustedProxies: 130.211.0.0/22,35.191.0.0/16
+ingress:
+  enabled: true
+  className: gce
+  host: wiki.example.com
+  annotations:
+    networking.gke.io/managed-certificates: wiki-certificate
+extraObjects:
+  - apiVersion: networking.gke.io/v1
+    kind: ManagedCertificate
+    metadata:
+      name: "{{ .Release.Name }}-certificate"
+    spec:
+      domains: [wiki.example.com]
+extraEnv:
+  - name: KENWERK_SMTP_HOST
+    value: mail.example.com

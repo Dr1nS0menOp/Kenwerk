@@ -1,7 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
+# The release workflow packages the chart with the version of its tag: version X.Y.Z and
+# appVersion vX.Y.Z, the tag of the images (spec 099).
 apiVersion: v2
 name: kenwerk
 description: Kenwerk, a self-hosted wiki. Needs an existing PostgreSQL.
 type: application
 version: 0.1.0
-appVersion: "0.1.0"
+appVersion: "v0.1.0"
+home: https://github.com/Dr1nS0menOp/Kenwerk
+sources:
+  - https://github.com/Dr1nS0menOp/Kenwerk

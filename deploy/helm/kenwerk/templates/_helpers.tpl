@@ -25,6 +25,33 @@ spec:
     fsGroup: 65532
     seccompProfile:
       type: RuntimeDefault
+  {{- if $root.Values.databaseInit.enabled }}
+  initContainers:
+    - name: database-role
+      image: "{{ $root.Values.databaseInit.image.repository }}:{{ $root.Values.databaseInit.image.tag | default $root.Chart.AppVersion }}"
+      imagePullPolicy: {{ $root.Values.image.pullPolicy }}
+      args: [app-role]
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop: [ALL]
+      env:
+        - name: KENWERK_DATABASE_URL_FILE
+          value: /run/secrets/kenwerk/database-url
+        - name: KENWERK_MIGRATE_DATABASE_URL_FILE
+          value: /run/secrets/kenwerk/migrate-database-url
+        - name: HOME
+          value: /tmp
+      resources:
+        {{- toYaml $root.Values.resources | nindent 8 }}
+      volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: secrets
+          mountPath: /run/secrets/kenwerk
+          readOnly: true
+  {{- end }}
   containers:
     - name: kenwerk
       image: "{{ $root.Values.image.repository }}:{{ $root.Values.image.tag | default $root.Chart.AppVersion }}"
