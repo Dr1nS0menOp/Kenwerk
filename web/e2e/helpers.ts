@@ -71,6 +71,24 @@ export async function editorSettled(page: Page) {
   await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => setTimeout(done, 40))));
 }
 
+/** What the publish step can be asked to set before it publishes (spec 082). */
+export interface PublishStepChoices {
+  summary?: string;
+  /** Leaves Notify watchers off. */
+  silent?: boolean;
+}
+
+/** Opens the publish step from the editor's strip and publishes with its primary button. */
+export async function publishFromEditor(page: Page, choices: PublishStepChoices = {}) {
+  await page.getByRole('button', { name: 'Publish…', exact: true }).click();
+  const step = page.getByRole('dialog', { name: 'Publish', exact: true });
+  await expect(step).toBeVisible();
+  if (choices.summary !== undefined) await step.getByLabel('What changed? (optional)').fill(choices.summary);
+  if (choices.silent) await step.getByLabel('Notify watchers').uncheck();
+  await step.getByRole('button', { name: 'Publish', exact: true }).click();
+  await expect(step).toHaveCount(0);
+}
+
 let counter = 0;
 export const unique = (prefix: string) => `${prefix}${Date.now().toString(36)}${counter++}`;
 

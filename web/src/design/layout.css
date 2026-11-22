@@ -1327,6 +1327,42 @@ a.byline-part:hover {
   font-size: var(--text-ui);
 }
 
+/* History beside the draft: the same place as Details, under the strip and the row of tools, so
+   History itself stays in view while it is open (EDT-172). */
+.history-panel {
+  inset-block-start: calc(var(--size-topbar) + var(--size-editbar) + var(--size-tool) + 2 * var(--space-1-5));
+}
+
+.history-list {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+
+.history-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.history-list input {
+  margin-block-start: var(--space-2);
+}
+
+.ghost.history-entry {
+  display: grid;
+  flex: 1;
+  justify-content: start;
+  justify-items: start;
+  gap: var(--space-0-5);
+  min-inline-size: 0;
+  padding: var(--space-1) var(--space-2);
+  color: var(--color-ink);
+  text-align: start;
+}
+
 .details-facts {
   display: grid;
   gap: var(--space-2);

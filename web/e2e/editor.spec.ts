@@ -13,6 +13,7 @@ import {
   test,
   unique,
   pageMenu,
+  publishFromEditor,
 } from './helpers';
 
 const PNG = Buffer.from(
@@ -66,7 +67,7 @@ test('writing a page with Markdown shortcuts and publishing it', async ({ page }
   await page.keyboard.press('Enter');
   await page.keyboard.type('const a = 1;');
 
-  await page.getByRole('button', { name: 'Publish', exact: true }).click();
+  await publishFromEditor(page);
   await expect(page.getByRole('heading', { name: 'Shortcuts', level: 1 })).toBeVisible();
 
   const doc = page.locator('.prose');
@@ -79,18 +80,128 @@ test('writing a page with Markdown shortcuts and publishing it', async ({ page }
   await checkAccessibility(page);
 });
 
+test('the strip shows the page at its start and Publish and Close at its end', async ({ page }) => {
+  const space = await newSpace(page, 'Strip space');
+  const id = await publishedPage(page, space.id, 'Strip page', 'start');
+  await page.goto(`/pages/${id}/edit`);
+  const strip = page.locator('.edit-bar');
+  await expect(strip.locator('.edit-strip-start')).toContainText('Strip page');
+  await expect(strip.locator('.edit-strip-start .kind-mark')).toBeVisible();
+  const end = strip.locator('.edit-strip-end');
+  await expect(end.locator('button, a').last()).toHaveText('Close');
+  await expect(end.getByRole('button', { name: 'Publish…', exact: true })).toHaveClass(/primary/);
+  // The summary, Discard draft and Comment are no longer in the strip.
+  await expect(strip.getByRole('textbox')).toHaveCount(0);
+  await expect(strip.getByRole('button', { name: 'Revert to published' })).toHaveCount(0);
+  await expect(strip.getByRole('button', { name: 'Comment', exact: true })).toHaveCount(0);
+
+  // The title in the strip follows what is typed in the sheet.
+  await page.getByRole('textbox', { name: 'Title' }).fill('Strip renamed');
+  await expect(strip.locator('.edit-title')).toHaveText('Strip renamed');
+  // The reduced byline names the owner, and nothing else of the page's byline.
+  await expect(page.locator('.editor-byline')).toContainText('Admin');
+  await expect(page.locator('.editor-byline').getByRole('button', { name: 'Add a reaction' })).toHaveCount(0);
+  await checkAccessibility(page);
+});
+
+test('Publish opens a step; Escape goes back to Publish, Ctrl Enter skips the step', async ({ page }) => {
+  const space = await newSpace(page, 'Step space');
+  const id = await publishedPage(page, space.id, 'Stepped', 'start');
+  await page.goto(`/pages/${id}/edit`);
+  const publish = page.getByRole('button', { name: 'Publish…', exact: true });
+  await publish.click();
+  const step = page.getByRole('dialog', { name: 'Publish', exact: true });
+  await expect(step.getByLabel('What changed? (optional)')).toBeFocused();
+  await expect(step.getByLabel('Notify watchers')).toBeChecked();
+  await expect(step.getByRole('button', { name: 'Revert to published' })).toHaveClass(/danger/);
+  await checkAccessibility(page);
+  await page.keyboard.type('Kept between openings');
+  await page.keyboard.press('Escape');
+  await expect(step).toHaveCount(0);
+  await expect(publish).toBeFocused();
+
+  // The step keeps its choices while the editor is open.
+  await publish.click();
+  await expect(step.getByLabel('What changed? (optional)')).toHaveValue('Kept between openings');
+  await page.keyboard.press('Escape');
+
+  await page.locator('.prose.editing').click();
+  await editorSettled(page);
+  await page.keyboard.press('Control+End');
+  await page.keyboard.type(' and more');
+  await page.keyboard.press('Control+Enter');
+  await expect(page.getByRole('heading', { name: 'Stepped', level: 1 })).toBeVisible();
+  await expect(page.locator('.prose')).toContainText('and more');
+  const versions = await page.request.get(`/api/v1/pages/${id}/versions`);
+  expect(JSON.stringify(await versions.json())).toContain('Kept between openings');
+});
+
+test('Enter in the summary publishes, and Discard draft asks first', async ({ page }) => {
+  const space = await newSpace(page, 'Discard space');
+  const id = await publishedPage(page, space.id, 'Discarded', 'the words');
+  await page.goto(`/pages/${id}/edit`);
+  await page.locator('.prose.editing').click();
+  await editorSettled(page);
+  await page.keyboard.press('Control+End');
+  await page.keyboard.type(' thrown away');
+  await expect(page.getByText('Draft saved')).toBeVisible();
+  await page.getByRole('button', { name: 'Publish…', exact: true }).click();
+  const step = page.getByRole('dialog', { name: 'Publish', exact: true });
+  await step.getByRole('button', { name: 'Revert to published' }).click();
+  const ask = page.getByRole('dialog', { name: 'Revert to published' });
+  await expect(ask).toContainText('Throw away your changes');
+  await ask.getByRole('button', { name: 'Revert to published' }).click();
+  await expect(page.getByRole('heading', { name: 'Discarded', level: 1 })).toBeVisible();
+  await expect(page.locator('.prose')).not.toContainText('thrown away');
+
+  await page.goto(`/pages/${id}/edit`);
+  await page.locator('.prose.editing').click();
+  await editorSettled(page);
+  await page.keyboard.press('Control+End');
+  await page.keyboard.type(' kept');
+  await page.getByRole('button', { name: 'Publish…', exact: true }).click();
+  await page.keyboard.type('With Enter');
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: 'Discarded', level: 1 })).toBeVisible();
+  await expect(page.locator('.prose')).toContainText('kept');
+});
+
+test('Ctrl / and the help button open the shortcuts with the typing shortcuts', async ({ page }) => {
+  const space = await newSpace(page, 'Help space');
+  const id = await publishedPage(page, space.id, 'Helped', 'start');
+  await page.goto(`/pages/${id}/edit`);
+  await page.locator('.prose.editing').click();
+  await editorSettled(page);
+  await page.keyboard.press('Control+/');
+  const overview = page.getByRole('dialog', { name: 'Keyboard shortcuts' });
+  await expect(overview.locator('h3').first()).toHaveText('While writing');
+  await expect(overview.getByRole('heading', { name: 'As you type' })).toBeVisible();
+  await expect(overview).toContainText('[text](address)');
+  await expect(overview.getByRole('link', { name: /Documentation/ })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(overview).toHaveCount(0);
+  // The text is untouched by the key.
+  await expect(page.locator('.prose.editing')).toHaveText('start');
+
+  const help = page.getByRole('button', { name: 'Help with writing' });
+  const corner = await help.boundingBox();
+  const sheet = await page.locator('.editor-sheet').boundingBox();
+  expect(corner && sheet && corner.x < sheet.x + sheet.width / 2).toBe(true);
+  await help.click();
+  await expect(overview).toBeVisible();
+  await checkAccessibility(page);
+});
+
 test('tables, links, and a pasted address stay safe', async ({ page }) => {
   const space = await newSpace(page, 'Table space');
   const id = await publishedPage(page, space.id, 'Tables', 'start');
   await page.goto(`/pages/${id}/edit`);
   await page.getByRole('button', { name: 'Table', exact: true }).click();
-  await page.getByRole('dialog', { name: 'New table' }).getByRole('button', { name: 'Insert table' }).click();
   await editorSettled(page);
   await page.keyboard.type('Name');
-  await page.getByRole('button', { name: 'Table options' }).click();
+  await page.getByRole('button', { name: /^Cell options/ }).click();
   await page.getByRole('menuitem', { name: 'Add row below' }).click();
-  await page.keyboard.press('Escape');
-  await page.getByRole('button', { name: 'Publish', exact: true }).click();
+  await publishFromEditor(page);
   await expect(page.locator('.prose table tr')).toHaveCount(4);
   await expect(page.locator('.prose th').first()).toHaveText('Name');
 
@@ -107,7 +218,7 @@ test('tables, links, and a pasted address stay safe', async ({ page }) => {
     alerted = true;
     await d.dismiss();
   });
-  await page.getByRole('button', { name: 'Publish', exact: true }).click();
+  await publishFromEditor(page);
   // Check the page as readers get it, not the editor that is still closing.
   await expect(page.locator('.prose.editing')).toHaveCount(0);
   await expect(page.locator('.prose')).toContainText('<img src=x onerror=alert(1)>');
@@ -137,8 +248,7 @@ test('drafts survive a reload, and history compares and restores', async ({ page
   await expect(page.locator('.prose')).not.toContainText('and more');
 
   await page.getByRole('link', { name: 'You have an unsaved draft' }).click();
-  await page.getByLabel('What changed?').fill('Added words');
-  await page.getByRole('button', { name: 'Publish', exact: true }).click();
+  await publishFromEditor(page, { summary: 'Added words' });
   await expect(page.locator('.prose')).toContainText('and more');
 
   await page.getByRole('button', { name: 'More actions' }).click();
@@ -180,7 +290,7 @@ test('publishing over someone else warns first', async ({ page, browser }) => {
   expect(res.ok()).toBeTruthy();
   await other.close();
 
-  await page.getByRole('button', { name: 'Publish', exact: true }).click();
+  await publishFromEditor(page);
   await expect(page.getByRole('dialog', { name: 'Someone else published' })).toBeVisible();
   await page.getByRole('button', { name: 'Publish anyway' }).click();
   await expect(page.locator('.prose')).toContainText('mine');
@@ -210,7 +320,7 @@ test('images go in through the toolbar and show on the page', async ({ page }) =
     buffer: PNG,
   });
   await expect(page.locator('.prose.editing img')).toBeVisible();
-  await page.getByRole('button', { name: 'Publish', exact: true }).click();
+  await publishFromEditor(page);
   const image = page.locator('.prose img');
   await expect(image).toBeVisible();
   await expect.poll(() => image.evaluate((i: HTMLImageElement) => i.naturalWidth)).toBe(1);
@@ -227,7 +337,7 @@ test('a file dragged into the editor becomes part of the page', async ({ page })
   await page.goto(`/pages/${id}/edit`);
   await dropFiles(page, '.prose.editing', [{ name: 'notes.txt', type: 'text/plain', text: 'hello' }]);
   await expect(page.locator('.prose.editing .file-tile')).toContainText('notes.txt');
-  await page.getByRole('button', { name: 'Publish', exact: true }).click();
+  await publishFromEditor(page);
 
   const tile = page.locator('.prose').getByRole('link', { name: 'notes.txt' });
   await expect(tile).toBeVisible();
@@ -375,7 +485,7 @@ test('Create adds a page below the one you are reading', async ({ page }) => {
   await page.getByRole('textbox', { name: 'Page content' }).click();
   await editorSettled(page);
   await page.keyboard.type('text');
-  await page.getByRole('button', { name: 'Publish', exact: true }).click();
+  await publishFromEditor(page);
   await expect(page.getByRole('heading', { name: 'Below', level: 1 })).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Breadcrumbs' })).toContainText('Reading');
 });
@@ -419,13 +529,20 @@ test('a link is added through our own dialog, and no browser dialog ever opens',
     'true',
   );
 
-  await page.getByLabel('Text style').selectOption({ label: 'Heading 2' });
-  await page.getByRole('button', { name: 'Publish', exact: true }).click();
+  await page.getByRole('button', { name: /^Text style/ }).click();
+  await page.getByRole('menuitemradio', { name: 'Heading 2' }).click();
+  await publishFromEditor(page);
   await expect(page.locator('.prose h2 a')).toHaveAttribute('href', 'https://example.com/');
 
   await page.getByRole('link', { name: 'Edit', exact: true }).click();
+  await page.getByRole('button', { name: 'Publish…', exact: true }).click();
   await page.getByRole('button', { name: 'Revert to published' }).click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
+  await page
+    .getByRole('dialog', { name: 'Revert to published' })
+    .getByRole('button', { name: 'Cancel' })
+    .click();
+  await expect(page.getByRole('dialog', { name: 'Revert to published' })).toHaveCount(0);
+  await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog')).toHaveCount(0);
   expect(browserDialogs).toBe(0);
 });

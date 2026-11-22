@@ -225,6 +225,53 @@ export function setStretch(editor: Editor, pos: number, stretch: number, factor:
   editor.view.dispatch(tr);
 }
 
+/** How wide a table can get on this screen, for the sums of a stretch. */
+function roomFor(editor: Editor): { column: number; room: number } {
+  const text = editor.view.dom;
+  const frame = text.closest<HTMLElement>('.focus');
+  const padding = parseFloat(getComputedStyle(text.closest('.editor-sheet') ?? text).paddingInlineStart);
+  return { column: text.clientWidth, room: (frame?.clientWidth ?? text.clientWidth) - 2 * padding };
+}
+
+/** The stretch the pointer asks for, from its distance to the centre of the text. */
+export function stretchFromPointer(editor: Editor, clientX: number): number {
+  const text = editor.view.dom.getBoundingClientRect();
+  const { column, room } = roomFor(editor);
+  return stretchAt(clientX - (text.left + text.width / 2), column, room);
+}
+
+/** Stretches a table and keeps its fixed columns in proportion. */
+export function commitStretch(editor: Editor, pos: number, next: number) {
+  const before = (tableAt(editor, pos)?.attrs.stretch as number | null) ?? 0;
+  const { column, room } = roomFor(editor);
+  const factor = stretchedWidth(column, room, next) / stretchedWidth(column, room, before);
+  setStretch(editor, pos, next, factor);
+}
+
+/**
+ * The width of the text in one step: no stretch, and fixed columns scaled so that the table
+ * fits the text instead of scrolling (EDT-213, "Fit to the text").
+ */
+export function fitToText(editor: Editor, pos: number) {
+  const wrapper = editor.view.nodeDOM(pos);
+  const drawn = wrapper instanceof HTMLElement ? wrapper.querySelector('table')?.offsetWidth : undefined;
+  const { column } = roomFor(editor);
+  setStretch(editor, pos, 0, drawn ? Math.min(1, column / drawn) : 1);
+}
+
+/** Selects every cell of the table, for the round button on its corner (EDT-216). */
+export function selectWholeTable(editor: Editor, pos: number) {
+  const table = tableAt(editor, pos);
+  if (!table) return;
+  const map = TableMap.get(table);
+  const first = map.map[0];
+  const last = map.map[map.map.length - 1];
+  if (first === undefined || last === undefined) return;
+  const { doc, tr } = editor.state;
+  editor.view.dispatch(tr.setSelection(CellSelection.create(doc, pos + 1 + first, pos + 1 + last)));
+  editor.commands.focus();
+}
+
 export function hasMergedCells(table: ProseNode): boolean {
   let merged = false;
   table.descendants((node) => {
@@ -247,7 +294,10 @@ export function sortTable(editor: Editor, direction: 'up' | 'down') {
   const { table, pos, column } = found;
   const rows = sortRows(childrenOf(table), column, direction);
   const sorted = table.copy(Fragment.fromArray(rows));
-  editor.view.dispatch(editor.state.tr.replaceWith(pos, pos + table.nodeSize, sorted));
+  const { from } = editor.state.selection;
+  const tr = editor.state.tr.replaceWith(pos, pos + table.nodeSize, sorted);
+  // The cursor stays in the table, so its bar and the menu that sorted it stay with it.
+  editor.view.dispatch(tr.setSelection(TextSelection.near(tr.doc.resolve(from))));
 }
 
 /** Makes selected columns equal by forgetting their widths: the browser then shares the space. */

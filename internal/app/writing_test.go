@@ -3,6 +3,7 @@
 package app_test
 
 import (
+	"net/http"
 	"strings"
 	"testing"
 
@@ -38,6 +39,28 @@ func TestPastedMarkdownBecomesACheckedDocument(t *testing.T) {
 		if strings.Contains(got, refused) {
 			t.Fatalf("%s got through: %s", refused, got)
 		}
+	}
+}
+
+// TestTheDocumentFormatIsReadableThroughTheAPI is spec 082 D23: a script or an agent learns
+// the format the editor writes, with a session or a read token, and a stranger learns nothing.
+func TestTheDocumentFormatIsReadableThroughTheAPI(t *testing.T) {
+	e := newEnv(t)
+	if resp, _ := e.do(http.DefaultClient, http.MethodGet, "/api/v1/document/format", ""); resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("a stranger: %d", resp.StatusCode)
+	}
+	anna := e.user("anna@example.com", identity.PermUseProduct)
+	got := mustJSON(t, anna.ok("GET", "/api/v1/document/format", nil))
+	for _, want := range []string{`"type":"doc"`, `"type":"tableCell"`, `"bold"`, `"schema_version":1`} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("%s is missing: %s", want, got)
+		}
+	}
+	token := anna.ok("POST", "/api/v1/me/tokens", map[string]any{
+		"name": "agent", "scopes": []string{identity.ScopeRead},
+	})["secret"].(string)
+	if status, out := e.bearer("GET", "/api/v1/document/format", token, ""); status != http.StatusOK || !strings.Contains(out, `"type":"tableCell"`) {
+		t.Fatalf("with a read token: %d %s", status, out)
 	}
 }
 

@@ -232,9 +232,11 @@ export function BlockHandle({
     const anchor = anchorOfBlock(editor, pos);
     if (anchor) actions.copyBlockLink(anchor);
   };
+  // The plus opens the insert dialog for this line (EDT-019, EDT-175).
   const insertHere = () => {
     selectBlock(editor, pos);
-    editor.chain().focus().insertContent({ type: 'text', text: '/' }).run();
+    editor.commands.focus();
+    actions.openInsert('');
   };
   return (
     <>

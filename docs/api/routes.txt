@@ -130,6 +130,7 @@ GET /api/v1/categories                                         authenticated
 GET /api/v1/comments/{id}/reactions                            object:page.view
 GET /api/v1/control-reports/{kind}                             authenticated
 GET /api/v1/directory                                          permission:view_profiles
+GET /api/v1/document/format                                    authenticated
 GET /api/v1/export-formats                                     authenticated
 GET /api/v1/exports/{id}                                       authenticated
 GET /api/v1/exports/{id}/file                                  authenticated

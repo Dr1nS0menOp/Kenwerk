@@ -14,6 +14,7 @@ import {
   test,
   unique,
   pageMenu,
+  publishFromEditor,
 } from './helpers';
 
 const DESKTOP = { width: 1440, height: 900 };
@@ -152,7 +153,7 @@ test('after publishing, the menu knows that the author watches the page', async 
   await page.locator('.prose.editing').click();
   await editorSettled(page);
   await page.keyboard.type('Some text.');
-  await page.getByRole('button', { name: 'Publish', exact: true }).click();
+  await publishFromEditor(page);
   await expect(page.getByRole('link', { name: 'Edit', exact: true })).toBeVisible();
   // The watch starts a moment after the publish, so someone may have to look twice.
   await expect(async () => {
@@ -249,7 +250,7 @@ test('someone else in the editor does not push Publish onto a line of its own', 
   await other.goto(`/pages/${id}/edit`);
   await expect(other.getByText(/^Also editing/)).toBeVisible();
   const close = await other.getByRole('link', { name: 'Close' }).boundingBox();
-  const publish = await other.getByRole('button', { name: 'Publish', exact: true }).boundingBox();
+  const publish = await other.getByRole('button', { name: 'Publish…', exact: true }).boundingBox();
   expect(Math.abs((close?.y ?? 0) - (publish?.y ?? 0))).toBeLessThan(8);
   await other.context().close();
 });

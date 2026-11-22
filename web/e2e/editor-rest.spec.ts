@@ -10,6 +10,7 @@ import {
   newSpace,
   publishedPage,
   test,
+  publishFromEditor,
 } from './helpers';
 
 test.beforeEach(async ({ page }) => {
@@ -48,37 +49,269 @@ async function editing(page: Page, title: string, content: unknown[]) {
   return made;
 }
 
+/** The colour a token has on this page, as the browser computes it. */
+async function cssColour(page: Page, token: string) {
+  return page.evaluate((name) => {
+    const probe = document.createElement('span');
+    probe.style.color = `var(${name})`;
+    document.body.append(probe);
+    const colour = getComputedStyle(probe).color;
+    probe.remove();
+    return colour;
+  }, token);
+}
+
 async function publish(page: Page) {
-  await page.getByRole('button', { name: 'Publish', exact: true }).click();
+  await publishFromEditor(page);
   await expect(page.getByRole('link', { name: 'Edit', exact: true })).toBeVisible();
 }
 
-test('tools that do not fit fold into More, and nothing is cut off', async ({ page }) => {
+test('tools that do not fit fold into More from the end, and nothing is cut off', async ({ page }) => {
   await page.setViewportSize({ width: 1800, height: 800 });
   await editing(page, 'Narrow', [line('text')]);
   const toolbar = page.getByRole('toolbar', { name: 'Formatting' });
-  await expect(toolbar.getByRole('button', { name: 'Undo', exact: true })).toBeVisible();
+  await expect(toolbar.getByRole('button', { name: 'Find', exact: true })).toBeVisible();
   await expect(toolbar.getByRole('button', { name: 'More tools' })).toHaveCount(0);
 
-  await page.setViewportSize({ width: 700, height: 800 });
+  // The last group goes first, then History and link; the text style and Undo stay (behaviour 13).
+  await page.setViewportSize({ width: 800, height: 800 });
   const more = toolbar.getByRole('button', { name: 'More tools' });
   await expect(more).toBeVisible();
-  await expect(toolbar.getByRole('button', { name: 'Undo', exact: true })).toHaveCount(0);
+  await expect(toolbar.getByRole('button', { name: 'Find', exact: true })).toHaveCount(0);
+  await expect(toolbar.getByRole('button', { name: 'History' })).toHaveCount(0);
+  await expect(toolbar.getByRole('button', { name: /^Text style/ })).toBeVisible();
+  await expect(toolbar.getByRole('button', { name: 'Undo', exact: true })).toBeVisible();
   const row = await toolbar.boundingBox();
   const button = await more.boundingBox();
   expect((button?.x ?? 0) + (button?.width ?? 0)).toBeLessThanOrEqual((row?.x ?? 0) + (row?.width ?? 0));
 
   await more.click();
-  await toolbar.getByRole('button', { name: 'Undo', exact: true }).click();
+  await toolbar.getByRole('button', { name: 'Find', exact: true }).click();
+  await expect(page.getByRole('search', { name: 'Find' })).toBeVisible();
   await page.setViewportSize({ width: 1800, height: 800 });
   await expect(toolbar.getByRole('button', { name: 'More tools' })).toHaveCount(0);
 });
 
-test('the plus on an empty line opens the list of blocks', async ({ page }) => {
-  await editing(page, 'Plus', [line('text'), { type: 'paragraph' }]);
+test('the row of tools has the order of the lines, and only the text style shows words', async ({ page }) => {
+  await page.setViewportSize({ width: 1800, height: 800 });
+  await editing(page, 'Row order', [line('text')]);
+  const toolbar = page.getByRole('toolbar', { name: 'Formatting' });
+  const names = await toolbar
+    .locator(':scope > .tool-group')
+    .locator('button[aria-label]')
+    .evaluateAll((buttons) => buttons.map((b) => b.getAttribute('aria-label')));
+  expect(names).toEqual([
+    'Text style: Normal text',
+    'Bold',
+    'Underline',
+    'Italic',
+    'More formatting',
+    'Bullet list',
+    'Numbered list',
+    'List choices',
+    'Alignment',
+    'Text colour',
+    'Task list',
+    'Add image or file',
+    'Mention someone',
+    'Emoji',
+    'Two columns',
+    'Info panel',
+    'Synced block',
+    'Table',
+    'Choose the size of a table',
+    'Insert',
+    'Link',
+    'Undo',
+    'Redo',
+    'History',
+    'Find',
+    'Full width',
+  ]);
+  // Quote and code block left the row (D8); they stay in Insert and the slash menu.
+  await expect(toolbar.getByRole('button', { name: 'Quote' })).toHaveCount(0);
+  await expect(toolbar.getByRole('button', { name: 'Code block' })).toHaveCount(0);
+  await expect(toolbar.getByRole('button', { name: /^Text style/ })).toHaveText('Normal text');
+  await expect(toolbar.getByRole('button', { name: 'Bold' })).toHaveText('');
+});
+
+test('More formatting and List choices hold the rarer tools, with their keys', async ({ page }) => {
+  await editing(page, 'Formatting menus', [line('some words')]);
+  const toolbar = page.getByRole('toolbar', { name: 'Formatting' });
+  await page.keyboard.press('Control+A');
+  await toolbar.getByRole('button', { name: 'More formatting' }).click();
+  const menu = page.getByRole('menu', { name: 'More formatting' });
+  await expect(menu.getByRole('menuitem')).toHaveText([/Highlight/, /Clear formatting/]);
+  await checkAccessibility(page);
+  const strike = menu.getByRole('menuitemcheckbox', { name: 'Strikethrough' });
+  await expect(strike).toHaveAttribute('aria-keyshortcuts', 'Control+Shift+S');
+  await expect(strike).toContainText('Ctrl Shift S');
+  await strike.click();
+  await expect(body(page).locator('s')).toHaveText('some words');
+  await toolbar.getByRole('button', { name: 'More formatting' }).click();
+  await expect(menu.getByRole('menuitemcheckbox', { name: 'Strikethrough' })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  await menu.getByRole('menuitem', { name: 'Highlight' }).click();
+  await page.getByRole('menu', { name: 'Highlight' }).getByRole('menuitemradio', { name: 'Green' }).click();
+  await expect(body(page).locator('mark.mark-green')).toBeVisible();
+
+  await toolbar.getByRole('button', { name: /^Text style/ }).click();
+  const styles = page.getByRole('menu', { name: /^Text style/ });
+  await expect(styles.getByRole('menuitemradio')).toHaveCount(7);
+  await expect(styles.getByRole('menuitemradio', { name: 'Heading 2' })).toHaveAttribute(
+    'aria-keyshortcuts',
+    'Control+Alt+2',
+  );
+  await styles.getByRole('menuitemradio', { name: 'Heading 2' }).click();
+  await expect(body(page).locator('h2')).toHaveText('some words');
+  // The style shown is that of the line with the cursor.
+  await body(page).locator('h2').click();
+  await expect(toolbar.getByRole('button', { name: /^Text style/ })).toHaveText('Heading 2');
+
+  await toolbar.getByRole('button', { name: 'List choices' }).click();
+  await expect(page.getByRole('menu', { name: 'List choices' }).getByRole('menuitem')).toHaveText([
+    /Indent/,
+    /Outdent/,
+  ]);
+});
+
+test('undo and redo are dimmed but stay in the arrow keys, and an active tool says it is pressed', async ({
+  page,
+}) => {
+  await editing(page, 'Undo dimmed', [line('text')]);
+  const toolbar = page.getByRole('toolbar', { name: 'Formatting' });
+  const undo = toolbar.getByRole('button', { name: 'Undo', exact: true });
+  const redo = toolbar.getByRole('button', { name: 'Redo', exact: true });
+  await expect(undo).toHaveAttribute('aria-disabled', 'true');
+  await expect(redo).toHaveAttribute('aria-disabled', 'true');
+  await undo.focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(redo).toBeFocused();
+  await page.keyboard.press('ArrowLeft');
+  await expect(undo).toBeFocused();
+
+  await body(page).click();
+  await page.keyboard.press('End');
+  await page.keyboard.type(' more');
+  await expect(undo).not.toHaveAttribute('aria-disabled', 'true');
+  await undo.click();
+  await expect(body(page).locator('p')).toHaveText('text');
+  await expect(redo).not.toHaveAttribute('aria-disabled', 'true');
+
+  const bold = toolbar.getByRole('button', { name: 'Bold' });
+  await expect(bold).toHaveAttribute('aria-pressed', 'false');
+  await page.keyboard.press('Control+A');
+  await bold.click();
+  await expect(bold).toHaveAttribute('aria-pressed', 'true');
+  await expect(bold).toHaveCSS('background-color', await cssColour(page, '--color-accent-tint'));
+  await expect(bold).toHaveCSS('color', await cssColour(page, '--color-accent'));
+});
+
+test('the table tool adds three by three at once, and its arrow asks the size', async ({ page }) => {
+  await editing(page, 'Table tool', [line('text')]);
+  await page.keyboard.press('Control+End');
+  await page.keyboard.press('Enter');
+  const toolbar = page.getByRole('toolbar', { name: 'Formatting' });
+  await toolbar.getByRole('button', { name: 'Table', exact: true }).click();
+  const table = body(page).locator('table');
+  await expect(table.locator('tr')).toHaveCount(3);
+  await expect(table.locator('tr').first().locator('th')).toHaveCount(3);
+  await expect(page.getByRole('dialog', { name: 'New table' })).toHaveCount(0);
+
+  await page.keyboard.press('Control+End');
+  await page.locator('.prose.editing').press('Control+End');
+  await body(page).locator('p').first().click();
+  await toolbar.getByRole('button', { name: 'Choose the size of a table' }).click();
+  const dialog = page.getByRole('dialog', { name: 'New table' });
+  await dialog.getByLabel('Rows').fill('2');
+  await dialog.getByRole('button', { name: 'Insert table' }).click();
+  await expect(body(page).locator('table')).toHaveCount(2);
+});
+
+test('the direct buttons add a task list, columns, a panel and a mention', async ({ page }) => {
+  await editing(page, 'Direct', [line('text')]);
+  const toolbar = page.getByRole('toolbar', { name: 'Formatting' });
+  await toolbar.getByRole('button', { name: 'Task list' }).click();
+  await expect(body(page).locator('ul[data-type="taskList"]')).toBeVisible();
+  await expect(toolbar.getByRole('button', { name: 'Task list' })).toHaveAttribute('aria-pressed', 'true');
+  await toolbar.getByRole('button', { name: 'Task list' }).click();
+  await expect(body(page).locator('ul[data-type="taskList"]')).toHaveCount(0);
+  await toolbar.getByRole('button', { name: 'Info panel' }).click();
+  await expect(body(page).locator('.panel')).toBeVisible();
+  await page.keyboard.press('Control+z');
+  await expect(body(page).locator('.panel')).toHaveCount(0);
+  await toolbar.getByRole('button', { name: 'Two columns' }).click();
+  await expect(body(page).locator('.doc-column')).toHaveCount(2);
+  await toolbar.getByRole('button', { name: 'Mention someone' }).click();
+  await expect(body(page)).toContainText('@');
+});
+
+test('History opens beside the draft, shows and compares versions, and restores into the draft', async ({
+  page,
+}) => {
+  const { id } = await editing(page, 'Versions', [line('first words')]);
+  const second = await page.request.post(`/api/v1/pages/${id}/publish`, {
+    data: { title: 'Versions', document: { type: 'doc', content: [line('second words')] }, base_version: 2 },
+  });
+  expect(second.ok(), await second.text()).toBeTruthy();
+  await page.reload();
+  await body(page).click();
+  await editorSettled(page);
+  const versions = page.waitForRequest((r) => r.url().endsWith(`/pages/${id}/versions`));
+  const toolbar = page.getByRole('toolbar', { name: 'Formatting' });
+  // From the keyboard, so the focus comes back to the tool when the panel closes.
+  await toolbar.getByRole('button', { name: 'History' }).focus();
+  await page.keyboard.press('Enter');
+  await versions;
+  const panel = page.getByRole('complementary', { name: 'History' });
+  await expect(panel.getByRole('heading', { name: 'History' })).toBeFocused();
+  await expect(toolbar.getByRole('button', { name: 'History' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(panel.getByRole('button', { name: /^Version \d/ })).toHaveCount(3);
+  await checkAccessibility(page);
+
+  await panel.getByRole('checkbox', { name: 'Version 2' }).check();
+  await panel.getByRole('checkbox', { name: 'Version 3' }).check();
+  await panel.getByRole('button', { name: 'Compare the two chosen' }).click();
+  await expect(panel.getByText('Version 2 compared with version 3')).toBeVisible();
+  await expect(panel.locator('.diff-label').first()).toBeVisible();
+  await panel.getByRole('button', { name: 'Back to the list' }).click();
+
+  await panel.getByRole('button', { name: /^Version 2/ }).click();
+  await expect(panel.getByText('first words')).toBeVisible();
+  // The draft stays open and can be typed in beside the panel.
+  await body(page).click();
+  await page.keyboard.press('End');
+  await page.keyboard.type(' typed');
+  await expect(body(page).locator('p')).toHaveText('second words typed');
+  await panel.getByRole('button', { name: 'Restore into the draft' }).click();
+  await expect(body(page).locator('p')).toHaveText('first words');
+  await expect(page.getByRole('status').filter({ hasText: 'Version 2 is in your draft now' })).toBeVisible();
+  await page.keyboard.press('Control+z');
+  await expect(body(page).locator('p')).toHaveText('second words typed');
+
+  await panel.getByRole('button', { name: 'Restore into the draft' }).click();
+  await expect(body(page).locator('p')).toHaveText('first words');
+  await panel.getByRole('button', { name: 'Close' }).click();
+  await expect(panel).toHaveCount(0);
+  await expect(toolbar.getByRole('button', { name: 'History' })).toBeFocused();
+  await publish(page);
+  await expect(prose(page).locator('p')).toHaveText('first words');
+});
+
+test('the plus on an empty line opens the insert dialog for that line', async ({ page }) => {
+  await editing(page, 'Plus', [line('text'), { type: 'paragraph' }, line('after')]);
   await body(page).locator('p').nth(1).hover();
   await page.getByRole('button', { name: 'Add a block here' }).click();
-  await expect(page.getByRole('listbox', { name: 'Insert' })).toBeVisible();
+  const dialog = page.getByRole('dialog', { name: 'Insert' });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('combobox', { name: 'What do you want to add?' }).fill('horizontal rule');
+  await page.keyboard.press('Enter');
+  await expect(dialog).toHaveCount(0);
+  await expect(body(page).locator('p').first()).toHaveText('text');
+  await expect(body(page).locator('hr')).toHaveCount(1);
+  await expect(body(page).locator('p').last()).toHaveText('after');
 });
 
 test('a block gets a link that leads to it, also inside a collapsed section', async ({ page, context }) => {
@@ -167,30 +400,17 @@ test('a block dropped beside another makes columns', async ({ page }) => {
   await expect(body(page).locator('.doc-column').last()).toHaveText('left');
 });
 
-test('Browse all shows a preview, and inserts what is chosen', async ({ page }) => {
-  await editing(page, 'Browse', [line('text')]);
-  await page.getByRole('button', { name: 'Insert', exact: true }).click();
-  await page.getByRole('button', { name: 'Browse all' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Browse all' });
-  await dialog.getByRole('button', { name: 'Spotlight' }).hover();
-  await expect(dialog.locator('.browse-preview .spotlight')).toBeVisible();
-  await checkAccessibility(page);
-  await dialog.getByRole('button', { name: 'Spotlight' }).click();
-  await expect(body(page).locator('.spotlight')).toBeVisible();
-});
-
 test('the emoji tool has groups, and remembers what was used', async ({ page }) => {
   await editing(page, 'Smile', [line('text')]);
   await page.keyboard.press('Control+End');
-  await page.getByRole('button', { name: 'More formatting' }).click();
-  await page.getByRole('menuitem', { name: 'Emoji' }).click();
+  const emojiTool = page.getByRole('toolbar', { name: 'Formatting' }).getByRole('button', { name: 'Emoji' });
+  await emojiTool.click();
   const dialog = page.getByRole('dialog', { name: 'Emoji' });
   await expect(dialog.getByRole('region', { name: 'Faces' })).toBeVisible();
   await dialog.getByLabel('Search emoji').fill('rocket');
   await dialog.getByRole('button').filter({ hasText: '🚀' }).click();
   await expect(body(page)).toContainText('🚀');
-  await page.getByRole('button', { name: 'More formatting' }).click();
-  await page.getByRole('menuitem', { name: 'Emoji' }).click();
+  await emojiTool.click();
   await expect(page.getByRole('region', { name: 'Used lately' }).getByText('🚀')).toBeVisible();
 });
 

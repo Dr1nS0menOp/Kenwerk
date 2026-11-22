@@ -16,6 +16,7 @@ import {
   publishedPage,
   test,
   unique,
+  publishFromEditor,
 } from './helpers';
 
 const SYNC = { timeout: 15_000 };
@@ -164,6 +165,40 @@ test.describe('editing together', () => {
     await colleague.context().close();
   });
 
+  test("one person's change does not light another person's Undo (EDT-170)", async ({ browser, page }) => {
+    const colleague = await asPerson(browser, colleagueEmail);
+    await openEditor(page, target);
+    await openEditor(colleague, target);
+    const undoOf = (who: Page) =>
+      who.getByRole('toolbar', { name: 'Formatting' }).getByRole('button', { name: 'Undo', exact: true });
+    await expect(undoOf(colleague)).toHaveAttribute('aria-disabled', 'true');
+    await typeAtEnd(page, ' Mine.');
+    await expect(editorOf(colleague)).toContainText('Mine.', SYNC);
+    await expect(undoOf(page)).not.toHaveAttribute('aria-disabled', 'true');
+    await expect(undoOf(colleague)).toHaveAttribute('aria-disabled', 'true');
+    await colleague.context().close();
+  });
+
+  test('restoring a version from History reaches the other person, and Undo takes it back', async ({
+    browser,
+    page,
+  }) => {
+    const colleague = await asPerson(browser, colleagueEmail);
+    await openEditor(page, target);
+    await openEditor(colleague, target);
+    await typeAtEnd(page, ' Mine.');
+    await expect(editorOf(colleague)).toContainText('Start. Mine.', SYNC);
+    await page.getByRole('toolbar', { name: 'Formatting' }).getByRole('button', { name: 'History' }).click();
+    const panel = page.getByRole('complementary', { name: 'History' });
+    await panel.getByRole('button', { name: /^Version 1/ }).click();
+    await panel.getByRole('button', { name: 'Restore into the draft' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'in the shared draft now' })).toBeVisible();
+    await expect(editorOf(colleague)).not.toContainText('Mine.', SYNC);
+    await page.keyboard.press('Control+z');
+    await expect(editorOf(colleague)).toContainText('Start. Mine.', SYNC);
+    await colleague.context().close();
+  });
+
   test('typing offline merges on return', async ({ browser, page }) => {
     const colleague = await asPerson(browser, colleagueEmail);
     await openEditor(page, target);
@@ -199,7 +234,13 @@ test.describe('editing together', () => {
     await expect(editorOf(page)).toContainText('Theirs.', SYNC);
     // The service stores after a moment, and the list of authors comes with it.
     await page.waitForTimeout(3000);
-    await page.getByRole('button', { name: 'Publish', exact: true }).click();
+    // Editing together there is no draft of one person to throw away, and Invite sits with the people.
+    await expect(page.locator('.edit-strip-end').getByRole('button', { name: 'Invite' })).toBeVisible();
+    await page.getByRole('button', { name: 'Publish…', exact: true }).click();
+    const step = page.getByRole('dialog', { name: 'Publish', exact: true });
+    await expect(step.getByRole('button', { name: /Discard draft|Revert to published/ })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    await publishFromEditor(page);
     await expect(page.getByRole('heading', { name: 'Shared' })).toBeVisible(SYNC);
     await expect(page.getByText('Start. Theirs.')).toBeVisible();
     const res = await page.request.get(`/api/v1/pages/${target}/version-authors`);
@@ -262,7 +303,7 @@ test.describe('editing together', () => {
     await expect(colleague.getByText('Saved for everyone')).toBeVisible(SYNC);
 
     // The image the hostile client left has no attachment, so the gate refuses to publish it, and says why.
-    await colleague.getByRole('button', { name: 'Publish', exact: true }).click();
+    await publishFromEditor(colleague);
     await expect(colleague.getByRole('alert')).toContainText('images must point to an attachment', SYNC);
     const published = await page.request.get(`/api/v1/pages/${target}`);
     expect(JSON.stringify(await published.json())).not.toMatch(hostilePattern);

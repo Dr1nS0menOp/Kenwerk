@@ -14,6 +14,7 @@ import {
   test,
   unique,
   VIEWER,
+  publishFromEditor,
 } from './helpers';
 
 const PNG = Buffer.from(
@@ -46,13 +47,22 @@ async function slash(page: Page, query: string) {
   await page.keyboard.press('Enter');
 }
 
-async function tableMenu(page: Page) {
-  await page.getByRole('button', { name: 'Table options' }).click();
-  return page.getByRole('menu', { name: 'Table options' });
+const tableBar = (page: Page) => page.getByRole('toolbar', { name: 'Table', exact: true });
+
+/** More of the bar under the table (EDT-215). */
+async function tableMore(page: Page) {
+  await tableBar(page).getByRole('button', { name: 'More table options' }).click();
+  return page.getByRole('menu', { name: 'More table options' });
+}
+
+/** The menu of the cell with the cursor (EDT-210). */
+async function cellMenu(page: Page) {
+  await page.getByRole('button', { name: /^Cell options/ }).click();
+  return page.getByRole('menu', { name: /^Cell options/ });
 }
 
 async function publish(page: Page) {
-  await page.getByRole('button', { name: 'Publish', exact: true }).click();
+  await publishFromEditor(page);
   await expect(page.getByRole('link', { name: 'Edit', exact: true })).toBeVisible();
 }
 
@@ -66,7 +76,9 @@ test('the slash menu filters, inserts with Enter and with a click, and Escape ke
   await expect(body(page)).toHaveAttribute('aria-activedescendant', /.+/);
 
   await page.keyboard.type('warn');
-  await expect(menu(page).getByRole('option')).toHaveCount(1);
+  // The one entry that fits, and the last row into the insert dialog (EDT-186).
+  await expect(menu(page).getByRole('option')).toHaveCount(2);
+  await expect(menu(page).getByRole('option').first()).toHaveAccessibleName(/^Warning panel/);
   await page.keyboard.press('Enter');
   await expect(body(page).locator('.panel')).toBeVisible();
   await expect(body(page)).not.toContainText('/warn');
@@ -188,11 +200,14 @@ test('colours, highlight, alignment and heading levels survive publishing', asyn
   await page.keyboard.press('Control+A');
   await page.getByRole('button', { name: 'Text colour' }).click();
   await page.getByRole('menuitemradio', { name: 'Purple' }).click();
-  await page.getByRole('button', { name: 'Highlight', exact: true }).click();
+  const tools = page.getByRole('toolbar', { name: 'Formatting' });
+  await tools.getByRole('button', { name: 'More formatting' }).click();
+  await page.getByRole('menuitem', { name: 'Highlight' }).click();
   await page.getByRole('menuitemradio', { name: 'Yellow' }).click();
   await page.getByRole('button', { name: 'Alignment' }).click();
   await page.getByRole('menuitemradio', { name: 'Align to the centre' }).click();
-  await page.getByLabel('Text style').selectOption({ label: 'Heading 5' });
+  await tools.getByRole('button', { name: /^Text style/ }).click();
+  await page.getByRole('menuitemradio', { name: 'Heading 5' }).click();
   await publish(page);
   await page.reload();
 
@@ -204,10 +219,14 @@ test('colours, highlight, alignment and heading levels survive publishing', asyn
 
 test('indent steps in and out, and clear formatting removes marks', async ({ page }) => {
   await editing(page, 'Indent', 'indented');
-  await page.getByRole('button', { name: 'Indent', exact: true }).click();
-  await page.getByRole('button', { name: 'Indent', exact: true }).click();
+  const listChoice = async (name: string) => {
+    await page.getByRole('button', { name: 'List choices' }).click();
+    await page.getByRole('menuitem', { name }).click();
+  };
+  await listChoice('Indent');
+  await listChoice('Indent');
   await expect(body(page).locator('p')).toHaveAttribute('data-indent', '2');
-  await page.getByRole('button', { name: 'Outdent' }).click();
+  await listChoice('Outdent');
   await expect(body(page).locator('p')).toHaveAttribute('data-indent', '1');
 
   await page.keyboard.press('Control+A');
@@ -256,7 +275,6 @@ test('a column gets wider by dragging its border, and Equal columns undoes that'
   await editing(page, 'Widths');
   await page.keyboard.press('Enter');
   await page.getByRole('button', { name: 'Table', exact: true }).click();
-  await page.getByRole('dialog', { name: 'New table' }).getByRole('button', { name: 'Insert table' }).click();
   const first = body(page).locator('th').first();
   const box = await first.boundingBox();
   if (!box) throw new Error('the table has no size');
@@ -266,8 +284,7 @@ test('a column gets wider by dragging its border, and Equal columns undoes that'
   await page.mouse.up();
   await expect(first).toHaveAttribute('colwidth', /\d+/);
 
-  const menu = await tableMenu(page);
-  await menu.getByRole('menuitem', { name: 'Equal columns' }).click();
+  await tableBar(page).getByRole('button', { name: 'Equal columns' }).click();
   await expect(first).not.toHaveAttribute('colwidth', /\d+/);
 });
 
@@ -343,7 +360,8 @@ test('find marks all matches, Replace all replaces them, and one Undo restores t
 
 test('Escape closes find and removes the marks', async ({ page }) => {
   await editing(page, 'Find close', 'word');
-  await page.getByRole('button', { name: 'Find', exact: true }).click();
+  // Find is in the last group, which folds into More first at this width (spec 082 D29).
+  await page.keyboard.press('Control+f');
   await page.getByRole('textbox', { name: 'Find' }).fill('word');
   await expect(body(page).locator('.find-match')).toHaveCount(1);
   await page.keyboard.press('Escape');
@@ -427,7 +445,6 @@ test('table tools: header, cell colour and sort survive publishing', async ({ pa
   await editing(page, 'Tables');
   await page.keyboard.press('Enter');
   await page.getByRole('button', { name: 'Table', exact: true }).click();
-  await page.getByRole('dialog', { name: 'New table' }).getByRole('button', { name: 'Insert table' }).click();
   await editorSettled(page);
   await page.keyboard.type('Name');
   await page.keyboard.press('Tab');
@@ -438,7 +455,7 @@ test('table tools: header, cell colour and sort survive publishing', async ({ pa
   await page.keyboard.press('Tab');
   await page.keyboard.press('Tab');
   await page.keyboard.type('item 2');
-  const menu = await tableMenu(page);
+  const menu = await tableMore(page);
   await menu.getByRole('menuitem', { name: 'Sort ascending' }).click();
   const cells = body(page).locator('tr td:first-child');
   await expect(cells).toHaveText(['item 2', 'item 10']);
@@ -446,9 +463,11 @@ test('table tools: header, cell colour and sort survive publishing', async ({ pa
   await page.keyboard.press('Escape');
 
   await body(page).locator('tr td').first().click();
-  const again = await tableMenu(page);
-  await again.getByRole('menuitemradio', { name: 'Cell: Green' }).click();
-  await again.getByRole('menuitemcheckbox', { name: 'Header column' }).click();
+  const cell = await cellMenu(page);
+  await cell.getByRole('menuitem', { name: /^Cell colour/ }).click();
+  await page.getByRole('menu', { name: 'Cell colour' }).getByRole('menuitemradio', { name: 'Green' }).click();
+  await tableBar(page).getByRole('button', { name: 'Table settings' }).click();
+  await page.getByRole('menuitemcheckbox', { name: 'Header column' }).click();
   await page.keyboard.press('Escape');
   await publish(page);
   await page.reload();
@@ -460,13 +479,13 @@ test('merged cells survive publishing, and take the sort tools away', async ({ p
   await editing(page, 'Merge');
   await page.keyboard.press('Enter');
   await page.getByRole('button', { name: 'Table', exact: true }).click();
-  await page.getByRole('dialog', { name: 'New table' }).getByRole('button', { name: 'Insert table' }).click();
   await editorSettled(page);
   await page.keyboard.press('Shift+ArrowRight');
   await page.keyboard.press('Shift+ArrowRight');
-  const menu = await tableMenu(page);
-  await menu.getByRole('menuitem', { name: 'Merge or split cells' }).click();
-  await expect(menu.getByRole('menuitem', { name: 'Sort ascending' })).toHaveCount(0);
+  const menu = await cellMenu(page);
+  await menu.getByRole('menuitem', { name: 'Merge cells' }).click();
+  const more = await tableMore(page);
+  await expect(more.getByRole('menuitem', { name: 'Sort ascending' })).toHaveCount(0);
   await page.keyboard.press('Escape');
   await publish(page);
   await page.reload();
@@ -566,6 +585,8 @@ test('Tab in code indents, and Escape leads out to the tools', async ({ page }) 
 });
 
 test('the tools are one Tab stop with arrow keys, and Escape returns to the text', async ({ page }) => {
+  // Wide enough that nothing folds, so End reaches the last tool of the row.
+  await page.setViewportSize({ width: 1800, height: 800 });
   await editing(page, 'Roving');
   const toolbar = page.getByRole('toolbar', { name: 'Formatting' });
   await page.keyboard.press('Alt+F10');
@@ -573,7 +594,7 @@ test('the tools are one Tab stop with arrow keys, and Escape returns to the text
   await page.keyboard.press('ArrowRight');
   await expect(toolbar.getByRole('button', { name: 'Bold' })).toBeFocused();
   await page.keyboard.press('ArrowRight');
-  await expect(toolbar.getByRole('button', { name: 'Italic' })).toBeFocused();
+  await expect(toolbar.getByRole('button', { name: 'Underline' })).toBeFocused();
   await page.keyboard.press('ArrowLeft');
   await expect(toolbar.getByRole('button', { name: 'Bold' })).toBeFocused();
   await page.keyboard.press('End');

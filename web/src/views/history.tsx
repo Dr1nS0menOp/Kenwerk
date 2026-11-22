@@ -67,7 +67,11 @@ interface Comparison {
   blocks: DiffBlock[];
 }
 
-const comparisonQuery = (pageId: string, from: string | number | null, to: string | number | null) => ({
+export const comparisonQuery = (
+  pageId: string,
+  from: string | number | null,
+  to: string | number | null,
+) => ({
   queryKey: ['compare', pageId, String(from), String(to)],
   queryFn: () => api.get<Comparison>(`/pages/${pageId}/compare?from=${from}&to=${to}`),
 });
@@ -417,7 +421,7 @@ function FoldedRun({ blocks }: { blocks: DiffBlock[] }) {
 }
 
 /** What changed, in the look of the page. Long runs without changes fold. */
-function Changes({ comparison }: { comparison: Comparison }) {
+export function Changes({ comparison }: { comparison: Comparison }) {
   const { t } = useTranslation();
   const { from, to, blocks } = comparison;
   const changed = blocks.some((b) => b.op !== 'equal') || from.title !== to.title;

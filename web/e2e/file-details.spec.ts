@@ -11,6 +11,7 @@ import {
   publishedPage,
   test,
   pageMenu,
+  publishFromEditor,
 } from './helpers';
 
 const ADD_FILE = 'input[type=file][aria-label="Add image or file"]';
@@ -106,7 +107,7 @@ test('a tile can be large, and that stays after publishing', async ({ page }) =>
   await editorSettled(page);
   await page.locator(`[data-file-tile="${file.id}"]`).click();
   await page.getByLabel('File tile').selectOption('large');
-  await page.getByRole('button', { name: 'Publish', exact: true }).click();
+  await publishFromEditor(page);
   await expect(page).toHaveURL(new RegExp(`/pages/${id}$`));
   await expect(page.locator(`[data-file-tile="${file.id}"]`)).toHaveAttribute('data-display', 'large');
 });

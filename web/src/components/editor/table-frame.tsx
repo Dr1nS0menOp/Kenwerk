@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
-// What a table has around it while writing: an outline, a button with everything for
-// tables, and an edge to stretch it. It stays out of the row of tools (spec 017, D2).
+// What the table with the cursor has around it while writing (spec 082, EDT-209 to EDT-216):
+// an outline, a button in the cell, a bar under it, faint handles and an edge to stretch it.
+// Nothing for tables appears in the row of tools (EDT-161).
 import {
   useCallback,
   useEffect,
@@ -10,60 +11,27 @@ import {
   type KeyboardEvent,
   type MouseEvent,
   type PointerEvent,
-  type ReactNode,
   type RefObject,
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useEditorState, type Editor } from '@tiptap/react';
+import { FIXED_BARS } from '../menu';
 import {
-  IconColumnAdd,
-  IconColumnDelete,
-  IconChart,
-  IconCopy,
-  IconEqual,
-  IconFullWidth,
-  IconHeaderColumn,
-  IconHeaderRow,
-  IconMerge,
-  IconNumbered,
-  IconRename,
-  IconRowAdd,
-  IconRowDelete,
-  IconSortDown,
-  IconSortUp,
-  IconTableMenu,
-  IconTrash,
-} from '../icons';
-import { FIXED_BARS, Menu, MenuItem } from '../menu';
-import { Dialog, Field } from '../ui';
-import { duplicateBlock } from './block-commands';
-import { addChart, chartsOfTable, removeCharts } from './dynamic/nodes';
-import { MARK_COLORS } from './palette';
-import {
-  canSortTable,
   cellOfPosition,
+  commitStretch,
   enterTable,
-  equalColumns,
   FULL_STRETCH,
-  hasHeaderColumn,
-  hasHeaderRow,
   isTopLevel,
-  paintLine,
-  setStretch,
-  setTableSettings,
-  sortTable,
+  selectWholeTable,
   STRETCH_STEP,
-  stretchAt,
-  stretchedWidth,
+  stretchFromPointer,
   tableAround,
   tableAt,
-  WIDE_STRETCH,
   type TableCell,
 } from './table';
+import { SelectAllButton, TableBar } from './table-bar';
+import { CellMenu } from './table-cell-menu';
 import { TableLines } from './table-lines';
-
-const MENU_ICON_SIZE = 18;
-const MAX_CAPTION = 500;
 
 interface Box {
   pos: number;
@@ -88,15 +56,6 @@ function tableBox(editor: Editor, pos: number, sheet: HTMLElement): Box | null {
   };
 }
 
-/** How far down the bars reach once the page has scrolled under them. Bars can wrap or stop sticking. */
-function barsReach(): number {
-  const reaches = Array.from(document.querySelectorAll<HTMLElement>(FIXED_BARS), (bar) => {
-    const style = getComputedStyle(bar);
-    return style.position === 'sticky' ? parseFloat(style.insetBlockStart) + bar.offsetHeight : 0;
-  });
-  return Math.max(0, ...reaches);
-}
-
 /** The table around this element, as a position in the document. */
 function tableOf(editor: Editor, element: Element): number | null {
   const wrapper = element.closest('.tableWrapper');
@@ -115,17 +74,14 @@ function cellUnder(editor: Editor, table: number, element: Element): TableCell |
   return cell ? cellOfPosition(editor, table, editor.view.posAtDOM(cell, 0)) : null;
 }
 
-/** Which table has the frame: the one with the cursor, or else the one under the pointer. */
+/** The table with the cursor, which alone has the controls (EDT-216), and the cell under the pointer. */
 export function useTableTracking(editor: Editor, sheet: RefObject<HTMLDivElement | null>) {
   const root = useRef<HTMLDivElement>(null);
-  const [hovered, setHovered] = useState<number | null>(null);
   const [box, setBox] = useState<Box | null>(null);
   const [hoveredCell, setHoveredCell] = useState<TableCell | null>(null);
-  const inTable = useEditorState({ editor, selector: (s) => tableAround(s.editor)?.pos ?? null });
-  const pos = inTable ?? hovered;
+  const pos = useEditorState({ editor, selector: (s) => tableAround(s.editor)?.pos ?? null });
 
   const measure = useCallback(() => {
-    sheet.current?.style.setProperty('--size-bars', `${barsReach()}px`);
     setBox(pos !== null && sheet.current ? tableBox(editor, pos, sheet.current) : null);
   }, [editor, pos, sheet]);
 
@@ -146,331 +102,33 @@ export function useTableTracking(editor: Editor, sheet: RefObject<HTMLDivElement
     };
   }, [editor, measure]);
 
-  const isInUse = () => root.current?.contains(document.activeElement) ?? false;
   // An open menu keeps its line, or reaching for it would change what it acts on.
   const hasOpenMenu = () => root.current?.querySelector('[aria-expanded="true"]') != null;
+  const click = (selector: string) => root.current?.querySelector<HTMLElement>(selector)?.click();
   return {
     root,
     box,
     hoveredCell,
-    active: inTable !== null,
     measure,
     track: (e: MouseEvent<HTMLElement>) => {
       const target = e.target as Element;
       if (root.current?.contains(target) || hasOpenMenu()) return;
       const table = tableOf(editor, target);
-      const next = table === null ? null : cellUnder(editor, table, target);
+      const next = table === null || table !== pos ? null : cellUnder(editor, table, target);
       setHoveredCell((now) => (now?.row === next?.row && now?.column === next?.column ? now : next));
-      if (!isInUse()) setHovered(table);
     },
-    leave: () => {
-      if (isInUse()) return;
-      setHovered(null);
-      setHoveredCell(null);
-    },
+    leave: () => setHoveredCell(null),
     forgetCell: () => setHoveredCell(null),
-    open: () => {
-      root.current?.querySelector<HTMLElement>('[aria-haspopup]')?.click();
-    },
+    /** More of the table bar, for Ctrl Shift . (EDT-215). */
+    openMore: () => click('.table-bar > .menu:last-child > [aria-haspopup]'),
+    /** The cell menu, for Shift F10 and the menu key (EDT-199). */
+    openCell: () => click('.table-cell-button'),
   };
 }
 
 type Tracker = ReturnType<typeof useTableTracking>;
 
-function Swatches({
-  label,
-  current,
-  onPick,
-}: {
-  label: string;
-  current?: string | null;
-  onPick: (color: string | null) => void;
-}) {
-  const { t } = useTranslation();
-  // A whole row or column has no one colour, so those are plain actions.
-  const checks = current !== undefined;
-  const role = checks ? 'menuitemradio' : 'menuitem';
-  return (
-    <div role="group" aria-label={label} className="menu-swatches">
-      <span className="menu-swatches-label" aria-hidden="true">
-        {label}
-      </span>
-      <MenuItem
-        role={role}
-        aria-checked={checks ? !current : undefined}
-        aria-label={`${label}: ${t('editor.noColor')}`}
-        title={t('editor.noColor')}
-        onClick={() => onPick(null)}
-      >
-        <span className="swatch" />
-      </MenuItem>
-      {MARK_COLORS.map((color) => (
-        <MenuItem
-          key={color}
-          role={role}
-          aria-checked={checks ? current === color : undefined}
-          aria-label={`${label}: ${t(`editor.colors.${color}`)}`}
-          title={t(`editor.colors.${color}`)}
-          onClick={() => onPick(color)}
-        >
-          <span className={`swatch mark-${color}`} />
-        </MenuItem>
-      ))}
-    </div>
-  );
-}
-
-function Group({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div role="group" aria-label={label} className="menu-group">
-      <div className="menu-group-title" aria-hidden="true">
-        {label}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-/** How wide a table can get on this screen, for the sums of a stretch. */
-function roomFor(editor: Editor): { column: number; room: number } {
-  const text = editor.view.dom;
-  const frame = text.closest<HTMLElement>('.focus');
-  const padding = parseFloat(getComputedStyle(text.closest('.editor-sheet') ?? text).paddingInlineStart);
-  return { column: text.clientWidth, room: (frame?.clientWidth ?? text.clientWidth) - 2 * padding };
-}
-
-function commitStretch(editor: Editor, pos: number, next: number) {
-  const before = (tableAt(editor, pos)?.attrs.stretch as number | null) ?? 0;
-  const { column, room } = roomFor(editor);
-  const factor = stretchedWidth(column, room, next) / stretchedWidth(column, room, before);
-  setStretch(editor, pos, next, factor);
-}
-
-/** A chart without its table has nothing to show, so removing the table asks (EDT-134). */
-function RemoveTableDialog({ editor, onClose }: { editor: Editor; onClose: () => void }) {
-  const { t } = useTranslation();
-  const remove = (withCharts: boolean) => {
-    onClose();
-    if (withCharts) removeCharts(editor);
-    editor.chain().focus().deleteTable().run();
-  };
-  return (
-    <Dialog title={t('table.removeTitle')} onClose={onClose}>
-      <p>{t('table.removeHelp')}</p>
-      <div className="dialog-actions">
-        <button type="button" className="quiet" onClick={onClose}>
-          {t('common.cancel')}
-        </button>
-        <button type="button" onClick={() => remove(false)}>
-          {t('table.removeKeepChart')}
-        </button>
-        <button type="button" className="danger" onClick={() => remove(true)}>
-          {t('table.removeBoth')}
-        </button>
-      </div>
-    </Dialog>
-  );
-}
-
-function CaptionDialog({ editor, pos, onClose }: { editor: Editor; pos: number; onClose: () => void }) {
-  const { t } = useTranslation();
-  const attrs = tableAt(editor, pos)?.attrs as { caption: string | null; caption_below: boolean } | undefined;
-  const [caption, setCaption] = useState(attrs?.caption ?? '');
-  const [below, setBelow] = useState(attrs?.caption_below ?? false);
-  return (
-    <Dialog title={t('table.caption')} onClose={onClose}>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          onClose();
-          setTableSettings(editor, pos, { caption: caption.trim() || null, caption_below: below });
-        }}
-      >
-        <Field label={t('table.captionText')}>
-          <input
-            autoFocus
-            value={caption}
-            maxLength={MAX_CAPTION}
-            onChange={(e) => setCaption(e.target.value)}
-          />
-        </Field>
-        <label className="check">
-          <input type="checkbox" checked={below} onChange={(e) => setBelow(e.target.checked)} />
-          {t('table.captionBelow')}
-        </label>
-        <div className="dialog-actions">
-          <button type="submit" className="primary">
-            {t('common.save')}
-          </button>
-        </div>
-      </form>
-    </Dialog>
-  );
-}
-
-function TableMenu({ editor, pos }: { editor: Editor; pos: number }) {
-  const { t } = useTranslation();
-  const state = useEditorState({
-    editor,
-    selector: (s) => {
-      const table = tableAt(s.editor, pos);
-      return {
-        canSort: canSortTable(s.editor),
-        canStretch: isTopLevel(s.editor, pos),
-        headerRow: table ? hasHeaderRow(table) : false,
-        headerColumn: table ? hasHeaderColumn(table) : false,
-        stretch: (table?.attrs.stretch as number | null) ?? 0,
-        numbered: (table?.attrs.numbered as boolean | undefined) ?? false,
-        flexible: (table?.attrs.flexible as boolean | undefined) ?? false,
-        background:
-          (s.editor.getAttributes('tableHeader').background as string | null | undefined) ??
-          (s.editor.getAttributes('tableCell').background as string | null | undefined) ??
-          null,
-      };
-    },
-  });
-  const [captioning, setCaptioning] = useState(false);
-  const [removing, setRemoving] = useState(false);
-  // These leave the focus in the menu, which stays open for the next step.
-  const chain = () => editor.chain();
-  const widths = [
-    { value: 0, label: t('table.widthText') },
-    { value: WIDE_STRETCH, label: t('table.widthWide') },
-    { value: FULL_STRETCH, label: t('table.widthFull') },
-  ];
-  return (
-    <>
-      {captioning && <CaptionDialog editor={editor} pos={pos} onClose={() => setCaptioning(false)} />}
-      {removing && <RemoveTableDialog editor={editor} onClose={() => setRemoving(false)} />}
-      <Menu
-        label={t('table.menu')}
-        trigger={<IconTableMenu size={MENU_ICON_SIZE} />}
-        className="table-button"
-        keepOpen
-        onLeave={() => editor.commands.focus()}
-      >
-        <Group label={t('table.rows')}>
-          <MenuItem onClick={() => chain().addRowBefore().run()}>
-            <IconRowAdd size={MENU_ICON_SIZE} /> {t('table.rowAbove')}
-          </MenuItem>
-          <MenuItem onClick={() => chain().addRowAfter().run()}>
-            <IconRowAdd size={MENU_ICON_SIZE} /> {t('table.rowBelow')}
-          </MenuItem>
-          <MenuItem onClick={() => chain().deleteRow().run()}>
-            <IconRowDelete size={MENU_ICON_SIZE} /> {t('table.rowDelete')}
-          </MenuItem>
-          <MenuItem
-            role="menuitemcheckbox"
-            aria-checked={state.headerRow}
-            onClick={() => chain().toggleHeaderRow().run()}
-          >
-            <IconHeaderRow size={MENU_ICON_SIZE} /> {t('table.headerRow')}
-          </MenuItem>
-        </Group>
-        <Group label={t('table.columns')}>
-          <MenuItem onClick={() => chain().addColumnBefore().run()}>
-            <IconColumnAdd size={MENU_ICON_SIZE} /> {t('table.columnBefore')}
-          </MenuItem>
-          <MenuItem onClick={() => chain().addColumnAfter().run()}>
-            <IconColumnAdd size={MENU_ICON_SIZE} /> {t('table.columnAfter')}
-          </MenuItem>
-          <MenuItem onClick={() => chain().deleteColumn().run()}>
-            <IconColumnDelete size={MENU_ICON_SIZE} /> {t('table.columnDelete')}
-          </MenuItem>
-          <MenuItem
-            role="menuitemcheckbox"
-            aria-checked={state.headerColumn}
-            onClick={() => chain().toggleHeaderColumn().run()}
-          >
-            <IconHeaderColumn size={MENU_ICON_SIZE} /> {t('table.headerColumn')}
-          </MenuItem>
-          {state.canSort && (
-            <>
-              <MenuItem onClick={() => sortTable(editor, 'up')}>
-                <IconSortUp size={MENU_ICON_SIZE} /> {t('editor.sortUp')}
-              </MenuItem>
-              <MenuItem onClick={() => sortTable(editor, 'down')}>
-                <IconSortDown size={MENU_ICON_SIZE} /> {t('editor.sortDown')}
-              </MenuItem>
-            </>
-          )}
-        </Group>
-        <Group label={t('table.cells')}>
-          <MenuItem onClick={() => chain().mergeOrSplit().run()}>
-            <IconMerge size={MENU_ICON_SIZE} /> {t('table.merge')}
-          </MenuItem>
-        </Group>
-        <Group label={t('table.colour')}>
-          <Swatches
-            label={t('table.colourCell')}
-            current={state.background}
-            onPick={(color) => chain().setCellAttribute('background', color).run()}
-          />
-          <Swatches label={t('table.colourRow')} onPick={(color) => paintLine(editor, 'row', color)} />
-          <Swatches label={t('table.colourColumn')} onPick={(color) => paintLine(editor, 'column', color)} />
-        </Group>
-        <Group label={t('table.table')}>
-          {state.canStretch &&
-            widths.map((width) => (
-              <MenuItem
-                key={width.value}
-                role="menuitemradio"
-                aria-checked={state.stretch === width.value}
-                onClick={() => commitStretch(editor, pos, width.value)}
-              >
-                <IconFullWidth size={MENU_ICON_SIZE} /> {width.label}
-              </MenuItem>
-            ))}
-          <MenuItem onClick={() => equalColumns(editor)}>
-            <IconEqual size={MENU_ICON_SIZE} /> {t('editor.tableEqual')}
-          </MenuItem>
-          <MenuItem
-            role="menuitemcheckbox"
-            aria-checked={state.flexible}
-            onClick={() => setTableSettings(editor, pos, { flexible: !state.flexible })}
-          >
-            <IconFullWidth size={MENU_ICON_SIZE} /> {t('table.flexible')}
-          </MenuItem>
-          <MenuItem
-            role="menuitemcheckbox"
-            aria-checked={state.numbered}
-            onClick={() => setTableSettings(editor, pos, { numbered: !state.numbered })}
-          >
-            <IconNumbered size={MENU_ICON_SIZE} /> {t('table.numbered')}
-          </MenuItem>
-          <MenuItem onClick={() => setCaptioning(true)}>
-            <IconRename size={MENU_ICON_SIZE} /> {t('table.caption')}
-          </MenuItem>
-          <MenuItem onClick={() => duplicateBlock(editor, pos)}>
-            <IconCopy size={MENU_ICON_SIZE} /> {t('table.duplicate')}
-          </MenuItem>
-          <MenuItem
-            onClick={() => {
-              addChart(editor);
-            }}
-          >
-            <IconChart size={MENU_ICON_SIZE} /> {t('table.addChart')}
-          </MenuItem>
-          <MenuItem
-            className="danger"
-            onClick={() => {
-              if (chartsOfTable(editor).length > 0) {
-                setRemoving(true);
-                return;
-              }
-              chain().deleteTable().run();
-              editor.commands.focus();
-            }}
-          >
-            <IconTrash size={MENU_ICON_SIZE} /> {t('editor.tableDelete')}
-          </MenuItem>
-        </Group>
-      </Menu>
-    </>
-  );
-}
-
-/** The edge of the table. Dragging has the menu and the arrow keys beside it (WCAG 2.5.7). */
+/** The edge of the table. Dragging has the width chooser and the arrow keys beside it (WCAG 2.5.7). */
 function StretchEdge({ editor, pos, onMove }: { editor: Editor; pos: number; onMove: () => void }) {
   const { t } = useTranslation();
   const stored = useEditorState({
@@ -485,11 +143,6 @@ function StretchEdge({ editor, pos, onMove }: { editor: Editor; pos: number; onM
     setDragged(next);
     wrapper()?.style.setProperty('--table-stretch', String(next));
     onMove();
-  };
-  const stretchFor = (e: PointerEvent<HTMLDivElement>) => {
-    const text = editor.view.dom.getBoundingClientRect();
-    const { column, room } = roomFor(editor);
-    return stretchAt(e.clientX - (text.left + text.width / 2), column, room);
   };
   const keys = (e: KeyboardEvent<HTMLDivElement>) => {
     const rtl = getComputedStyle(e.currentTarget).direction === 'rtl';
@@ -515,17 +168,17 @@ function StretchEdge({ editor, pos, onMove }: { editor: Editor; pos: number; onM
       aria-valuemax={FULL_STRETCH}
       aria-valuenow={shown}
       onKeyDown={keys}
-      onPointerDown={(e) => {
+      onPointerDown={(e: PointerEvent<HTMLDivElement>) => {
         e.preventDefault();
         e.currentTarget.setPointerCapture(e.pointerId);
         setDragged(stored);
       }}
       onPointerMove={(e) => {
-        if (dragged !== null) preview(stretchFor(e));
+        if (dragged !== null) preview(stretchFromPointer(editor, e.clientX));
       }}
       onPointerUp={(e) => {
         if (dragged === null) return;
-        const next = stretchFor(e);
+        const next = stretchFromPointer(editor, e.clientX);
         setDragged(null);
         commitStretch(editor, pos, next);
       }}
@@ -534,7 +187,7 @@ function StretchEdge({ editor, pos, onMove }: { editor: Editor; pos: number; onM
 }
 
 export function TableFrame({ editor, tracker }: { editor: Editor; tracker: Tracker }) {
-  const { box, root, active, measure, hoveredCell, forgetCell } = tracker;
+  const { box, root, measure, hoveredCell, forgetCell } = tracker;
   const canStretch = useEditorState({
     editor,
     selector: (s) => (box ? isTopLevel(s.editor, box.pos) : false),
@@ -551,12 +204,8 @@ export function TableFrame({ editor, tracker }: { editor: Editor; tracker: Track
 
   if (!box) return null;
   return (
-    <div
-      ref={root}
-      className={active ? 'table-frame active' : 'table-frame'}
-      onClickCapture={() => enterTable(editor, box.pos)}
-    >
-      <TableMenu editor={editor} pos={box.pos} />
+    <div ref={root} className="table-frame active" onClickCapture={() => enterTable(editor, box.pos)}>
+      <SelectAllButton onSelect={() => selectWholeTable(editor, box.pos)} />
       {canStretch && <StretchEdge editor={editor} pos={box.pos} onMove={measure} />}
       {/* After the edge, so a plus on the edge stays within reach. */}
       <TableLines
@@ -567,6 +216,8 @@ export function TableFrame({ editor, tracker }: { editor: Editor; tracker: Track
         layout={box}
         onMoved={forgetCell}
       />
+      <CellMenu editor={editor} frame={root} layout={box} />
+      <TableBar editor={editor} pos={box.pos} />
     </div>
   );
 }

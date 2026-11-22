@@ -4318,6 +4318,24 @@
         "x-access": "permission:view_profiles"
       }
     },
+    "/api/v1/document/format": {
+      "get": {
+        "operationId": "get /api/v1/document/format",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Done. Most routes answer with JSON."
+          },
+          "default": {
+            "description": "An error, as {\"error\": {\"code\", \"message\"}}."
+          }
+        },
+        "tags": [
+          "document"
+        ],
+        "x-access": "authenticated"
+      }
+    },
     "/api/v1/export-formats": {
       "get": {
         "operationId": "get /api/v1/export-formats",

@@ -215,7 +215,7 @@ function AddReaction({ page }: { page: PageDetail }) {
   );
 }
 /** The state of a controlled page, which opens the review panel for whoever may open it (PAG-145). */
-function ControlState({ page, onReview }: { page: PageDetail; onReview: () => void }) {
+export function ControlState({ page, onReview }: { page: PageDetail; onReview: () => void }) {
   const c = page.control;
   if (!c) return null;
   if (!mayOpenReview(page)) return <span className="byline-part">{c.state_name}</span>;

@@ -48,6 +48,7 @@ func (s *Server) registerOrganisingRoutes() {
 	r.HandleFunc("POST "+pagesPath+"/bulk-move", me, s.handleBulkMove)
 	r.HandleFunc("POST "+pagesPath+"/reachable", me, s.handleReachable)
 	r.HandleFunc("POST /api/v1/markdown/document", me, s.handleMarkdownDocument)
+	r.HandleFunc("GET /api/v1/document/format", me, s.handleDocumentFormat)
 	r.HandleFunc("GET /api/v1/labels", me, s.handleLabels)
 	r.HandleFunc("GET /api/v1/labels/{label}/pages", me, s.handleLabelPages)
 	r.HandleFunc("GET /api/v1/posts", me, s.handleAllPosts)
@@ -540,6 +541,12 @@ const markdownSlots = 2
 
 // handleMarkdownDocument turns pasted Markdown into a document. Nothing is stored, and
 // the result went through the same gate as everything that is saved.
+// handleDocumentFormat describes the document format the gate accepts, so a client of the
+// API can write what the editor writes (spec 082 D23). It holds no data of anyone.
+func (s *Server) handleDocumentFormat(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, document.Format())
+}
+
 func (s *Server) handleMarkdownDocument(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Markdown string `json:"markdown"`

@@ -17,6 +17,7 @@ import {
   unique,
   VIEWER,
   pageMenu,
+  publishFromEditor,
 } from './helpers';
 
 const WRITER = [...EDITOR, 'comment.add', 'comment.delete_own'];
@@ -176,7 +177,7 @@ test('a mention in the editor reaches the person when the page is published', as
   ).toBeVisible();
   await page.keyboard.press('Enter');
   await expect(page.locator('.prose.editing .mention')).toHaveText(`@${name}`);
-  await page.getByRole('button', { name: 'Publish', exact: true }).click();
+  await publishFromEditor(page);
   await expect(page.getByRole('heading', { name: 'Working agreement', level: 1 })).toBeVisible();
   await waitForNotification(other, 'mention', pageId);
   await other.context().close();
@@ -510,11 +511,7 @@ test('a watcher hears about a change, unless it is published without notifying',
   await editorSettled(page);
   await page.keyboard.press('End');
   await page.keyboard.type(' Quietly.');
-  await page.getByRole('button', { name: 'Publish options' }).click();
-  const options = page.getByRole('dialog', { name: 'Publish options' });
-  await options.getByLabel('Notify watchers').uncheck();
-  await options.getByRole('button', { name: 'Done' }).click();
-  await page.getByRole('button', { name: 'Publish', exact: true }).click();
+  await publishFromEditor(page, { silent: true });
   await expect(page.getByRole('heading', { name: 'Working agreement', level: 1 })).toBeVisible();
 
   await publish(page, pageId, 'Out loud.', 2);

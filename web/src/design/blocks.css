@@ -440,9 +440,157 @@
   outline: 2px solid var(--color-accent);
 }
 
-/* The list at the cursor, and the same list in the Insert dialog. */
+/* The lists at the cursor: the slash menu, emoji after a colon and people after @. */
 .suggestion-popup {
   z-index: var(--layer-menu);
+}
+
+/* The slash and the words after it while the slash menu is open; never stored (EDT-185). */
+.slash-typed {
+  color: var(--color-accent);
+}
+
+/* The slash menu (EDT-184): one flat list in a card with a soft shadow, no lines between rows. */
+.slash-menu {
+  display: flex;
+  flex-direction: column;
+  inline-size: var(--size-suggestions);
+  max-inline-size: 90vw;
+  /* The room up to the row of tools or the window's end, which the script sets on the popup. */
+  max-block-size: inherit;
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-menu);
+}
+
+.slash-list {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-block-size: 0;
+  margin: 0;
+  padding: var(--space-1) 0 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.slash-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2-5);
+  padding: var(--space-1-5) var(--space-3);
+  border-inline-start: 3px solid transparent;
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.slash-row:hover,
+.slash-row.active {
+  border-inline-start-color: var(--color-accent);
+  background: var(--color-subtle);
+}
+
+.slash-words {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+
+.slash-name {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.slash-description {
+  color: var(--color-muted);
+  font-size: var(--text-small);
+}
+
+/* The last row stays in place under a thin line, with a quiet fill of its own (EDT-186). */
+.slash-more {
+  position: sticky;
+  inset-block-end: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2-5);
+  margin-block-start: auto;
+  padding: var(--space-2) var(--space-3);
+  border-block-start: 1px solid var(--color-line);
+  border-inline-start: 3px solid transparent;
+  background: var(--color-side);
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.slash-more:hover,
+.slash-more.active {
+  border-inline-start-color: var(--color-accent);
+  background: var(--color-subtle);
+}
+
+.slash-more-dots {
+  display: inline-flex;
+  justify-content: center;
+  inline-size: var(--size-control);
+  color: var(--color-muted);
+}
+
+/* An entry's icon on a square tile, the same in the slash menu and the dialog (EDT-191). */
+.insert-tile {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--size-control);
+  block-size: var(--size-control);
+  border-radius: var(--radius);
+  background: var(--color-side);
+  color: var(--color-ink);
+}
+
+.insert-tile.tone-info {
+  color: var(--color-text-blue);
+}
+
+.insert-tile.tone-note {
+  color: var(--color-text-purple);
+}
+
+.insert-tile.tone-success {
+  color: var(--color-text-green);
+}
+
+.insert-tile.tone-warning {
+  color: var(--color-text-amber);
+}
+
+.insert-tile.tone-error {
+  color: var(--color-text-red);
+}
+
+/* What to type or press instead; never cut, and absent on a touch screen without keys (EDT-187). */
+.shortcut-box {
+  display: inline-flex;
+  flex: none;
+  gap: var(--space-0-5);
+  color: var(--color-muted);
+  font-size: var(--text-caption);
+}
+
+.shortcut-box kbd {
+  padding: 0 var(--space-1);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .shortcut-box {
+    display: none;
+  }
 }
 
 .suggestions {
@@ -478,12 +626,6 @@
   padding: var(--space-2) var(--space-2) var(--space-1);
   color: var(--color-muted);
   font-size: var(--text-small);
-}
-
-.suggestion-run {
-  margin: 0;
-  padding: 0;
-  list-style: none;
 }
 
 .suggestion svg {
@@ -561,10 +703,6 @@
 
 .spotlight-button {
   text-decoration: none;
-}
-
-.browse-preview {
-  min-inline-size: 0;
 }
 
 .tool-emoji {
@@ -708,15 +846,277 @@
   gap: var(--space-2);
 }
 
-.browse {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
-  gap: var(--space-4);
+/*
+ * The insert dialog (EDT-175, EDT-176): it fills nearly the whole window. The close button
+ * stands alone in the top end corner; under it the title and the search on one line; the
+ * categories on the start side beside the grid of entries, which alone scrolls; the actions
+ * in the bottom end corner. White space divides the regions.
+ */
+dialog.insert-dialog {
+  inline-size: calc(100vw - 2 * var(--space-8));
+  max-inline-size: none;
+  block-size: calc(100dvh - 2 * var(--space-8));
+  max-block-size: none;
+  padding: var(--space-4) var(--space-6) var(--space-5);
 }
 
-.browse-list {
-  max-block-size: 60vh;
+dialog.insert-dialog[open] {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(10rem, 20%) minmax(0, 1fr);
+  column-gap: var(--space-6);
+}
+
+.insert-close {
+  grid-column: 1 / -1;
+  justify-self: end;
+}
+
+.insert-head {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: var(--space-6);
+  margin-block-end: var(--space-5);
+}
+
+.insert-head h2 {
+  flex: none;
+  margin: 0;
+  font-size: var(--text-heading);
+  font-weight: var(--weight-title);
+}
+
+.insert-search {
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: center;
+}
+
+.insert-search input {
+  inline-size: 100%;
+  padding-inline-end: var(--size-tile);
+}
+
+.insert-enter {
+  position: absolute;
+  inset-inline-end: var(--space-3);
+  color: var(--color-muted);
+  font-size: var(--text-small);
+  pointer-events: none;
+}
+
+.insert-categories {
+  min-block-size: 0;
   overflow-y: auto;
+}
+
+.tabs.vertical {
+  flex-direction: column;
+  border-block-end: 0;
+}
+
+.tabs.vertical [role='tab'] {
+  justify-content: flex-start;
+  padding: var(--space-2) var(--space-3);
+  border-block-end: 0;
+  border-inline-start: 3px solid transparent;
+  border-radius: var(--radius);
+  color: var(--color-ink);
+  font-weight: var(--weight-regular);
+  text-align: start;
+}
+
+.tabs.vertical [role='tab'][aria-selected='true'] {
+  border-inline-start-color: var(--color-accent);
+  background: var(--color-accent-tint);
+  color: var(--color-accent);
+}
+
+.insert-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-content: start;
+  gap: var(--space-1) var(--space-4);
+  min-block-size: 0;
+  padding: var(--space-0-5);
+  overflow-y: auto;
+  border-radius: var(--radius-card);
+}
+
+.insert-grid:focus-visible {
+  outline: 2px solid var(--color-accent);
+}
+
+.insert-row {
+  display: contents;
+}
+
+.insert-cell {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-inline-size: 0;
+  padding: var(--space-2) var(--space-3);
+  border-inline-start: 3px solid transparent;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.insert-cell:hover {
+  background: var(--color-subtle);
+}
+
+.insert-cell.selected {
+  border-inline-start-color: var(--color-accent);
+  background: var(--color-accent-tint);
+}
+
+.insert-cell.selected .insert-tile {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.insert-words {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+
+.insert-name {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-inline-size: 0;
+}
+
+.insert-name-text {
+  flex: 1;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.insert-description {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--color-muted);
+  font-size: var(--text-small);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.insert-none {
+  grid-column: 1 / -1;
+  margin: var(--space-2) var(--space-3);
+}
+
+.insert-foot {
+  display: flex;
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-block-start: var(--space-4);
+}
+
+/* The whole description, and a small drawing of the block (EDT-181, D22). */
+.insert-tip {
+  position: fixed;
+  z-index: var(--layer-menu);
+  max-inline-size: var(--size-panel);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+  background: var(--color-strong);
+  box-shadow: var(--shadow-menu);
+  color: var(--color-surface);
+  font-size: var(--text-small);
+  pointer-events: none;
+}
+
+.insert-tip p {
+  margin: 0;
+}
+
+.insert-preview {
+  max-block-size: var(--size-tile);
+  margin-block-start: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  overflow: hidden;
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-size: var(--text-small);
+}
+
+@media (max-width: 50rem) {
+  dialog.insert-dialog {
+    inline-size: 100vw;
+    block-size: 100dvh;
+    padding: var(--space-3);
+    border-radius: 0;
+  }
+
+  dialog.insert-dialog[open] {
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .insert-head {
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-block-end: var(--space-2);
+  }
+
+  .insert-categories {
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  .insert-search input {
+    padding-inline-end: var(--space-2);
+  }
+
+  .insert-enter {
+    display: none;
+  }
+
+  /* One row of tabs that scrolls sideways, marked as tabs in a row are (D21). */
+  .tabs.vertical {
+    flex-direction: row;
+    border-block-end: 1px solid var(--color-line);
+  }
+
+  .tabs.vertical [role='tab'] {
+    flex: none;
+    border-block-end: 2px solid transparent;
+    border-inline-start: 0;
+    border-radius: 0;
+    white-space: nowrap;
+  }
+
+  .tabs.vertical [role='tab'][aria-selected='true'] {
+    border-block-end-color: var(--color-accent);
+    background: none;
+  }
+
+  .insert-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .insert-tip {
+    display: none;
+  }
+}
+
+@media (max-width: 36rem) {
+  .insert-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .emoji-grid {
@@ -790,18 +1190,17 @@
   outline: 2px solid var(--color-accent);
 }
 
-/* It stays in reach below the bars while a long table scrolls past. */
-.table-frame .menu {
-  position: sticky;
-  inset-block-start: calc(var(--size-bars) + var(--space-2));
-  display: flex;
-  inline-size: fit-content;
-  margin-block-start: calc(-1 * var(--size-twist) / 2);
-  margin-inline: auto var(--space-2);
+.table-frame .menu-list {
+  min-inline-size: var(--size-suggestions);
+}
+
+/* The button in the top end corner of the cell with the cursor (EDT-209). */
+.table-cell {
+  position: absolute;
   pointer-events: auto;
 }
 
-.table-button {
+.table-cell-button {
   inline-size: var(--size-twist);
   min-block-size: var(--size-twist);
   padding: 0;
@@ -811,8 +1210,122 @@
   color: var(--color-ink);
 }
 
-.table-frame .menu-list {
-  min-inline-size: var(--size-suggestions);
+/* The palette of a cell is only as wide as its swatches, and the current colour is ringed. */
+.table-cell .menu-sub-list {
+  min-inline-size: 0;
+}
+
+.table-cell .menu-swatches [aria-checked='true'] .swatch {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.table-cell-button[aria-expanded='true'] {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+/* The bar under the table, centred on it and lying over what follows (EDT-213). */
+.table-bar {
+  position: absolute;
+  /* Below the half of a column's plus that hangs under the table. */
+  inset-block-start: calc(100% + var(--size-twist) / 2 + var(--space-1));
+  inset-inline: 0;
+  inline-size: fit-content;
+  margin-inline: auto;
+  pointer-events: auto;
+}
+
+/* The cell menu covers the table, and the bar steps aside while it is open. */
+.table-frame:has(.table-cell [aria-expanded='true']) .table-bar {
+  visibility: hidden;
+}
+
+/* An open menu of the bar shows on its button: Table settings in the accent on the tint (EDT-214). */
+.table-bar .tool[aria-expanded='true'] {
+  background: var(--color-accent-tint);
+  color: var(--color-accent);
+}
+
+/* A switch that is on: accent words on the tint and a short bar on its start edge, with a tick. */
+.table-bar .menu-list [role='menuitemcheckbox'] {
+  position: relative;
+}
+
+.table-bar .menu-list [role='menuitemcheckbox'][aria-checked='true'] {
+  background: var(--color-accent-tint);
+  color: var(--color-accent);
+  font-weight: var(--weight-regular);
+}
+
+.table-bar .menu-list [role='menuitemcheckbox'][aria-checked='true']::before {
+  position: absolute;
+  inset-block: var(--space-1-5);
+  inset-inline-start: var(--space-0-5);
+  inline-size: var(--space-0-5);
+  border-radius: var(--radius);
+  background: var(--color-accent);
+  content: '';
+}
+
+.table-bar .menu-list [role='menuitemcheckbox'][aria-checked='true']::after {
+  margin-inline-start: auto;
+  inline-size: var(--space-1-5);
+  block-size: var(--space-3);
+  border-block-end: 2px solid currentColor;
+  border-inline-end: 2px solid currentColor;
+  content: '';
+  rotate: 45deg;
+}
+
+/* The round button on the top start corner, which selects the whole table (EDT-216). */
+.table-select-all {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  inline-size: var(--size-twist);
+  min-block-size: var(--size-twist);
+  padding: 0;
+  /* Off the corner, so it never lies on the block's grip, the handles or the first cell. */
+  translate: -100% -100%;
+  border-color: var(--color-guide);
+  border-radius: var(--radius-round);
+  background: var(--color-surface);
+  color: var(--color-muted);
+  opacity: 0.6;
+  pointer-events: auto;
+}
+
+:dir(rtl) .table-select-all {
+  translate: 100% -100%;
+}
+
+.table-select-all:hover,
+.table-select-all:focus-visible {
+  color: var(--color-accent);
+  opacity: 1;
+}
+
+/* The hint in an empty cell with the cursor (EDT-196): never stored, gone at the first character. */
+.cell-hint {
+  position: absolute;
+  color: var(--color-muted);
+  font-size: var(--text-caption);
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.cell-hint kbd {
+  padding-inline: var(--space-1);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius);
+  font-family: inherit;
+}
+
+/* Header rows and columns have a quiet fill for readers and writers, unless coloured (EDT-217). */
+.prose table th:not([class*='mark-']) {
+  background: var(--color-side);
 }
 
 .table-edge {
@@ -882,6 +1395,20 @@
   border-radius: var(--radius-card);
   background: var(--color-surface);
   color: var(--color-accent);
+}
+
+/* Faint at rest, so the table reads first; whole under the pointer, in use or open (EDT-216). */
+.table-handle,
+.table-plus {
+  opacity: 0.6;
+}
+
+.table-handle:hover,
+.table-handle:focus-visible,
+.table-handle[aria-expanded='true'],
+.table-plus:hover,
+.table-plus:focus-visible {
+  opacity: 1;
 }
 
 .table-drop {

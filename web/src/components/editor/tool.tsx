@@ -10,6 +10,8 @@ export function Tool({
   label,
   active,
   pressed,
+  unavailable = false,
+  narrow = false,
   run,
   children,
 }: {
@@ -17,6 +19,13 @@ export function Tool({
   label: string;
   active?: string;
   pressed?: boolean;
+  /**
+   * Nothing to do now, such as Undo before any change. The tool keeps its place and its stop in
+   * the arrow keys, and says so with aria-disabled (EDT-170, D13).
+   */
+  unavailable?: boolean;
+  /** The arrow beside a tool, such as the size picker beside Table. */
+  narrow?: boolean;
   run: () => void;
   children: ReactNode;
 }) {
@@ -26,15 +35,19 @@ export function Tool({
   });
   const on = pressed ?? markIsOn;
   const isToggle = active !== undefined || pressed !== undefined;
+  const classes = ['tool', narrow && 'tool-arrow', on && 'on'].filter(Boolean).join(' ');
   return (
     <button
       type="button"
-      className={on ? 'tool on' : 'tool'}
+      className={classes}
       aria-label={label}
       aria-pressed={isToggle ? on : undefined}
+      aria-disabled={unavailable || undefined}
       title={label}
       onMouseDown={(e) => e.preventDefault()}
-      onClick={run}
+      onClick={() => {
+        if (!unavailable) run();
+      }}
     >
       {children}
     </button>

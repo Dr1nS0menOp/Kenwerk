@@ -5,7 +5,6 @@ import { getSchema } from '@tiptap/core';
 import '../../i18n';
 import { documentExtensions } from './extensions';
 import { findMatches } from './find';
-import { arrangedItems, INSERT_ITEMS } from './insert';
 import { linkedPages } from './gone-links';
 import { looksLikeMarkdown } from './paste';
 import { wordsIn } from './word-count';
@@ -95,32 +94,5 @@ describe('counting words', () => {
 
   it('counts across lines and double spaces', () => {
     expect(wordsIn(' one  two\nthree ')).toBe(3);
-  });
-});
-
-describe('the / menu', () => {
-  const ids = (recent: string[]) => arrangedItems(INSERT_ITEMS, recent).map((item) => item.id);
-
-  it('keeps the usual order for someone who used nothing yet', () => {
-    expect(ids([])).toEqual(INSERT_ITEMS.map((item) => item.id));
-  });
-
-  it('puts what was used lately first, and shows it only once', () => {
-    const shown = ids(['table', 'h2']);
-    expect(shown.slice(0, 2)).toEqual(['table', 'h2']);
-    expect(shown.filter((id) => id === 'table')).toHaveLength(1);
-  });
-
-  it('forgets an entry that does not exist, or does not fit the search', () => {
-    expect(arrangedItems(INSERT_ITEMS.slice(0, 2), ['gone', 'table']).map((i) => i.group)).not.toContain(
-      'recent',
-    );
-  });
-
-  it('gives every entry a group, and each group stays in one piece', () => {
-    const groups = arrangedItems(INSERT_ITEMS, ['table']).map((item) => item.group);
-    expect(groups[0]).toBe('recent');
-    const runs = groups.filter((group, at) => group !== groups[at - 1]);
-    expect(new Set(runs).size).toBe(runs.length);
   });
 });

@@ -59,7 +59,6 @@
   --size-badge-large: 40px;
   --size-topbar: 56px;
   --size-editbar: 52px;
-  --size-bars: calc(var(--size-topbar) + var(--size-editbar) + var(--size-tool) + 2 * var(--space-1-5));
   --size-sidebar: 18rem;
   --size-search-main: 40rem;
   --size-summary: 26rem;

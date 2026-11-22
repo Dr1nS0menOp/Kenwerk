@@ -305,6 +305,7 @@ export function Tabs<Name extends string>({
   nameOf,
   panel,
   onChange,
+  orientation = 'horizontal',
 }: {
   names: readonly Name[];
   current: Name;
@@ -312,11 +313,19 @@ export function Tabs<Name extends string>({
   nameOf: (name: Name) => string;
   panel?: string;
   onChange: (next: Name) => void;
+  /** A column of tabs takes Up and Down as well; a narrow screen may still lay it out as a row. */
+  orientation?: 'horizontal' | 'vertical';
 }) {
   const keys = (e: KeyboardEvent<HTMLDivElement>) => {
     const forward = getComputedStyle(e.currentTarget).direction === 'rtl' ? 'ArrowLeft' : 'ArrowRight';
     const backward = forward === 'ArrowLeft' ? 'ArrowRight' : 'ArrowLeft';
-    const step = e.key === forward ? 1 : e.key === backward ? -1 : 0;
+    const vertical = orientation === 'vertical';
+    const step =
+      e.key === forward || (vertical && e.key === 'ArrowDown')
+        ? 1
+        : e.key === backward || (vertical && e.key === 'ArrowUp')
+          ? -1
+          : 0;
     if (!step) return;
     e.preventDefault();
     const at = (names.indexOf(current) + step + names.length) % names.length;
@@ -326,7 +335,13 @@ export function Tabs<Name extends string>({
     e.currentTarget.querySelectorAll<HTMLElement>('[role="tab"]')[at]?.focus();
   };
   return (
-    <div role="tablist" aria-label={label} className="tabs" onKeyDown={keys}>
+    <div
+      role="tablist"
+      aria-label={label}
+      aria-orientation={orientation}
+      className={orientation === 'vertical' ? 'tabs vertical' : 'tabs'}
+      onKeyDown={keys}
+    >
       {names.map((name) => (
         <button
           key={name}

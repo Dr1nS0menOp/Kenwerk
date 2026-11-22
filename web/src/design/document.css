@@ -413,10 +413,71 @@ a.file-tile:hover {
   font-size: var(--text-small);
 }
 
-.edit-summary {
+/* Two groups (EDT-165): what the page is at the start, what happens to it at the end. */
+.edit-bar:has(.edit-strip-start) {
+  justify-content: space-between;
+}
+
+.edit-strip-start,
+.edit-strip-end {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-inline-size: 0;
+}
+
+.edit-strip-start {
   flex: 1;
-  max-inline-size: var(--size-summary);
-  margin-inline-start: auto;
+}
+
+.edit-strip-end {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.edit-title {
+  overflow: hidden;
+  min-inline-size: 0;
+  font-weight: var(--weight-strong);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.edit-bar .lozenge,
+.edit-bar .edit-status {
+  flex-shrink: 0;
+}
+
+/* The help button stays in the bottom start corner of the editor while the sheet scrolls. */
+.editor-help {
+  position: sticky;
+  inset-block-end: var(--space-4);
+  z-index: var(--layer-sticky);
+  inline-size: fit-content;
+  margin-block-start: calc(-1 * var(--size-tool));
+  margin-inline-start: var(--space-4);
+}
+
+.editor-help .icon {
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-round);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-menu);
+}
+
+/* The reduced byline, then a wide gap before the text (EDT-174). */
+.editor-byline {
+  margin-block-end: var(--space-6);
+}
+
+/* The publish step: Discard draft stands apart at the start side (spec 082, D6). */
+/* The form only joins the fields for Enter; it adds no space of its own. */
+.publish-step {
+  margin-block: 0;
+}
+
+.publish-step-discard {
+  margin-inline-end: auto;
 }
 
 /* A long note goes last, so it wraps alone and the buttons keep their line. */
@@ -495,10 +556,47 @@ a.file-tile:hover {
   color: var(--color-ink);
 }
 
+/* The text style is the one tool with words: the style at the cursor, then its arrow (EDT-168). */
+.tool.tool-style {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  inline-size: auto;
+  padding-inline: var(--space-2) var(--space-1);
+}
+
+.tool-style-name {
+  min-inline-size: 10ch;
+  text-align: start;
+}
+
+/* The arrow beside a tool, such as the size picker beside Table and the list choices. */
+.tool.tool-arrow {
+  inline-size: auto;
+  padding-inline: var(--space-0-5);
+}
+
+/* An active tool: its icon in the accent on the accent tint (EDT-171). */
 .tool.on,
 .tool.on:hover {
-  background: var(--color-accent);
-  color: var(--color-on-accent);
+  background: var(--color-accent-tint);
+  color: var(--color-accent);
+}
+
+/* Nothing to undo or redo: the tool stays in its place, dimmed (EDT-170). */
+.tool[aria-disabled='true'],
+.tool[aria-disabled='true']:hover {
+  background: none;
+  color: var(--color-muted);
+  cursor: default;
+}
+
+/* The keys of a menu entry, at its end. */
+.menu-keys {
+  margin-inline-start: auto;
+  padding-inline-start: var(--space-4);
+  color: var(--color-muted);
+  font-size: var(--text-small);
 }
 
 .tool-separator {
@@ -660,13 +758,6 @@ a.file-tile:hover {
   .edit-bar,
   .toolbar {
     position: static;
-  }
-
-  .edit-summary {
-    flex-basis: 100%;
-    order: 1;
-    max-inline-size: none;
-    margin-inline-start: 0;
   }
 }
 

@@ -102,6 +102,41 @@ export const IconPanelWarning = line('M12 4l9 16H3zM12 10v4M12 17h.01');
 export const IconPanelError = line('M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9 9l6 6M15 9l-6 6');
 export const IconExpand = line('M4 6l4 4 4-4M15 8h5M4 14h16M4 19h16');
 export const IconColumns = line('M4 5h7v14H4zM13 5h7v14h-7z');
+
+const tenth = (n: number) => Math.round(n * 10) / 10;
+
+/** An H that is smaller for each level, so the six headings tell themselves apart (EDT-191). */
+const headingPath = (level: number) => {
+  const height = 16 - 2 * (level - 1);
+  const width = tenth(height * 0.75);
+  const top = 12 - height / 2;
+  const start = tenth(12 - width / 2);
+  return `M${start} ${top}v${height}M${tenth(start + width)} ${top}v${height}M${start} 12h${width}`;
+};
+export const IconHeading1 = line(headingPath(1));
+export const IconHeading2 = line(headingPath(2));
+export const IconHeading3 = line(headingPath(3));
+export const IconHeading4 = line(headingPath(4));
+export const IconHeading5 = line(headingPath(5));
+export const IconHeading6 = line(headingPath(6));
+
+/** As many columns as the entry adds, side by side (EDT-191). */
+const COLUMNS_GAP = 1.5;
+const columnsPath = (count: number) => {
+  const width = tenth((16 - COLUMNS_GAP * (count - 1)) / count);
+  return Array.from(
+    { length: count },
+    (_, at) => `M${tenth(4 + at * (width + COLUMNS_GAP))} 5h${width}v14h-${width}z`,
+  ).join('');
+};
+export const IconColumns2 = line(columnsPath(2));
+export const IconColumns3 = line(columnsPath(3));
+export const IconColumns4 = line(columnsPath(4));
+export const IconColumns5 = line(columnsPath(5));
+export const IconColumnsSidebar = line('M4 5h10v14H4zM16 5h4v14h-4z');
+export const IconMention = line(
+  'M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM16 12v1.5a2.5 2.5 0 0 0 5 0V12a9 9 0 1 0-3.5 7.1',
+);
 export const IconDecision = line('M12 3v6M12 9l-6 5v7M12 9l6 5v7');
 export const IconStatus = line('M7 8h10a4 4 0 0 1 0 8H7a4 4 0 0 1 0-8z');
 export const IconDate = line('M5 6h14v14H5zM5 10h14M9 4v4M15 4v4');
@@ -233,6 +268,10 @@ export const IconMail = line('M3 6h18v12H3zM3 7l9 6 9-6');
 /** A list of entries, such as the events of the installation. */
 export const IconList = line('M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01');
 export const IconPerson = line('M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 20a8 8 0 0 1 16 0');
+/** Asking someone in: a person with a plus beside them. */
+export const IconInvite = line('M10 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM3 20a7 7 0 0 1 12.5-4.3M19 14v6M16 17h6');
+/** A block kept in one place and shown in others: two arrows that follow each other. */
+export const IconSynced = line('M4 10a8 8 0 0 1 14-4l2 2M20 4v4h-4M20 14a8 8 0 0 1-14 4l-2-2M4 20v-4h4');
 
 /** The same link icon, for the heading marks that ProseMirror builds outside React. */
 export function linkIconElement(): SVGSVGElement {

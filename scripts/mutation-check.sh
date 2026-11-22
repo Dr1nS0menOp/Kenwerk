@@ -984,6 +984,8 @@ mutate "a rename gets around a blocked type" internal/attachments/versions.go \
   's.replace("if isBlocked(blocked, name, \"\", nil) {", "if isBlocked(blocked, name, \"\", nil) && len(name) < 0 {")' $app -run TestRenamingCannotGetAroundABlockedType
 mutate "a hidden page counts as reachable" internal/pages/details.go \
   's.replace("SELECT v.page_id FROM perm_visible_pages($1) v WHERE v.page_id = ANY($2)", "SELECT p.id FROM pages p WHERE $1::uuid IS NOT NULL AND p.id = ANY($2) AND p.status = \x27published\x27")' $app -run TestAHiddenPageAndADeletedPageLookTheSameToAReader
+mutate "the document format is open to strangers" internal/httpapi/handlers_organising.go \
+  's.replace("\"GET /api/v1/document/format\", me,", "\"GET /api/v1/document/format\", Public,")' $app -run TestTheDocumentFormatIsReadableThroughTheAPI
 mutate "pasted Markdown has no limit" internal/httpapi/handlers_organising.go \
   's.replace("if len(in.Markdown) > maxPastedMarkdown {", "if len(in.Markdown) > maxPastedMarkdown && len(in.Markdown) < 0 {")' $app -run TestPastedMarkdownHasALimit
 mutate "a text file goes to the office helper" internal/httpapi/handlers_files.go \

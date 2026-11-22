@@ -41,7 +41,6 @@ import {
 } from './attachments';
 import { columnsFromDrop, continueAtEnd, type DropSide } from './block-commands';
 import { keepUnknownBlocks } from './blocks';
-import { BrowseDialog } from './browse';
 import { EmojiPicker } from './emoji-picker';
 import { SavedBlocksDialog, savedBlockItem, useSavedBlocks } from './saved-blocks';
 import { DescribeDialog, imagesWithoutWords } from './selection-tools';
@@ -54,7 +53,6 @@ import { GoneLinks, linkedPages, refreshGoneLinks } from './gone-links';
 import {
   EmojiSuggestions,
   INSERT_ITEMS,
-  InsertDialog,
   MentionSuggestions,
   SlashCommands,
   TEMPLATE_ITEMS,
@@ -62,6 +60,7 @@ import {
   TEMPLATE_VALUE_ITEM,
   type InsertItem,
 } from './insert';
+import { InsertDialog } from './insert-dialog';
 import { EditorKeys, noActions, type EditorActions, type TemplateItemKind } from './keys';
 import { cleanWordHtml, convertPastedMarkdown, looksLikeMarkdown, pastedImages } from './paste';
 import { keepSharedClean } from './shared-clean';
@@ -77,10 +76,12 @@ import { ReaderTables } from './reader-tables';
 import { tableAround } from './table';
 import { TableFrame, useTableTracking } from './table-frame';
 import { TableRules } from './table-rules';
-import { TableSizeDialog } from './table-size';
+import { CellHint, QuietCellMenu } from './table-cells';
+import { insertDefaultTable, TableSizeDialog } from './table-size';
 import { FloatingBars } from './floating-bars';
 import { Toolbar } from './toolbar';
 import { TypingHelp } from './typing';
+import { EditorHelp } from './editor-help';
 import { pickWordFile } from './word';
 import { WordCount } from './word-count';
 
@@ -397,6 +398,7 @@ export function DocumentEditor({
   language,
   templateValues,
   templateConditions,
+  history,
 }: {
   pageId: string;
   initial: Json;
@@ -425,6 +427,8 @@ export function DocumentEditor({
   templateValues?: TemplateValueChoice[];
   /** In a guided template: what the condition of a section may test (spec 074, TPL-422). */
   templateConditions?: ConditionScope;
+  /** The History tool of a page, which opens its panel (EDT-172); a template has none. */
+  history?: { open: boolean; onToggle: () => void };
 }) {
   const { t } = useTranslation();
   const toast = useToast();
@@ -448,11 +452,12 @@ export function DocumentEditor({
     });
   const [dropping, setDropping] = useState(false);
   const [linking, setLinking] = useState(false);
-  const [inserting, setInserting] = useState(false);
+  // The insert dialog, with the words it opens with (EDT-186).
+  const [inserting, setInserting] = useState<{ query: string } | null>(null);
   const [sizingTable, setSizingTable] = useState(false);
   const [finding, setFinding] = useState(false);
-  const [browsing, setBrowsing] = useState(false);
   const [pickingEmoji, setPickingEmoji] = useState(false);
+  const [helping, setHelping] = useState(false);
   const [savingBlock, setSavingBlock] = useState(false);
   const [describing, setDescribing] = useState(false);
   const savedBlocks = useSavedBlocks();
@@ -469,6 +474,15 @@ export function DocumentEditor({
   valueChoices.current = templateValues;
   const conditionScope = useRef(templateConditions);
   conditionScope.current = templateConditions;
+  // The slash menu and the insert dialog offer the same entries (EDT-184).
+  const insertable = useRef(() => [] as InsertItem[]);
+  insertable.current = () => [
+    ...offered(INSERT_ITEMS, offeredNow.current),
+    ...(inTemplate ? TEMPLATE_ITEMS : []),
+    ...(inTemplate && valueChoices.current ? [TEMPLATE_VALUE_ITEM] : []),
+    ...(inTemplate && conditionScope.current ? [TEMPLATE_SECTION_ITEM] : []),
+    ...savedItems.current,
+  ];
   const [section, setSection] = useState<{ pos: number | null } | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const plainPaste = useRef(false);
@@ -573,13 +587,7 @@ export function DocumentEditor({
         : []),
       SlashCommands.configure({
         actions: () => actions.current,
-        items: () => [
-          ...offered(INSERT_ITEMS, offeredNow.current),
-          ...(inTemplate ? TEMPLATE_ITEMS : []),
-          ...(inTemplate && valueChoices.current ? [TEMPLATE_VALUE_ITEM] : []),
-          ...(inTemplate && conditionScope.current ? [TEMPLATE_SECTION_ITEM] : []),
-          ...savedItems.current,
-        ],
+        items: () => insertable.current(),
         recent: () => readRecentItems(person),
         onUsed: (id) => rememberItem(person, id),
       }),
@@ -589,6 +597,8 @@ export function DocumentEditor({
       FindReplace.configure({ onOpen: () => actions.current.openFind() }),
       EditorKeys.configure({ actions: () => actions.current }),
       TableRules.configure({ onNested: () => nestedTable.current() }),
+      CellHint,
+      QuietCellMenu,
     ],
     // A document even when empty: a string would be parsed as HTML, which our policy blocks.
     content: together
@@ -665,10 +675,15 @@ export function DocumentEditor({
     openDrawing: (existing) => setDrawing(existing ?? 'new'),
     openPageFiles: () => setPickingFile(true),
     openBlockMenu: tracker.openAtCursor,
-    openTableMenu: tables.open,
+    openTableMenu: tables.openMore,
+    openCellMenu: tables.openCell,
     openTableSize: () => {
       if (tableAround(editor)) nestedTable.current();
       else setSizingTable(true);
+    },
+    insertTable: () => {
+      if (tableAround(editor)) nestedTable.current();
+      else insertDefaultTable(editor);
     },
     openTemplateItem: setTemplateItem,
     openSection: (pos) => setSection({ pos }),
@@ -681,6 +696,8 @@ export function DocumentEditor({
     openSaveBlock: () => setSavingBlock(true),
     openEmojiPicker: () => setPickingEmoji(true),
     openDescribe: () => setDescribing(true),
+    openHelp: () => setHelping(true),
+    openInsert: (query) => setInserting({ query }),
     publish: onPublish,
     save: onSave,
     focusTitle: () => {
@@ -742,8 +759,9 @@ export function DocumentEditor({
         fileInput={fileInput}
         fullWidth={fullWidth}
         onFullWidth={onFullWidth}
-        onInsert={() => setInserting(true)}
+        onInsert={() => setInserting({ query: '' })}
         onFiles={(files) => void addFiles(files)}
+        history={history}
       />
       <FloatingBars editor={editor} actions={actions.current} onComment={onComment} />
       {finding && <FindBar editor={editor} onClose={() => setFinding(false)} />}
@@ -818,6 +836,7 @@ export function DocumentEditor({
         <WordCount editor={editor} />
         {footer}
       </div>
+      <EditorHelp open={helping} onOpen={() => setHelping(true)} onClose={() => setHelping(false)} />
       {linking && <LinkDialog editor={editor} onClose={() => setLinking(false)} />}
       {sizingTable && <TableSizeDialog editor={editor} onClose={() => setSizingTable(false)} />}
       {pickingFile && (
@@ -864,15 +883,12 @@ export function DocumentEditor({
         <InsertDialog
           editor={editor}
           actions={actions.current}
-          onClose={() => setInserting(false)}
-          onBrowse={() => {
-            setInserting(false);
-            setBrowsing(true);
-          }}
+          items={insertable.current()}
+          recent={readRecentItems(person)}
+          query={inserting.query}
+          onUsed={(id) => rememberItem(person, id)}
+          onClose={() => setInserting(null)}
         />
-      )}
-      {browsing && (
-        <BrowseDialog editor={editor} actions={actions.current} onClose={() => setBrowsing(false)} />
       )}
       {pickingEmoji && <EmojiPicker editor={editor} onClose={() => setPickingEmoji(false)} />}
       {savingBlock && <SavedBlocksDialog editor={editor} onClose={() => setSavingBlock(false)} />}

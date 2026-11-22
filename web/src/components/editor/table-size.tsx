@@ -10,6 +10,11 @@ const GRID_SIZE = 8;
 const MAX_SIZE = 50;
 const GRID_STEPS = Array.from({ length: GRID_SIZE }, (_, i) => i + 1);
 
+/** A table of three by three with a header row, which the table tool adds at once (D9). */
+export function insertDefaultTable(editor: Editor) {
+  editor.chain().focus().insertTable({ rows: DEFAULT_SIZE, cols: DEFAULT_SIZE, withHeaderRow: true }).run();
+}
+
 export function TableSizeDialog({ editor, onClose }: { editor: Editor; onClose: () => void }) {
   const { t } = useTranslation();
   const [rows, setRows] = useState(DEFAULT_SIZE);

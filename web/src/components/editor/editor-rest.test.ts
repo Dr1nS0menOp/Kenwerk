@@ -11,22 +11,6 @@ import { documentExtensions, knownBlockType } from './extensions';
 import { turnIntoItems } from './insert';
 import { KNOWN_NODE_TYPES } from './palette';
 import { cleanWordHtml, pastedImages } from './paste';
-import { foldedGroups } from './tool-fold';
-
-describe('folding the row of tools', () => {
-  it('folds nothing while everything fits', () => {
-    expect(foldedGroups([100, 100, 100], 300, 40)).toBe(0);
-  });
-
-  it('folds from the end, and leaves room for the More button', () => {
-    expect(foldedGroups([100, 100, 100], 299, 40)).toBe(1);
-    expect(foldedGroups([100, 100, 100], 239, 40)).toBe(2);
-  });
-
-  it('can fold everything on a very small screen', () => {
-    expect(foldedGroups([100, 100], 30, 40)).toBe(2);
-  });
-});
 
 describe('turn into', () => {
   it('starts with what is likely for this kind of block', () => {

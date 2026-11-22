@@ -459,6 +459,8 @@ test('a page without a title is listed as Untitled among the favourites', async 
 test('the look of a page: emoji, width, title and header image', async ({ page }) => {
   const space = await newSpace(page, 'Look space');
   const id = await publishedPage(page, space.id, 'Looks', 'text');
+  // Wide enough that the last group of the row, with Full width, does not fold (spec 082 D29).
+  await page.setViewportSize({ width: 1600, height: 900 });
   await page.goto(`/pages/${id}/edit`);
   const head = page.locator('.page-head');
   await head.hover();

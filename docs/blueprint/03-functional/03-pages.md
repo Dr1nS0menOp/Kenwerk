@@ -18,7 +18,7 @@ A page goes through a simple life: a private draft, a published page, new versio
 ## 3.2 Drafts and saving
 
 - **PAG-011** · built · While the editor is open, the draft is saved after each pause in typing.
-- **PAG-012** · built · A status beside Close says saving, saved, or that saving failed.
+- **PAG-012** · built · A status in the strip says saving, saved, or that saving failed. Since spec 082 it sits at the end of the strip, before the people editing and Publish (EDT-165).
 - **PAG-013** · built · Every person has at most one draft per page. It is private until the page is published.
 - **PAG-014** · built · A person who leaves with a draft sees a note on the page, with a link back to the draft.
 - **PAG-015** · built · Discarding a draft asks first, and cannot be undone.
@@ -32,7 +32,7 @@ A page goes through a simple life: a private draft, a published page, new versio
 - **PAG-021** · built · Publish creates a new version and shows the page to everyone who may see it.
 - **PAG-022** · built · An optional summary says what changed. It shows in the history.
 - **PAG-023** · built · If someone else published in between, the person is told. They can compare, keep editing, or publish anyway.
-- **PAG-024** · partly · A small arrow beside Publish opens the publish options: location, who can see it, notify watchers or not, and a schedule. Still open: who can see it.
+- **PAG-024** · partly · The step that Publish opens holds the publish options: location, who can see it, notify watchers or not, and a schedule (EDT-166, spec 082; before that, a small arrow beside Publish opened them). Still open: who can see it.
 - **PAG-025** · built · **Silent update:** the person can choose not to notify watchers, for small fixes.
 - **PAG-026** · built · **Scheduled publishing:** a page or a change can be published at a chosen date and time. Until then a clear mark says so, the person can change or cancel it, and no notification is sent. Later edits are included.
 - **PAG-027** · built · **Publish location:** a person can pick another parent or space at publishing time, with the same rules as a move.

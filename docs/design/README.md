@@ -21,7 +21,7 @@ The intuition of a familiar wiki is the aim, never a copy. The clean-room rules 
 
 ## The arrangement decided on 2026-11-14 (ADR-045)
 
-**Built so far:** the frame (spec 078, ADR-046): the top bar, the sidebar outside a space, its panels, the space's block of the sidebar, the start screen, the current item and the line of the frame; the page (spec 079); and the administration (spec 081, ADR-048): its sidebar in two tiers, the head of a section, the centred column, notices, app tables, Save and Reset changes and empty sections; and the settings of a space (spec 083): their sidebar with a head, pinned entries and five groups, the screens of their own beside it, switches in a card and tiles for a choice. The rules below for those parts now describe the built screens, and the old rules they replaced are gone from this document.
+**Built so far:** the frame (spec 078, ADR-046): the top bar, the sidebar outside a space, its panels, the space's block of the sidebar, the start screen, the current item and the line of the frame; the page (spec 079); and the administration (spec 081, ADR-048): its sidebar in two tiers, the head of a section, the centred column, notices, app tables, Save and Reset changes and empty sections; and the settings of a space (spec 083): their sidebar with a head, pinned entries and five groups, the screens of their own beside it, switches in a card and tiles for a choice; and the editor (spec 082, ADR-049): the strip and the publish step, the row of tools, the byline and help of the sheet, the slash menu and the insert dialog, the cell button and table bar, and History as a panel. The rules below for those parts now describe the built screens, and the old rules they replaced are gone from this document.
 
 On 2026-11-14 the product owner decided that, for the arrangement of a screen, a study of pictures of another wiki product wins over this document: which regions a screen has, where they sit, what each holds, their order and grouping, what stays in view and how a state is marked. The look does not change: colours, icons, fonts and every token value stay as this document and `tokens.css` set them. Each change below replaces the named rule of this document when its screen is rebuilt, in a wave with its own study and new design pictures; until then the existing rule describes the built screen, and the pictures in `web/e2e/design-baselines/` keep guarding it. The requirement lines of blueprint 03 that end with "(changes the design standard, decided 2026-11-14)" are the source of truth for the detail; this list only names what changes and which rule it touches.
 
@@ -95,6 +95,8 @@ On 2026-11-14 the product owner decided that, for the arrangement of a screen, a
 - No row shows its buttons at rest, the current one included. Replaces "The current page has the tint, and shows the add button" (The page tree). SPC-110.
 
 ### The editor
+
+Every item of this part is built in spec 082 (wave SC3); "The editor" below describes the built screen. The fold control of EDT-165 is not built (spec 082 D1).
 
 - The top strip has the page's icon and bold title at the start, and the save status, the people editing, Publish and Close at the end; the summary and Discard draft move into the step that Publish opens. Replaces "Close on the left with the save status beside it; on the right the summary, Discard draft and Publish" (The editor). EDT-165, EDT-166.
 - The row of tools gets a new order, with direct buttons for common blocks, History after undo and redo, and Find and Full width in a last group; highlight moves into More formatting and indent into the list choices. Replaces the order of "Below it one row of tools" (The editor). EDT-168, EDT-169.
@@ -249,6 +251,10 @@ Use these. Reuse beats a new variant.
 | Writing a comment | `CommentBox` |
 | Counting responses | `Reactions`, for a page or a comment |
 | A menu in something that scrolls | `Menu` with `floating` |
+| Publishing from the editor | `PublishStep` in `components/publish-options.tsx` |
+| Adding a block | `InsertDialog` and the slash menu in `components/editor/`, fed by one catalogue (`insert-catalogue.ts`), with `InsertTile` and `ShortcutBox` |
+| Keys in the person's own words | `keysHere` and `ariaKeysHere` in `components/editor/key-names.ts` |
+| The tools of a table in the editor | `CellMenu` and `TableBar` in `components/editor/` |
 | A page in a list | `PageMark`, which shows its emoji |
 
 ## Settings and lists (ADR-034)
@@ -275,17 +281,24 @@ Use these. Reuse beats a new variant.
 
 ## The editor
 
-- Top strip: Close on the left with the save status beside it; on the right the summary, Discard draft and Publish.
-- Below it one row of tools: text style, marks, More formatting, colour, highlight; alignment and indent; lists and blocks; link, image or file, table, Insert, Find; undo and redo. It is one Tab stop: arrow keys move inside it, Escape returns to the text.
-- The tools for what is selected appear at the end of the same row: image, panel, section, columns, status mark, date, code block, table. Text fields come last, because they need the arrow keys themselves. Selected words and a selected image also get a small floating bar with the tools most used on them (ADR-038, spec 047): never a tool the row lacks, above the selection or below it on a touch screen, never over the row, Alt+F10 to reach it and Escape to leave.
-- `/` opens a list at the cursor, and Insert opens the same list in a dialog.
+The editor as blueprint 03 arranges it (spec 082, ADR-049).
+
+- Three bands, the strip, the row of tools and the sheet, with a thin line in `--color-line` under the strip and under the row. The strip is a little taller than the row. Both bars stay visible while scrolling, except below 50rem.
+- The strip (`EditStrip`): at the start the page's icon (its emoji, else the icon of its kind), the title in bold as it is typed, the lozenge Unpublished changes and the public mark; at the end the save status in muted words, the people editing with Invite as an icon after them while editing together, **Publish…** as the one primary button, and **Close** as quiet words at the very end. The strip has no summary field, Discard draft or Comment: Comment is on the floating text bar.
+- Publish opens the publish step (`PublishStep`), a `Dialog`: the summary first, with the focus, then the options (notify watchers, status, publish at a date, Location and Preview), then the actions: Cancel and **Publish**, which reads **Schedule** while a date is set, at the end side, and **Discard draft** (or Revert to published) in the danger style at the start side, apart from them, asking first. `Ctrl Enter` in the text publishes at once with the step's choices.
+- Below the strip one row of tools, in this order: the text style as a button with words; bold, underline, italic; More formatting (highlight, strikethrough, inline code, subscript, superscript, clear formatting); bullet list, numbered list and List choices (indent and outdent); alignment; text colour; then task, image or file, mention, emoji, columns, panel, synced block, table with its arrow for the size picker, and Insert; link; undo, redo and History; then the last group, Find and Full width. Only the text style shows words. Undo and redo that cannot run are dimmed and keep their place. The row is one Tab stop: arrow keys move inside it, Escape returns to the text. Groups fold into More from the end.
+- An active tool is an accent icon on the accent tint, with `aria-pressed`.
+- The tools for what is selected appear after the last group and wrap below the row. Text fields come last, because they need the arrow keys themselves. Selected words and a selected image also get a small floating bar with the tools most used on them (ADR-038, spec 047): never a tool the row lacks, except the table bar, above the selection or below it on a touch screen, never over the row, Alt+F10 to reach it and Escape to leave.
+- `/` opens the slash menu at the cursor: one flat list in a card with a soft shadow, the first row marked, the typed slash in the accent colour, and a last row under a thin line that opens the insert dialog with the words typed so far. The lists of `:` and `@` keep their own look.
+- Insert, the plus on an empty line and that last row open the insert dialog (`InsertDialog`), over the dimmed editor and nearly as large as the window: a close button alone in the top end corner; the title and the search on one line; a column of categories as vertical `Tabs`; a grid of entries in three columns that alone scrolls; Insert and Close in the bottom end corner. An entry is an icon tile, its name with its shortcut box, and up to two lines of description. The chosen entry has the tint and a bar on its start edge, without a checkbox. Its tooltip, after a pause or on keyboard focus, holds the whole description and a small drawn preview of the block (spec 082 D22), over the grid without moving it. Below 50rem the dialog takes the whole screen, the categories scroll sideways in one row, and the grid has one column, two from 36rem.
+- Icon tiles are squares on `--color-side` with the icon in `--color-ink`, one icon per family; a panel's icon is in its panel's colour, and the selected entry's tile is filled.
 - A block has a grip and a menu in the margin, outside the text. Everything the grip does is also in the menu and on the keyboard.
 - A file can be dropped anywhere below the strip. The sheet shows a dashed outline while it is above the editor.
-- An active tool is solid accent, so its state is clear without reading it.
-- The sheet has no border, and scales like a page. The title is a large plain input.
+- The sheet has no border, and scales like a page. The title is a large plain input. Between the title and the body a reduced byline (`EditorByline`): the owner's picture and name and, on a controlled page, its state; then a wide gap.
 - Above the title: Add emoji, Add header image and Page options, quiet until hover or focus, and always there on touch screens.
-- A table has one button on its outline, with one menu for everything about tables, and nothing for tables appears in the row. It has an outline in `--color-guide` and a grid in `--color-line`, and the table with the cursor has an accent outline. Its end edge stretches it.
-- Both bars stay visible while scrolling, except on narrow screens.
+- A small round help button stays in the bottom start corner of the editor (`EditorHelp`); it and `Ctrl /` open the overview of shortcuts with the editor's group and the typing shortcuts first.
+- History in the row opens a panel at the end side under the bars (`EditHistoryPanel`): the published versions, one version, or two compared, and Restore into the draft, which Undo reverses.
+- A table has an outline in `--color-guide` and a grid in `--color-line`, and the table with the cursor has an accent outline. The cell with the cursor has a small button in its top end corner that opens the cell menu (`CellMenu`: colour and alignment as sub-menus, add, empty and delete, merge and split); Shift F10 opens it too. Under the table with the cursor a small floating bar (`TableBar`): Table settings (switches that stay open), the width, Equal columns, Fit to the text and More. Faint controls, the row and column handles and a select-all button, show only on that table. Its end edge stretches it. Header rows and columns have a quiet fill in `--color-side`. The row of tools shows nothing for tables.
 
 ## The blocks of a document
 
@@ -311,7 +324,6 @@ A comparison looks like the page. What was added sits on green, what was removed
 - **Verified and Approved** have an icon and a word.
 - **Labels** sit at the bottom of a page as plain links with a quiet `#`, without a box (ADR-034). Each has its own remove button, of at least 24 pixels. Adding one reads as quiet words until hovered or used, and then it is a field.
 - **Notes on a page**, such as archived, scheduled and approval, use `.note` under the byline. Past review is a muted line, for editors only.
-- **The publish arrow** sits beside Publish, in the same colour, with a small gap.
 - **Fields and instruction text** in a template: a field has a dashed border, instruction text is muted and italic.
 - **Selected rows** have the accent tint and a real checkbox, so state never rests on colour.
 - A restricted item in the trash shows the words "A restricted page", with no title.

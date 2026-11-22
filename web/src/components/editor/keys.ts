@@ -27,8 +27,13 @@ export interface EditorActions {
   openDrawing: (existing?: DrawingFile) => void;
   openPageFiles: () => void;
   openBlockMenu: () => void;
+  /** More of the table bar (EDT-215). */
   openTableMenu: () => void;
+  /** The menu of the cell with the cursor (EDT-199). */
+  openCellMenu: () => void;
   openTableSize: () => void;
+  /** A table of the default size at once, from the table tool (EDT-168, D9). */
+  insertTable: () => void;
   openTemplateItem: (what: TemplateItemKind) => void;
   /** A section a condition shows: a new one around the selection, or the one at pos (TPL-422). */
   openSection: (pos: number | null) => void;
@@ -40,6 +45,10 @@ export interface EditorActions {
   openSaveBlock: () => void;
   openEmojiPicker: () => void;
   openDescribe: () => void;
+  /** The insert dialog, with these words already in its search (EDT-175, EDT-186). */
+  openInsert: (query: string) => void;
+  /** The overview of shortcuts, from the Help entry of the insert menus (EDT-197). */
+  openHelp: () => void;
   /** Says whether there is a title to go to. */
   focusTitle: () => boolean;
 }
@@ -53,7 +62,9 @@ export const noActions: EditorActions = {
   openPageFiles: () => undefined,
   openBlockMenu: () => undefined,
   openTableMenu: () => undefined,
+  openCellMenu: () => undefined,
   openTableSize: () => undefined,
+  insertTable: () => undefined,
   openTemplateItem: () => undefined,
   openSection: () => undefined,
   publish: () => undefined,
@@ -63,6 +74,8 @@ export const noActions: EditorActions = {
   openSaveBlock: () => undefined,
   openEmojiPicker: () => undefined,
   openDescribe: () => undefined,
+  openInsert: () => undefined,
+  openHelp: () => undefined,
   focusTitle: () => false,
 };
 
@@ -96,7 +109,9 @@ export const EditorKeys = Extension.create<{ actions: () => EditorActions }>({
           | 'focusTitle'
           | 'openDrawing'
           | 'openTableSize'
+          | 'insertTable'
           | 'openSection'
+          | 'openInsert'
         >,
       ) =>
       () => {
@@ -120,7 +135,12 @@ export const EditorKeys = Extension.create<{ actions: () => EditorActions }>({
       'Mod-k': run('openLink'),
       'Mod-Enter': run('publish'),
       'Mod-s': run('save'),
+      // Where ? types a character, Ctrl / opens the overview of shortcuts (EDT-197).
+      'Mod-/': run('openHelp'),
       'Mod-Shift-.': () => run(editor().isActive('table') ? 'openTableMenu' : 'openBlockMenu')(),
+      // The keys of a context menu open the cell menu in a table, and do what they did elsewhere.
+      'Shift-F10': () => editor().isActive('table') && run('openCellMenu')(),
+      ContextMenu: () => editor().isActive('table') && run('openCellMenu')(),
       'Mod-\\': () => editor().chain().focus().unsetAllMarks().run(),
       'Mod-d': onBlock((pos) => duplicateBlock(editor(), pos)),
       'Mod-Shift-Backspace': onBlock((pos) => deleteBlock(editor(), pos)),

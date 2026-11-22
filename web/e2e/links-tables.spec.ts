@@ -14,6 +14,7 @@ import {
   test,
   unique,
   VIEWER,
+  publishFromEditor,
 } from './helpers';
 
 test.beforeEach(async ({ page }) => {
@@ -41,13 +42,13 @@ async function editing(page: Page, title: string) {
 }
 
 async function publish(page: Page) {
-  await page.getByRole('button', { name: 'Publish', exact: true }).click();
+  await publishFromEditor(page);
   await expect(page.getByRole('link', { name: 'Edit', exact: true })).toBeVisible();
 }
 
 async function newTable(page: Page, rows = 3, columns = 3) {
   await page.keyboard.press('Enter');
-  await page.getByRole('button', { name: 'Table', exact: true }).click();
+  await page.getByRole('button', { name: 'Choose the size of a table' }).click();
   const dialog = page.getByRole('dialog', { name: 'New table' });
   await dialog.getByLabel('Rows').fill(String(rows));
   await dialog.getByLabel('Columns').fill(String(columns));
@@ -362,9 +363,11 @@ test('numbers, a caption and a flexible table reach the reader', async ({ page }
   await editing(page, 'Settings');
   await newTable(page, 3, 2);
   await body(page).locator('td').first().click();
-  await page.getByRole('button', { name: 'Table options' }).click();
+  await tableBar(page).getByRole('button', { name: 'Table settings' }).click();
   await page.getByRole('menuitemcheckbox', { name: 'Number the rows' }).click();
-  await page.getByRole('menuitemcheckbox', { name: 'Scale with the page' }).click();
+  await page.getByRole('menuitemcheckbox', { name: 'Fixed column widths' }).click();
+  await page.keyboard.press('Escape');
+  await tableBar(page).getByRole('button', { name: 'More table options' }).click();
   await page.getByRole('menuitem', { name: 'Caption' }).click();
   const dialog = page.getByRole('dialog', { name: 'Caption' });
   await dialog.getByLabel('Words of the caption').fill('Costs per year');
@@ -447,4 +450,264 @@ test('a table in a stored document keeps working in the reader with its handles 
   await publish(page);
   await expect(page.locator('.table-line')).toHaveCount(0);
   await expect(page.locator('.table-plus')).toHaveCount(0);
+});
+
+// Spec 082, steps 8 and 9: the cell button, its menu, and the bar under the table.
+
+const tableBar = (page: Page) => page.getByRole('toolbar', { name: 'Table', exact: true });
+const cellButton = (page: Page) => page.getByRole('button', { name: /^Cell options/ });
+const cellMenu = (page: Page) => page.getByRole('menu', { name: /^Cell options/ });
+
+const tableCell = (type: string, text: string) => ({
+  type,
+  content: text ? [{ type: 'paragraph', content: [{ type: 'text', text }] }] : [{ type: 'paragraph' }],
+});
+const tableOf = (...rows: [string, ...string[]][]) => ({
+  type: 'table',
+  content: rows.map((texts, index) => ({
+    type: 'tableRow',
+    content: texts.map((text) => tableCell(index === 0 ? 'tableHeader' : 'tableCell', text)),
+  })),
+});
+
+/** A page with this table, open in the editor with the cursor in its first body cell. */
+async function editingTable(
+  page: Page,
+  title: string,
+  table = tableOf(['Name', 'Team'], ['Robin', 'Docs'], ['Sam', 'Web']),
+) {
+  const space = await newSpace(page, `${title} space`);
+  const id = await publishedPage(page, space.id, title, 'x');
+  await publishDocument(page, id, title, [
+    { type: 'paragraph', content: [{ type: 'text', text: 'Before' }] },
+    table,
+  ]);
+  await page.goto(`/pages/${id}/edit`);
+  await body(page).locator('td').first().click();
+  await editorSettled(page);
+  return { id, space };
+}
+
+test('the cell with the cursor has a button in its top end corner, and Shift F10 opens its menu', async ({
+  page,
+}) => {
+  await editingTable(page, 'Cell button');
+  const cell = await body(page).locator('td').first().boundingBox();
+  const button = await cellButton(page).boundingBox();
+  if (!cell || !button) throw new Error('no cell or no button');
+  expect(button.x + button.width).toBeLessThanOrEqual(cell.x + cell.width + 1);
+  expect(button.x).toBeGreaterThan(cell.x + cell.width / 2);
+  expect(Math.abs(button.y - cell.y)).toBeLessThan(button.height);
+  await expect(cellButton(page)).toHaveAttribute('title', 'Cell options (Shift+F10)');
+
+  await page.keyboard.press('Shift+F10');
+  await expect(cellMenu(page)).toBeVisible();
+  await expect(cellMenu(page).getByRole('menuitem').first()).toBeFocused();
+  await expect(tableBar(page)).toBeHidden();
+  await checkAccessibility(page);
+  await page.keyboard.press('Escape');
+  await expect(cellMenu(page)).toHaveCount(0);
+  await expect(body(page)).toBeFocused();
+  await expect(tableBar(page)).toBeVisible();
+
+  await page.keyboard.press('ContextMenu');
+  await expect(cellMenu(page)).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(cellMenu(page)).toHaveCount(0);
+  await expect(body(page)).toBeFocused();
+
+  // Outside a table the keys do what they did before.
+  await body(page).locator('p').first().click();
+  await page.keyboard.press('Shift+F10');
+  await expect(cellMenu(page)).toHaveCount(0);
+});
+
+test('the colour and alignment of a cell are sub-menus, and act on every selected cell', async ({ page }) => {
+  await editingTable(page, 'Cell colour');
+  const cells = body(page).locator('td');
+  await cells.nth(0).click({ modifiers: [] });
+  await cells.nth(1).click({ modifiers: ['Shift'] });
+  await expect(body(page).locator('.selectedCell')).toHaveCount(2);
+
+  await cellButton(page).click();
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('ArrowUp');
+  await expect(page.getByRole('menuitem', { name: 'Cell colour' })).toBeFocused();
+  await page.keyboard.press('ArrowRight');
+  const colours = page.getByRole('menu', { name: 'Cell colour' });
+  await expect(colours.getByRole('menuitemradio', { name: 'None' })).toBeFocused();
+  await expect(colours.getByRole('menuitemradio', { name: 'None' })).toHaveAttribute('aria-checked', 'true');
+  await checkAccessibility(page);
+  await colours.getByRole('menuitemradio', { name: 'Yellow' }).click();
+  await expect(cellMenu(page)).toHaveCount(0);
+  await expect(body(page).locator('td.mark-yellow')).toHaveCount(2);
+
+  await cellButton(page).click();
+  await expect(
+    page.getByRole('menuitem', { name: 'Cell colour' }).locator('.swatch.mark-yellow'),
+  ).toBeVisible();
+  await page.getByRole('menuitem', { name: 'Alignment' }).click();
+  await page.getByRole('menu', { name: 'Alignment' }).getByRole('menuitemradio', { name: 'Centre' }).click();
+  await expect(body(page).locator('td p[data-align="center"]')).toHaveCount(2);
+  await expect(body(page).locator('th p[data-align="center"]')).toHaveCount(0);
+});
+
+test('emptying a cell keeps its colour, and one Undo brings the words back', async ({ page }) => {
+  await editingTable(page, 'Empty cell');
+  const first = body(page).locator('td').first();
+  await cellButton(page).click();
+  await page.getByRole('menuitem', { name: /^Cell colour/ }).click();
+  await page.getByRole('menu', { name: 'Cell colour' }).getByRole('menuitemradio', { name: 'Green' }).click();
+  await cellButton(page).click();
+  await page.getByRole('menuitem', { name: 'Empty the cell' }).click();
+  await expect(first).toHaveText('');
+  await expect(first).toHaveClass(/mark-green/);
+  await expect(body(page).locator('tr')).toHaveCount(3);
+  await page.keyboard.press('Control+z');
+  await expect(first).toHaveText('Robin');
+});
+
+test('several cells merge from the cell menu, and split again', async ({ page }) => {
+  await editingTable(page, 'Merge cells');
+  const cells = body(page).locator('td');
+  await cellButton(page).click();
+  await expect(page.getByRole('menuitem', { name: 'Merge cells' })).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await cells.nth(1).click({ modifiers: ['Shift'] });
+  await cellButton(page).click();
+  await expect(page.getByRole('menuitem', { name: 'Empty the cells' })).toBeVisible();
+  await page.getByRole('menuitem', { name: 'Merge cells' }).click();
+  await expect(body(page).locator('td[colspan="2"]')).toHaveCount(1);
+  await cellButton(page).click();
+  await page.getByRole('menuitem', { name: 'Split cell' }).click();
+  await expect(body(page).locator('td[colspan="2"]')).toHaveCount(0);
+});
+
+test('the bar under the table: arrow keys, settings that stay open, and More with Ctrl Shift .', async ({
+  page,
+}) => {
+  await editingTable(page, 'Table bar');
+  const bar = tableBar(page);
+  const table = await body(page).locator('table').boundingBox();
+  const under = await bar.boundingBox();
+  if (!table || !under) throw new Error('no table or no bar');
+  expect(under.y).toBeGreaterThanOrEqual(table.y + table.height);
+  expect(Math.abs(under.x + under.width / 2 - (table.x + table.width / 2))).toBeLessThan(8);
+  const names = await bar
+    .getByRole('button')
+    .evaluateAll((buttons) => buttons.map((b) => b.getAttribute('aria-label')));
+  expect(names).toEqual([
+    'Table settings',
+    'Table width',
+    'Equal columns',
+    'Fit to the text',
+    'More table options',
+  ]);
+
+  const settings = bar.getByRole('button', { name: 'Table settings' });
+  await settings.click();
+  const menu = page.getByRole('menu', { name: 'Table settings' });
+  await expect(menu.getByRole('menuitemcheckbox', { name: 'Header row' })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  await menu.getByRole('menuitemcheckbox', { name: 'Number the rows' }).click();
+  await expect(menu.getByRole('menuitemcheckbox', { name: 'Number the rows' })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  await menu.getByRole('menuitemcheckbox', { name: 'Header column' }).click();
+  await expect(menu).toBeVisible();
+  await expect(settings).toHaveAttribute('aria-expanded', 'true');
+  await expect(body(page).locator('.tableWrapper')).toHaveAttribute('data-numbered', '');
+  await checkAccessibility(page);
+  await page.keyboard.press('Escape');
+  await expect(menu).toHaveCount(0);
+
+  // One toolbar: one Tab stop, and the arrows move inside it.
+  await settings.focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(bar.getByRole('button', { name: 'Table width' })).toBeFocused();
+  await page.keyboard.press('End');
+  await expect(bar.getByRole('button', { name: 'More table options' })).toBeFocused();
+
+  await body(page).locator('td').first().click();
+  await page.keyboard.press('Control+Shift+.');
+  const more = page.getByRole('menu', { name: 'More table options' });
+  await expect(more.getByRole('menuitem')).toHaveText([
+    /Add row above/,
+    /Add column before/,
+    /Sort ascending/,
+    /Sort descending/,
+    /Caption/,
+    /Add a chart/,
+    /Duplicate table/,
+    /Delete table/,
+  ]);
+  await expect(more.getByRole('menuitem', { name: 'Add row above' })).toBeFocused();
+  await checkAccessibility(page);
+});
+
+test('deleting a table from More asks first when a chart reads it', async ({ page }) => {
+  await editingTable(page, 'Chart table');
+  await tableBar(page).getByRole('button', { name: 'More table options' }).click();
+  await page.getByRole('menuitem', { name: 'Add a chart' }).click();
+  await page.keyboard.press('Escape');
+  await body(page).locator('td').first().click();
+  await tableBar(page).getByRole('button', { name: 'More table options' }).click();
+  await page.getByRole('menuitem', { name: 'Delete table' }).click();
+  const dialog = page.getByRole('dialog', { name: 'This table has a chart' });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: 'Remove both' }).click();
+  await expect(body(page).locator('table')).toHaveCount(0);
+});
+
+test('the round corner button selects the whole table, and Fit to the text narrows it', async ({ page }) => {
+  await editingTable(page, 'Select all');
+  await page.getByRole('button', { name: 'Select the whole table' }).click();
+  await expect(body(page).locator('.selectedCell')).toHaveCount(6);
+  await body(page).locator('td').first().click();
+  await tableBar(page).getByRole('button', { name: 'Table width' }).click();
+  await page.getByRole('menuitemradio', { name: 'Full width' }).click();
+  await expect(body(page).locator('.tableWrapper')).toHaveAttribute('data-stretch', '100');
+  await tableBar(page).getByRole('button', { name: 'Fit to the text' }).click();
+  await expect(body(page).locator('.tableWrapper')).not.toHaveAttribute('data-stretch', /\d/);
+});
+
+test('an empty cell with the cursor hints at the slash, which is never stored', async ({ page }) => {
+  const { id } = await editingTable(page, 'Hint', tableOf(['Name', 'Team'], ['', 'Docs']));
+  const hint = body(page).locator('.cell-hint');
+  await expect(hint).toHaveCount(1);
+  await expect(hint).toContainText('/');
+  await expect(hint).toContainText('opens the insert menu');
+  await page.keyboard.type('a');
+  await expect(hint).toHaveCount(0);
+  await page.keyboard.press('Backspace');
+  await expect(hint).toHaveCount(1);
+  // An empty paragraph outside a table shows no such hint.
+  await body(page).locator('p').first().click();
+  await page.keyboard.press('End');
+  await page.keyboard.press('Enter');
+  await expect(hint).toHaveCount(0);
+  await publish(page);
+  const stored = await (await page.request.get(`/api/v1/pages/${id}`)).text();
+  expect(stored).not.toContain('opens the insert menu');
+});
+
+test('header rows have a quiet fill for readers as well', async ({ page }) => {
+  const { id } = await editingTable(page, 'Header fill');
+  const fill = (locator: ReturnType<Page['locator']>) =>
+    locator.evaluate((element) => getComputedStyle(element).backgroundColor);
+  const side = await page.evaluate(() => {
+    const probe = document.createElement('div');
+    probe.style.background = 'var(--color-side)';
+    document.body.append(probe);
+    const colour = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return colour;
+  });
+  expect(await fill(body(page).locator('th').first())).toBe(side);
+  await page.goto(`/pages/${id}`);
+  expect(await fill(prose(page).locator('th').first())).toBe(side);
+  expect(await fill(prose(page).locator('td').first())).not.toBe(side);
 });

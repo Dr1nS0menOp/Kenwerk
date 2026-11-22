@@ -244,12 +244,15 @@ export function PageHeader({
   look,
   title,
   above,
+  below,
 }: {
   page: PageSummary;
   look: Look;
   title: ReactNode;
   /** What stands above the title while writing, such as the status of the page. */
   above?: ReactNode;
+  /** What stands under the title while writing: the reduced byline (EDT-174). */
+  below?: ReactNode;
 }) {
   const { t } = useTranslation();
   const [choosingEmoji, setChoosingEmoji] = useState(false);
@@ -322,6 +325,7 @@ export function PageHeader({
         )}
         {title}
       </div>
+      {below}
       {choosingLanguage && (
         <LanguageDialog
           value={value.language}

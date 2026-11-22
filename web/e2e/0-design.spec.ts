@@ -485,17 +485,195 @@ test.describe('the look of every kind of screen', () => {
     await page.context().close();
   });
 
-  test('the table button and its menu', async ({ browser }) => {
+  test('the slash menu above a low line, and its last row', async ({ browser }) => {
     const page = await newReaderPage(browser, 'light');
-    // Tall enough that the table needs no scroll. Scrolled, a field ends under the sticky bar,
-    // and axe then counts only buttons as cover: whether it passes depends on the gaps between them.
-    await page.setViewportSize({ width: 1280, height: 1400 });
+    // Nothing typed here may reach the draft, as in the picture before.
+    await page.route(`**/api/v1/pages/${pageId}/draft`, (route) =>
+      route.request().method() === 'PUT' ? route.fulfill({ status: 200, json: {} }) : route.fallback(),
+    );
+    await page.setViewportSize({ width: 1280, height: 640 });
+    await page.goto(`/pages/${pageId}/edit`);
+    const body = page.locator('.prose.editing');
+    await body.locator('h2').click();
+    await editorSettled(page);
+    await page.keyboard.press('End');
+    for (let line = 0; line < 8; line++) await page.keyboard.press('Enter');
+    await page.keyboard.type('/');
+    const menu = page.getByRole('listbox', { name: 'Insert' });
+    await expect(menu).toBeVisible();
+    const box = await menu.boundingBox();
+    const cursor = await body.locator('.slash-typed').boundingBox();
+    expect((box?.y ?? 0) + (box?.height ?? 0)).toBeLessThanOrEqual(cursor?.y ?? 0);
+    // The new lines are saved (to nowhere) once; waiting for that keeps the strip the same in both pictures.
+    await expect(page.getByText('Draft saved')).toBeVisible();
+    await picture(page, 'editor-slash-above');
+    await page.keyboard.press('ArrowUp');
+    await expect(menu.getByRole('option', { name: 'Find more in the insert dialog' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    await picture(page, 'editor-slash-last-row');
+    await page.keyboard.press('Escape');
+    await page.goto(`/pages/${pageId}`);
+    const discarded = await page.request.delete(`/api/v1/pages/${pageId}/draft`);
+    expect([200, 204, 404], await discarded.text()).toContain(discarded.status());
+    await page.context().close();
+  });
+
+  /** The editor with the insert dialog open from the row of tools. */
+  async function insertDialog(page: Page) {
+    await page.goto(`/pages/${pageId}/edit`);
+    await page.locator('.prose.editing h2').click();
+    await editorSettled(page);
+    await page
+      .getByRole('toolbar', { name: 'Formatting' })
+      .getByRole('button', { name: 'Insert', exact: true })
+      .click();
+    const dialog = page.getByRole('dialog', { name: 'Insert' });
+    await expect(dialog.getByRole('combobox', { name: 'What do you want to add?' })).toBeFocused();
+    return dialog;
+  }
+
+  for (const colorScheme of ['light', 'dark'] as const) {
+    test(`the insert dialog, ${colorScheme}`, async ({ browser }) => {
+      const page = await newReaderPage(browser, colorScheme);
+      const dialog = await insertDialog(page);
+      if (colorScheme === 'light') {
+        // The grid with keyboard focus shows the tooltip with its preview (EDT-181, D22).
+        await page.keyboard.press('Tab');
+        await page.keyboard.press('Tab');
+        await expect(dialog.getByRole('grid')).toBeFocused();
+        // Collapsible section, which has a drawing.
+        await page.keyboard.press('ArrowDown');
+        await page.keyboard.press('ArrowDown');
+        await page.keyboard.press('ArrowRight');
+        await expect(dialog.getByRole('tooltip').locator('.insert-preview')).toBeVisible();
+      }
+      await picture(page, colorScheme === 'light' ? 'insert-dialog' : 'insert-dialog-dark');
+      await checkAccessibility(page);
+      await page.context().close();
+    });
+  }
+
+  test('the insert dialog on a phone', async ({ browser }) => {
+    const context = await browser.newContext({
+      baseURL: 'http://localhost:8080',
+      viewport: { width: 360, height: 760 },
+    });
+    const page = await context.newPage();
+    await login(page, READER.email, PASSWORD);
+    // The row folds Insert away on a phone; the slash menu's last row opens the same dialog.
+    await page.route(`**/api/v1/pages/${pageId}/draft`, (route) =>
+      route.request().method() === 'PUT' ? route.fulfill({ status: 200, json: {} }) : route.fallback(),
+    );
+    await page.goto(`/pages/${pageId}/edit`);
+    await page.locator('.prose.editing h2').click();
+    await editorSettled(page);
+    await page.keyboard.press('End');
+    await page.keyboard.press('Enter');
+    // The menu opens where the pointer rests after the click, which would mark the row under it.
+    await page.mouse.move(0, 0);
+    await page.keyboard.type('/');
+    const more = page.getByRole('listbox', { name: 'Insert' }).getByRole('option', {
+      name: 'Find more in the insert dialog',
+    });
+    await expect(more).toBeVisible();
+    await page.keyboard.press('ArrowUp');
+    await expect(more).toHaveAttribute('aria-selected', 'true');
+    await page.keyboard.press('Enter');
+    await expect(
+      page
+        .getByRole('dialog', { name: 'Insert' })
+        .getByRole('combobox', { name: 'What do you want to add?' }),
+    ).toBeFocused();
+    await picture(page, 'insert-dialog-narrow');
+    await page.keyboard.press('Escape');
+    await page.goto(`/pages/${pageId}`);
+    const discarded = await page.request.delete(`/api/v1/pages/${pageId}/draft`);
+    expect([200, 204, 404], await discarded.text()).toContain(discarded.status());
+    await context.close();
+  });
+
+  test('the insert dialog, right to left', async ({ browser }) => {
+    const page = await newReaderPage(browser, 'light');
+    const dialog = await insertDialog(page);
+    await page.evaluate(() => document.documentElement.setAttribute('dir', 'rtl'));
+    await dialog.getByRole('tab', { name: 'Media' }).click();
+    await picture(page, 'insert-dialog-rtl');
+    await page.context().close();
+  });
+
+  test('the insert dialog when nothing fits the search', async ({ browser }) => {
+    const page = await newReaderPage(browser, 'light');
+    const dialog = await insertDialog(page);
+    await dialog.getByRole('combobox', { name: 'What do you want to add?' }).fill('zebra crossing');
+    await expect(dialog.getByRole('status')).toHaveText('Nothing to insert matches “zebra crossing”.');
+    await picture(page, 'insert-dialog-search-empty');
+    await page.context().close();
+  });
+
+  /** The blocks page in the editor with the cursor in the table, tall enough that it needs no scroll. */
+  async function inTheTable(browser: Browser, theme: 'light' | 'dark') {
+    const page = await newReaderPage(browser, theme);
+    // Scrolled, a field ends under the sticky bar, and axe then counts only buttons as cover:
+    // whether it passes depends on the gaps between them.
+    await page.setViewportSize({ width: 1280, height: 1900 });
     await page.goto(`/pages/${blocksPageId}/edit`);
     await page.locator('.prose.editing td').first().click();
     await editorSettled(page);
-    await page.getByRole('button', { name: 'Table options' }).click();
-    await expect(page.getByRole('menu', { name: 'Table options' })).toBeVisible();
-    await picture(page, 'table-menu');
+    return page;
+  }
+
+  const tableBar = (page: Page) => page.getByRole('toolbar', { name: 'Table', exact: true });
+
+  test('the cell button and its menu', async ({ browser }) => {
+    const page = await inTheTable(browser, 'light');
+    await page.getByRole('button', { name: /^Cell options/ }).click();
+    await expect(page.getByRole('menu', { name: /^Cell options/ })).toBeVisible();
+    await picture(page, 'table-cell-menu');
+    await checkAccessibility(page);
+    await page.context().close();
+  });
+
+  test('the colours of a cell, as a sub-menu', async ({ browser }) => {
+    const page = await inTheTable(browser, 'light');
+    await page.getByRole('button', { name: /^Cell options/ }).click();
+    await page.getByRole('menuitem', { name: /^Cell colour/ }).click();
+    await expect(page.getByRole('menu', { name: 'Cell colour' })).toBeVisible();
+    await picture(page, 'table-cell-menu-colour');
+    await page.context().close();
+  });
+
+  test('the bar under a table', async ({ browser }) => {
+    for (const theme of ['light', 'dark'] as const) {
+      const page = await inTheTable(browser, theme);
+      await expect(tableBar(page)).toBeVisible();
+      await picture(page, theme === 'light' ? 'table-bar' : 'table-bar-dark');
+      if (theme === 'light') await checkAccessibility(page);
+      await page.context().close();
+    }
+  });
+
+  test('the settings of a table stay open while they change', async ({ browser }) => {
+    const page = await inTheTable(browser, 'light');
+    await tableBar(page).getByRole('button', { name: 'Table settings' }).click();
+    await page.getByRole('menuitemcheckbox', { name: 'Number the rows' }).click();
+    await expect(page.getByRole('menu', { name: 'Table settings' })).toBeVisible();
+    await picture(page, 'table-settings');
+    await checkAccessibility(page);
+    // The pictures of the blocks page that follow show it as published, so the draft goes.
+    await page.keyboard.press('Escape');
+    await page.goto(`/pages/${blocksPageId}`);
+    const discarded = await page.request.delete(`/api/v1/pages/${blocksPageId}/draft`);
+    expect([200, 204, 404], await discarded.text()).toContain(discarded.status());
+    await page.context().close();
+  });
+
+  test('More of the table bar', async ({ browser }) => {
+    const page = await inTheTable(browser, 'light');
+    await page.keyboard.press('Control+Shift+.');
+    await expect(page.getByRole('menu', { name: 'More table options' })).toBeVisible();
+    await picture(page, 'table-more');
     await checkAccessibility(page);
     await page.context().close();
   });
@@ -506,6 +684,40 @@ test.describe('the look of every kind of screen', () => {
     await page.locator('.page-head').hover();
     await expect(page.getByRole('button', { name: 'Add emoji' })).toBeVisible();
     await picture(page, 'editor-title');
+    await page.context().close();
+  });
+
+  test('the row of tools folded into More on a smaller window', async ({ browser }) => {
+    const page = await newReaderPage(browser, 'light');
+    await page.setViewportSize({ width: 800, height: 720 });
+    await page.goto(`/pages/${pageId}/edit`);
+    const toolbar = page.getByRole('toolbar', { name: 'Formatting' });
+    await toolbar.getByRole('button', { name: 'More tools' }).click();
+    await expect(toolbar.getByRole('button', { name: 'Find', exact: true })).toBeVisible();
+    await picture(page, 'editor-row-narrow');
+    await checkAccessibility(page);
+    await page.context().close();
+  });
+
+  test('History beside the draft', async ({ browser }) => {
+    const page = await newReaderPage(browser, 'light');
+    await page.goto(`/pages/${pageId}/edit`);
+    await page.getByRole('toolbar', { name: 'Formatting' }).getByRole('button', { name: 'History' }).click();
+    const panel = page.getByRole('complementary', { name: 'History' });
+    await expect(panel.getByRole('button', { name: /^Version 1/ })).toBeVisible();
+    await picture(page, 'editor-history', [panel.locator('.history-entry .muted')]);
+    await checkAccessibility(page);
+    await page.context().close();
+  });
+
+  test('the help of the editor, opened from its corner button', async ({ browser }) => {
+    const page = await newReaderPage(browser, 'light');
+    await page.goto(`/pages/${pageId}/edit`);
+    await page.getByRole('button', { name: 'Help with writing' }).click();
+    const overview = page.getByRole('dialog', { name: 'Keyboard shortcuts' });
+    await expect(overview.getByRole('heading', { name: 'As you type' })).toBeVisible();
+    await picture(page, 'editor-help');
+    await checkAccessibility(page);
     await page.context().close();
   });
 
@@ -1642,12 +1854,12 @@ test.describe('the look of every kind of screen', () => {
     await page.context().close();
   });
 
-  test('the publish options', async ({ browser }) => {
+  test('the publish step', async ({ browser }) => {
     const page = await newReaderPage(browser, 'light');
     await page.goto(`/pages/${pageId}/edit`);
-    await page.getByRole('button', { name: 'Publish options' }).click();
-    await expect(page.getByRole('dialog', { name: 'Publish options' })).toBeVisible();
-    await picture(page, 'publish-options');
+    await page.getByRole('button', { name: 'Publish…', exact: true }).click();
+    await expect(page.getByRole('dialog', { name: 'Publish', exact: true })).toBeVisible();
+    await picture(page, 'publish-step');
     await checkAccessibility(page);
     await page.context().close();
   });

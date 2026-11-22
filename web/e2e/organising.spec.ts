@@ -16,6 +16,7 @@ import {
   test,
   unique,
   pageMenu,
+  publishFromEditor,
 } from './helpers';
 
 test.beforeEach(async ({ page }) => {
@@ -154,7 +155,7 @@ test('writing a template with a field and instruction text', async ({ page }) =>
   await expect(page.locator('.prose.editing')).toContainText('Roadmap');
 
   await page.getByLabel('Title', { exact: true }).fill('From the template');
-  await page.getByRole('button', { name: 'Publish', exact: true }).click();
+  await publishFromEditor(page);
   await expect(page.getByRole('heading', { name: 'From the template', level: 1 })).toBeVisible();
   await expect(page.locator('.prose')).toContainText('Roadmap');
   await expect(page.locator('.prose')).not.toContainText('Say why');
@@ -231,14 +232,13 @@ test('a blog post stays out of the tree, and a silent publish still makes a vers
   await page.getByRole('dialog').getByRole('button', { name: 'Create' }).click();
   await page.locator('.prose.editing').click();
   await page.keyboard.type('We shipped.');
-  await page.getByRole('button', { name: 'Publish options' }).click();
-  const options = page.getByRole('dialog', { name: 'Publish options' });
-  await options.getByLabel('Notify watchers').uncheck();
-  await options.getByRole('button', { name: 'Preview' }).click();
+  await page.getByRole('button', { name: 'Publish…', exact: true }).click();
+  const step = page.getByRole('dialog', { name: 'Publish', exact: true });
+  await step.getByLabel('Notify watchers').uncheck();
+  await step.getByRole('button', { name: 'Preview' }).click();
   await expect(page.getByRole('dialog', { name: 'Preview' }).locator('.prose')).toContainText('We shipped.');
   await page.getByRole('dialog', { name: 'Preview' }).getByRole('button', { name: 'Close' }).click();
-  await options.getByRole('button', { name: 'Done' }).click();
-  await page.getByRole('button', { name: 'Publish', exact: true }).click();
+  await step.getByRole('button', { name: 'Publish', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Launch day', level: 1 })).toBeVisible();
 
   await expect(page.getByRole('navigation', { name: 'Pages' }).getByText('Launch day')).toHaveCount(0);
@@ -255,13 +255,19 @@ test('scheduling: the page shows a mark, and the schedule can be cancelled', asy
   await page.locator('.prose.editing').click();
   await page.keyboard.type('More. ');
   await expect(page.getByText('Saved')).toBeVisible();
-  await page.getByRole('button', { name: 'Publish options' }).click();
-  const options = page.getByRole('dialog', { name: 'Publish options' });
-  await options.getByLabel('Publish at').fill('2099-06-01T09:00');
-  await options.getByRole('button', { name: 'Schedule' }).click();
-  await expect(options).toHaveCount(0);
-  await page.goto(`/pages/${id}`);
+  await page.getByRole('button', { name: 'Publish…', exact: true }).click();
+  const step = page.getByRole('dialog', { name: 'Publish', exact: true });
+  await step.getByLabel('Publish at').fill('2099-06-01T09:00');
+  // While a date is set, the step's primary button says what it does.
+  await expect(step.getByRole('button', { name: 'Publish', exact: true })).toHaveCount(0);
+  await step.getByRole('button', { name: 'Schedule' }).click();
+  await expect(step).toHaveCount(0);
+  await expect(page).toHaveURL(new RegExp(`/pages/${id}$`));
   await expect(page.getByText('Publishes by itself')).toBeVisible();
+  await page.goto(`/pages/${id}/edit`);
+  await page.getByRole('button', { name: 'Publish…', exact: true }).click();
+  await step.getByRole('button', { name: 'Cancel the schedule' }).click();
+  await expect(step.getByRole('button', { name: 'Cancel the schedule' })).toHaveCount(0);
 });
 
 test('a folder shows its pages, a link entry leaves the space', async ({ page }) => {

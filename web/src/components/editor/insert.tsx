@@ -1,39 +1,42 @@
 // SPDX-License-Identifier: Apache-2.0
-// Everything that can be added to a document, reached with `/`, `:` or the Insert tool.
-import {
-  forwardRef,
-  useEffect,
-  useId,
-  useImperativeHandle,
-  useState,
-  type ComponentType,
-  type ReactNode,
-} from 'react';
-import { useTranslation } from 'react-i18next';
+// Everything that can be added to a document, reached with `/`, `:`, `@` or the Insert tool.
+import { forwardRef, useEffect, useId, useImperativeHandle, useState, type ComponentType } from 'react';
 import { Extension, type Editor } from '@tiptap/core';
 import { NodeSelection, PluginKey } from '@tiptap/pm/state';
 import { ReactRenderer } from '@tiptap/react';
 import Suggestion, { type SuggestionProps } from '@tiptap/suggestion';
 import { api, type MentionCandidate } from '../../api';
-import { offered, useCapabilities } from '../../capabilities';
 import i18n from '../../i18n';
 import {
   IconAttach,
   IconBullet,
   IconCodeBlock,
-  IconColumns,
+  IconColumns2,
+  IconColumns3,
+  IconColumns4,
+  IconColumns5,
+  IconColumnsSidebar,
   IconDate,
   IconDecision,
   IconEmoji,
   IconExpand,
-  IconHeading,
+  IconHeading1,
+  IconHeading2,
+  IconHeading3,
+  IconHeading4,
+  IconHeading5,
+  IconHeading6,
+  IconHelp,
   IconLink,
+  IconMention,
   IconNumbered,
   IconPanelError,
   IconPanelInfo,
   IconPanelNote,
   IconPanelSuccess,
   IconPanelWarning,
+  IconPerson,
+  IconPeople,
   IconQuote,
   IconRule,
   IconSpotlight,
@@ -45,19 +48,19 @@ import {
   IconPicture,
   IconSliders,
 } from '../icons';
-import { Dialog, Field } from '../ui';
 import { insertColumns, toggleList } from './block-commands';
 import { DYNAMIC_KINDS } from './dynamic/kinds';
 import { addChart } from './dynamic/nodes';
 import emoji from './emoji.json';
 import { today } from './inline';
+import { orderedItems } from './insert-catalogue';
 import { noActions, type EditorActions } from './keys';
 import { setTextStyle } from './marks';
 import { FIRST_PANEL_EMOJI, type PanelKind } from './palette';
+import { slashRender } from './slash-menu';
 
-const HEADING_LEVELS = [1, 2, 3, 4, 5, 6] as const;
-const ITEM_ICON_SIZE = 18;
 const MAX_EMOJI_RESULTS = 8;
+const HEADING_ICONS = [IconHeading1, IconHeading2, IconHeading3, IconHeading4, IconHeading5, IconHeading6];
 
 export interface InsertItem {
   id: string;
@@ -87,10 +90,10 @@ function insertSelected(editor: Editor, type: string, attrs: Record<string, stri
 
 export const INSERT_ITEMS: InsertItem[] = [
   { id: 'text', icon: IconText, run: (editor) => editor.chain().focus().clearNodes().run() },
-  ...HEADING_LEVELS.map((level) => ({
-    id: `h${level}`,
-    icon: IconHeading,
-    run: (editor: Editor) => setTextStyle(editor, level),
+  ...HEADING_ICONS.map((icon, at) => ({
+    id: `h${at + 1}`,
+    icon,
+    run: (editor: Editor) => setTextStyle(editor, at + 1),
   })),
   { id: 'bullet', icon: IconBullet, run: (editor) => toggleList(editor, 'bulletList') },
   { id: 'ordered', icon: IconNumbered, run: (editor) => toggleList(editor, 'orderedList') },
@@ -111,9 +114,15 @@ export const INSERT_ITEMS: InsertItem[] = [
   },
   { id: 'spotlight', icon: IconSpotlight, run: (editor) => editor.chain().focus().wrapIn('spotlight').run() },
   { id: 'expand', icon: IconExpand, run: (editor) => editor.chain().focus().wrapIn('expand').run() },
-  { id: 'columns2', icon: IconColumns, run: (editor) => insertColumns(editor, 2) },
-  { id: 'columns3', icon: IconColumns, run: (editor) => insertColumns(editor, 3) },
-  { id: 'columnsSidebar', icon: IconColumns, run: (editor) => insertColumns(editor, 2, 'sidebar-end') },
+  { id: 'columns2', icon: IconColumns2, run: (editor) => insertColumns(editor, 2) },
+  { id: 'columns3', icon: IconColumns3, run: (editor) => insertColumns(editor, 3) },
+  { id: 'columns4', icon: IconColumns4, run: (editor) => insertColumns(editor, 4) },
+  { id: 'columns5', icon: IconColumns5, run: (editor) => insertColumns(editor, 5) },
+  {
+    id: 'columnsSidebar',
+    icon: IconColumnsSidebar,
+    run: (editor) => insertColumns(editor, 2, 'sidebar-end'),
+  },
   { id: 'decision', icon: IconDecision, run: (editor) => editor.chain().focus().setNode('decision').run() },
   {
     id: 'table',
@@ -132,6 +141,9 @@ export const INSERT_ITEMS: InsertItem[] = [
   },
   { id: 'date', icon: IconDate, run: (editor) => insertSelected(editor, 'date', { value: today() }) },
   { id: 'emoji', icon: IconEmoji, run: (editor) => insertText(editor, ':') },
+  // Types the @ that opens the list of people, as a person would (EDT-168).
+  { id: 'mention', icon: IconMention, run: (editor) => insertText(editor, '@') },
+  { id: 'help', icon: IconHelp, run: (_editor, actions) => actions.openHelp() },
 ];
 
 /** Only a template asks questions, so only there do these appear. */
@@ -172,10 +184,17 @@ const TURN_INTO_IDS = [
   'expand',
 ];
 
+// One icon per family (EDT-191): people blocks show a person, the rest of the family one icon.
+const PEOPLE_KINDS: Record<string, InsertItem['icon']> = {
+  person_card: IconPerson,
+  people_list: IconPeople,
+  contributors: IconPeople,
+};
+
 /** Every dynamic block is an entry of the same menu. */
 const BLOCK_ITEMS: InsertItem[] = Object.keys(DYNAMIC_KINDS).map((kind) => ({
   id: `block_${kind}`,
-  icon: IconSliders,
+  icon: PEOPLE_KINDS[kind] ?? IconSliders,
   run: (editor) => editor.chain().focus().insertContent({ type: 'dynamic', attrs: { kind } }).run(),
 }));
 
@@ -241,54 +260,12 @@ export function turnIntoItems(blockType: string): InsertItem[] {
   return [...TURN_INTO_ITEMS].sort((a, b) => rank(a) - rank(b));
 }
 
-// In the order of INSERT_ITEMS, so a group never falls apart. What is not here is a block.
-const ITEM_GROUPS: Record<string, string[]> = {
-  text: ['text', ...HEADING_LEVELS.map((l) => `h${l}`), 'bullet', 'ordered', 'task', 'quote', 'code', 'rule'],
-  layout: [
-    'panelInfo',
-    'panelNote',
-    'panelSuccess',
-    'panelWarning',
-    'panelError',
-    'panelNeutral',
-    'spotlight',
-    'expand',
-    'columns2',
-    'columns3',
-    'columnsSidebar',
-    'decision',
-    'table',
-  ],
-  files: ['attach', 'pageFile', 'importWord', 'link'],
-  inline: ['status', 'date', 'emoji'],
-  template: TEMPLATE_ITEMS.map((item) => item.id),
-};
-
-const groupOf = (id: string) =>
-  Object.keys(ITEM_GROUPS).find((group) => ITEM_GROUPS[group]?.includes(id)) ?? 'blocks';
-
-export interface ArrangedItem extends InsertItem {
-  group: string;
-}
-
-/** What a person used lately comes first, under a heading of its own (EDT-017). */
-export function arrangedItems(items: InsertItem[], recentIds: string[]): ArrangedItem[] {
-  const recent = recentIds.flatMap((id) => {
-    const item = items.find((candidate) => candidate.id === id);
-    return item ? [{ ...item, group: 'recent' }] : [];
-  });
-  const others = items
-    .filter((item) => !recentIds.includes(item.id))
-    .map((item) => ({ ...item, group: groupOf(item.id) }));
-  return [...recent, ...others];
-}
-
-/** Looks in names and in the extra words a person might try. */
+/** Looks in names, descriptions and the extra words a person might try (EDT-178). */
 export function matchingItems(query: string, items: InsertItem[] = INSERT_ITEMS): InsertItem[] {
   const needle = query.trim().toLowerCase();
   return items.filter((item) => {
     if (item.label) return item.label.toLowerCase().includes(needle);
-    const words = `${i18n.t(`insert.${item.id}.name`)} ${i18n.t(`insert.${item.id}.keywords`)}`;
+    const words = ['name', 'hint', 'keywords'].map((part) => i18n.t(`insert.${item.id}.${part}`)).join(' ');
     return words.toLowerCase().includes(needle);
   });
 }
@@ -302,24 +279,6 @@ interface ListEntry {
   id: string;
   name: string;
   hint?: string;
-  icon?: ReactNode;
-  /** The heading above this entry, and the ones after it with the same heading. */
-  group?: string;
-}
-
-interface EntryRun {
-  group: string | undefined;
-  entries: { entry: ListEntry; index: number }[];
-}
-
-function entryRuns(entries: ListEntry[]): EntryRun[] {
-  const runs: EntryRun[] = [];
-  entries.forEach((entry, index) => {
-    const last = runs[runs.length - 1];
-    if (last && last.group === entry.group) last.entries.push({ entry, index });
-    else runs.push({ group: entry.group, entries: [{ entry, index }] });
-  });
-  return runs;
 }
 
 interface ListProps {
@@ -333,7 +292,7 @@ interface ListHandle {
   onKeyDown: (event: KeyboardEvent) => boolean;
 }
 
-/** The popup at the cursor. The editor keeps focus, as the ARIA combobox pattern asks. */
+/** The popup of `:` and `@` at the cursor. The editor keeps focus, as the ARIA combobox pattern asks. */
 const SuggestionList = forwardRef<ListHandle, ListProps>(function SuggestionList(
   { entries, label, editor, choose },
   ref,
@@ -370,41 +329,26 @@ const SuggestionList = forwardRef<ListHandle, ListProps>(function SuggestionList
   }));
 
   if (entries.length === 0) return null;
-  const option = ({ entry, index }: EntryRun['entries'][number]) => (
-    <li
-      key={entry.id}
-      id={`${listId}-${index}`}
-      role="option"
-      aria-selected={index === active}
-      className={index === active ? 'suggestion active' : 'suggestion'}
-      onMouseEnter={() => setActive(index)}
-      onMouseDown={(e) => {
-        e.preventDefault();
-        choose(index);
-      }}
-    >
-      {entry.icon}
-      <span className="suggestion-name">{entry.name}</span>
-      {entry.hint && <span className="muted suggestion-hint">{entry.hint}</span>}
-    </li>
-  );
   return (
     // A long list scrolls, so it needs a Tab stop. Tab itself chooses the entry.
     <ul id={listId} role="listbox" aria-label={label} className="suggestions" tabIndex={0}>
-      {entryRuns(entries).map((run) =>
-        run.group === undefined ? (
-          run.entries.map(option)
-        ) : (
-          <li key={run.group} role="group" aria-label={run.group}>
-            <span className="suggestion-group" aria-hidden="true">
-              {run.group}
-            </span>
-            <ul role="presentation" className="suggestion-run">
-              {run.entries.map(option)}
-            </ul>
-          </li>
-        ),
-      )}
+      {entries.map((entry, index) => (
+        <li
+          key={entry.id}
+          id={`${listId}-${index}`}
+          role="option"
+          aria-selected={index === active}
+          className={index === active ? 'suggestion active' : 'suggestion'}
+          onMouseEnter={() => setActive(index)}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            choose(index);
+          }}
+        >
+          <span className="suggestion-name">{entry.name}</span>
+          {entry.hint && <span className="muted suggestion-hint">{entry.hint}</span>}
+        </li>
+      ))}
     </ul>
   );
 });
@@ -446,14 +390,6 @@ function popupRender<Item>(label: () => string, toEntry: (item: Item) => ListEnt
   };
 }
 
-const itemEntry = (item: ArrangedItem): ListEntry => ({
-  id: item.id,
-  group: i18n.t(`insert.group_${item.group}`),
-  name: item.label ?? i18n.t(`insert.${item.id}.name`),
-  hint: item.label ? i18n.t('insert.savedHint') : i18n.t(`insert.${item.id}.hint`),
-  icon: <item.icon size={ITEM_ICON_SIZE} />,
-});
-
 interface SlashOptions {
   actions: () => EditorActions;
   items: () => InsertItem[];
@@ -461,6 +397,7 @@ interface SlashOptions {
   onUsed: (id: string) => void;
 }
 
+/** The menu of `/`: the same entries as the insert dialog's Everything, in the same order. */
 export const SlashCommands = Extension.create<SlashOptions>({
   name: 'slashCommands',
   // Before our own keys, so that Escape closes the menu first.
@@ -471,19 +408,21 @@ export const SlashCommands = Extension.create<SlashOptions>({
   addProseMirrorPlugins() {
     const { actions, items, recent, onUsed } = this.options;
     return [
-      Suggestion<ArrangedItem>({
+      Suggestion<InsertItem>({
         editor: this.editor,
         char: '/',
         allowSpaces: true,
         pluginKey: new PluginKey('slashCommands'),
+        // The typed slash and words show in the accent while the menu is open, and are never stored.
+        decorationClass: 'slash-typed',
         allow: ({ editor }) => !editor.isActive('codeBlock'),
-        items: ({ query }) => arrangedItems(matchingItems(query, items()), recent()),
+        items: ({ query }) => orderedItems(matchingItems(query, items()), recent()),
         command: ({ editor, range, props }) => {
           editor.chain().focus().deleteRange(range).run();
           onUsed(props.id);
           props.run(editor, actions());
         },
-        render: popupRender<ArrangedItem>(() => i18n.t('editor.insert'), itemEntry),
+        render: slashRender({ openInsert: (query) => actions().openInsert(query) }),
       }),
     ];
   },
@@ -513,7 +452,7 @@ export const EmojiSuggestions = Extension.create({
   },
 });
 
-/** `@` opens the same list as `/`: people who can see the page come first. */
+/** `@` opens a list of people: those who can see the page come first. */
 export const MentionSuggestions = Extension.create<{ pageId: string; onNoAccess: (name: string) => void }>({
   name: 'mentionSuggestions',
   priority: 1100,
@@ -562,54 +501,3 @@ export const MentionSuggestions = Extension.create<{ pageId: string; onNoAccess:
     ];
   },
 });
-
-export function InsertDialog({
-  editor,
-  actions,
-  onClose,
-  onBrowse,
-}: {
-  editor: Editor;
-  actions: EditorActions;
-  onClose: () => void;
-  onBrowse: () => void;
-}) {
-  const { t } = useTranslation();
-  const [query, setQuery] = useState('');
-  const items = offered(matchingItems(query), useCapabilities());
-  const choose = (item: InsertItem) => {
-    onClose();
-    item.run(editor, actions);
-  };
-  return (
-    <Dialog title={t('editor.insert')} onClose={onClose}>
-      <Field label={t('editor.insertSearch')}>
-        <input
-          autoFocus
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => {
-            const first = items[0];
-            if (e.key !== 'Enter' || !first) return;
-            e.preventDefault();
-            choose(first);
-          }}
-        />
-      </Field>
-      <button type="button" className="ghost" onClick={onBrowse}>
-        {t('editor.browseAll')}
-      </button>
-      <ul className="plain-list insert-list">
-        {items.map((item) => (
-          <li key={item.id}>
-            <button type="button" className="suggestion" onClick={() => choose(item)}>
-              <item.icon size={ITEM_ICON_SIZE} />
-              <span className="suggestion-name">{t(`insert.${item.id}.name`)}</span>
-              <span className="muted suggestion-hint">{t(`insert.${item.id}.hint`)}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
-    </Dialog>
-  );
-}

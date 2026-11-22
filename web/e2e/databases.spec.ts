@@ -12,6 +12,7 @@ import {
   test,
   unique,
   VIEWER,
+  publishFromEditor,
 } from './helpers';
 
 async function newDatabase(page: Page, title: string) {
@@ -29,8 +30,8 @@ const cell = (page: Page, row: number, column: number) =>
   grid(page).locator('tbody tr').nth(row).getByRole('gridcell').nth(column);
 
 async function publish(page: Page) {
-  await page.getByRole('button', { name: 'Publish', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Publish', exact: true })).toHaveCount(0);
+  await publishFromEditor(page);
+  await expect(page.getByRole('button', { name: 'Publish…', exact: true })).toHaveCount(0);
 }
 
 test.beforeEach(async ({ page }) => {

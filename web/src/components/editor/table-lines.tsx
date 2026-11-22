@@ -16,8 +16,10 @@ import {
 } from '../icons';
 import { Menu, MenuItem } from '../menu';
 import { useToast } from '../toast';
+import { MARK_COLORS } from './palette';
 import {
   linesInUse,
+  paintLine,
   lineCell,
   moveLines,
   selectLine,
@@ -62,6 +64,40 @@ function place(element: HTMLElement | null, left: number, top: number) {
   element.style.top = `${top}px`;
 }
 
+/**
+ * The colour of a whole row or column, as swatches in the menu itself: the handle is moved by a
+ * transform, which would carry a sub-menu that stands on the screen away from its entry. A
+ * line has no one colour, so nothing is ticked.
+ */
+function LineColour({ editor, kind }: { editor: Editor; kind: LineKind }) {
+  const { t } = useTranslation();
+  const label = kind === 'row' ? t('table.rowColour') : t('table.columnColour');
+  return (
+    <div role="group" aria-label={label} className="menu-swatches">
+      <span className="menu-swatches-label" aria-hidden="true">
+        {label}
+      </span>
+      <MenuItem
+        aria-label={`${label}: ${t('editor.noColor')}`}
+        title={t('editor.noColor')}
+        onClick={() => paintLine(editor, kind, null)}
+      >
+        <span className="swatch" />
+      </MenuItem>
+      {MARK_COLORS.map((color) => (
+        <MenuItem
+          key={color}
+          aria-label={`${label}: ${t(`editor.colors.${color}`)}`}
+          title={t(`editor.colors.${color}`)}
+          onClick={() => paintLine(editor, kind, color)}
+        >
+          <span className={`swatch mark-${color}`} />
+        </MenuItem>
+      ))}
+    </div>
+  );
+}
+
 function LineMenu({
   editor,
   kind,
@@ -98,6 +134,7 @@ function LineMenu({
         <MenuItem onClick={() => move(1)}>
           <IconMoveDown size={LINE_ICON_SIZE} /> {t('table.rowDown')}
         </MenuItem>
+        <LineColour editor={editor} kind="row" />
         <MenuItem className="danger" onClick={() => chain().deleteRow().run()}>
           <IconRowDelete size={LINE_ICON_SIZE} /> {t('table.rowDelete')}
         </MenuItem>
@@ -118,6 +155,7 @@ function LineMenu({
       <MenuItem onClick={() => move(1)}>
         <IconMoveDown size={LINE_ICON_SIZE} /> {t('table.columnLater')}
       </MenuItem>
+      <LineColour editor={editor} kind="column" />
       <MenuItem className="danger" onClick={() => chain().deleteColumn().run()}>
         <IconColumnDelete size={LINE_ICON_SIZE} /> {t('table.columnDelete')}
       </MenuItem>

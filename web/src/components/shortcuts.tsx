@@ -4,6 +4,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { navigate } from '../router';
+import { GuideLink } from './guide-link';
 import { Dialog } from './ui';
 
 const SEQUENCE_MS = 1000;
@@ -23,10 +24,12 @@ export type ShortcutAction =
   | 'previousComment'
   | 'notifications';
 
+type ShortcutGroup = 'global' | 'page' | 'editor' | 'typing';
+
 interface Shortcut {
   keys: string[];
   label: string;
-  group: 'global' | 'page' | 'editor';
+  group: ShortcutGroup;
 }
 
 export const SHORTCUTS: Shortcut[] = [
@@ -148,6 +151,7 @@ const EDITOR_SHORTCUTS: Shortcut[] = [
   { keys: ['Ctrl', 'K'], label: 'editorLink', group: 'editor' },
   { keys: ['Ctrl', 'S'], label: 'editorSave', group: 'editor' },
   { keys: ['Ctrl', 'Enter'], label: 'editorPublish', group: 'editor' },
+  { keys: ['Ctrl', '/'], label: 'editorHelp', group: 'editor' },
   { keys: ['/'], label: 'editorInsert', group: 'editor' },
   { keys: ['Ctrl', 'D'], label: 'editorDuplicate', group: 'editor' },
   { keys: ['Alt', 'Up', 'Down'], label: 'editorMove', group: 'editor' },
@@ -158,12 +162,48 @@ const EDITOR_SHORTCUTS: Shortcut[] = [
   { keys: ['Shift', 'Tab'], label: 'editorPreviousCell', group: 'editor' },
 ];
 
-export function ShortcutsDialog({ onClose }: { onClose: () => void }) {
+// What is typed in the text and what it becomes (EDT-027), listed only when the overview is
+// opened from the editor (EDT-197). Each works in this release; the e2e tests prove it.
+const TYPING_SHORTCUTS: Shortcut[] = [
+  { keys: ['#', 'Space'], label: 'typingHeading', group: 'typing' },
+  { keys: ['-', 'Space'], label: 'typingBullet', group: 'typing' },
+  { keys: ['1.', 'Space'], label: 'typingNumbered', group: 'typing' },
+  { keys: ['[ ]', 'Space'], label: 'typingTask', group: 'typing' },
+  { keys: ['>', 'Space'], label: 'typingQuote', group: 'typing' },
+  { keys: ['```'], label: 'typingCode', group: 'typing' },
+  { keys: ['---'], label: 'typingRule', group: 'typing' },
+  { keys: ['**text**'], label: 'typingBold', group: 'typing' },
+  { keys: ['*text*'], label: 'typingItalic', group: 'typing' },
+  { keys: ['~~text~~'], label: 'typingStrike', group: 'typing' },
+  { keys: ['`text`'], label: 'typingInlineCode', group: 'typing' },
+  { keys: ['[text](address)'], label: 'typingLink', group: 'typing' },
+  { keys: ['@'], label: 'typingMention', group: 'typing' },
+  { keys: [':'], label: 'typingEmoji', group: 'typing' },
+  { keys: ['//'], label: 'typingDate', group: 'typing' },
+  { keys: ['<>', 'Space'], label: 'typingDecision', group: 'typing' },
+  { keys: ['!!', 'Space'], label: 'typingPanel', group: 'typing' },
+];
+
+const GROUPS_EVERYWHERE: readonly ShortcutGroup[] = ['global', 'page', 'editor'];
+const GROUPS_IN_EDITOR: readonly ShortcutGroup[] = ['editor', 'typing', 'global', 'page'];
+
+/** Where the overview was opened: from the editor its own groups come first (EDT-197). */
+export type OverviewPlace = 'anywhere' | 'editor';
+
+export function ShortcutsDialog({
+  onClose,
+  place = 'anywhere',
+}: {
+  onClose: () => void;
+  place?: OverviewPlace;
+}) {
   const { t } = useTranslation();
   const [filter, setFilter] = useState('');
-  const shown = [...SHORTCUTS, ...EDITOR_SHORTCUTS].filter((s) =>
+  const all = [...SHORTCUTS, ...EDITOR_SHORTCUTS, ...(place === 'editor' ? TYPING_SHORTCUTS : [])];
+  const shown = all.filter((s) =>
     t(`shortcuts.${s.label}`).toLowerCase().includes(filter.trim().toLowerCase()),
   );
+  const groups = place === 'editor' ? GROUPS_IN_EDITOR : GROUPS_EVERYWHERE;
   return (
     <Dialog title={t('shortcuts.title')} onClose={onClose}>
       <input
@@ -175,7 +215,7 @@ export function ShortcutsDialog({ onClose }: { onClose: () => void }) {
         placeholder={t('shortcuts.filter')}
       />
       {shown.length === 0 && <p className="muted">{t('shortcuts.none')}</p>}
-      {(['global', 'page', 'editor'] as const).map((group) => {
+      {groups.map((group) => {
         const rows = shown.filter((s) => s.group === group);
         if (rows.length === 0) return null;
         return (
@@ -197,6 +237,11 @@ export function ShortcutsDialog({ onClose }: { onClose: () => void }) {
         );
       })}
       <p className="muted">{t('shortcuts.turnOff')}</p>
+      {place === 'editor' && (
+        <p>
+          <GuideLink>{t('help.documentation')}</GuideLink>
+        </p>
+      )}
     </Dialog>
   );
 }

@@ -11,6 +11,7 @@ import {
   paragraph,
   publishedPage,
   test,
+  publishFromEditor,
 } from './helpers';
 
 const PNG = Buffer.from(
@@ -19,8 +20,11 @@ const PNG = Buffer.from(
 );
 
 const body = (page: Page) => page.locator('.prose.editing');
-const menu = (page: Page) => page.getByRole('menu', { name: 'Table options' });
-const button = (page: Page) => page.getByRole('button', { name: 'Table options' });
+const bar = (page: Page) => page.getByRole('toolbar', { name: 'Table', exact: true });
+const menu = (page: Page) => page.getByRole('menu', { name: 'More table options' });
+const button = (page: Page) => bar(page).getByRole('button', { name: 'More table options' });
+const cellButton = (page: Page) => page.getByRole('button', { name: /^Cell options/ });
+const cellMenu = (page: Page) => page.getByRole('menu', { name: /^Cell options/ });
 const edge = (page: Page) => page.getByRole('separator', { name: 'Width of the table' });
 
 const cell = (type: string, text: string) => ({ type, content: [paragraph(text).content[0]] });
@@ -49,14 +53,14 @@ async function intoTable(page: Page) {
   await editorSettled(page);
 }
 
-async function expectClearOfTheTools(page: Page) {
+async function expectClearOfTheTools(page: Page, shown = menu(page)) {
   const tools = await page.getByRole('toolbar', { name: 'Formatting' }).boundingBox();
-  const list = await menu(page).boundingBox();
+  const list = await shown.boundingBox();
   expect(list?.y ?? 0).toBeGreaterThanOrEqual((tools?.y ?? 0) + (tools?.height ?? 0));
 }
 
 async function publish(page: Page) {
-  await page.getByRole('button', { name: 'Publish', exact: true }).click();
+  await publishFromEditor(page);
   await expect(page.getByRole('link', { name: 'Edit', exact: true })).toBeVisible();
 }
 
@@ -64,32 +68,35 @@ test.beforeEach(async ({ page }) => {
   await login(page, ADMIN.email, ADMIN.password);
 });
 
-test('a table has one button, and the row of tools stays the same', async ({ page }) => {
+test('a table gets a cell button and a bar, and the row of tools stays the same', async ({ page }) => {
   const { id } = await pageWith(page, 'Calm row', [paragraph('text').content[0], table()]);
   await page.goto(`/pages/${id}/edit`);
   await body(page).locator('p').first().click();
   await editorSettled(page);
   const tools = page.getByRole('toolbar', { name: 'Formatting' }).getByRole('button');
   const before = await tools.count();
+  // Only the table with the cursor has its controls (EDT-216).
+  await body(page).locator('.tableWrapper').hover();
+  await expect(cellButton(page)).toHaveCount(0);
+  await expect(bar(page)).toHaveCount(0);
 
   await intoTable(page);
-  await expect(button(page)).toBeVisible();
+  await expect(cellButton(page)).toBeVisible();
+  await expect(bar(page)).toBeVisible();
   await expect(tools).toHaveCount(before);
   await expect(page.locator('.table-frame.active')).toBeVisible();
 });
 
-test('the table menu works from the keyboard, and stays open while it is used', async ({ page }) => {
+test('More of the table bar works from the keyboard, and stays open while it is used', async ({ page }) => {
   const { id } = await pageWith(page, 'Keys', [table()]);
   await page.goto(`/pages/${id}/edit`);
   await intoTable(page);
   await page.keyboard.press('Control+Shift+.');
   await expect(menu(page)).toBeVisible();
-  await expect(menu(page).getByRole('menuitem').first()).toBeFocused();
+  await expect(menu(page).getByRole('menuitem', { name: 'Add row above' })).toBeFocused();
 
   const rows = body(page).locator('tr');
   await expect(rows).toHaveCount(2);
-  await page.keyboard.press('ArrowDown');
-  await expect(menu(page).getByRole('menuitem', { name: 'Add row below' })).toBeFocused();
   await page.keyboard.press('Enter');
   await page.keyboard.press('Enter');
   await page.keyboard.press('Enter');
@@ -101,7 +108,7 @@ test('the table menu works from the keyboard, and stays open while it is used', 
   await expect(menu(page)).toHaveCount(0);
   await expect(body(page)).toBeFocused();
   await page.keyboard.type('still here');
-  await expect(body(page).locator('tr').nth(1)).toContainText('still here');
+  await expect(body(page).locator('tr').nth(4)).toContainText('still here');
 });
 
 test('a long menu low on the screen stays clear of the row of tools', async ({ page }) => {
@@ -117,26 +124,33 @@ test('a long menu low on the screen stays clear of the row of tools', async ({ p
   await expectClearOfTheTools(page);
 });
 
-test('in a long table the button stays in reach, also from the keyboard', async ({ page }) => {
+test('in a long table the cell menu is in reach where the cursor is, also from the keyboard', async ({
+  page,
+}) => {
   const rows = Array.from({ length: 40 }, (_, i) => row('tableCell', `Name ${i}`, `Team ${i}`));
   const { id } = await pageWith(page, 'Long table', [{ type: 'table', content: rows }]);
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.goto(`/pages/${id}/edit`);
   await body(page).locator('td').nth(60).click();
   await editorSettled(page);
-  await page.evaluate(() => window.scrollBy(0, 400));
 
-  await expect(button(page)).toBeInViewport();
+  await expect(cellButton(page)).toBeInViewport();
   const layer = (selector: string) =>
     page.locator(selector).evaluate((element) => Number(getComputedStyle(element).zIndex));
   expect(await layer('.table-frame')).toBeLessThan(await layer('.toolbar'));
+
+  await page.keyboard.press('Shift+F10');
+  await expect(cellMenu(page).getByRole('menuitem', { name: /^Cell colour/ })).toBeFocused();
+  await expectClearOfTheTools(page, cellMenu(page));
+  await page.keyboard.press('Escape');
+  await expect(body(page)).toBeFocused();
 
   await page.keyboard.press('Control+Shift+.');
   await expect(menu(page).getByRole('menuitem', { name: 'Add row above' })).toBeFocused();
   await expectClearOfTheTools(page);
 });
 
-test('on a narrow window the folded row of tools leaves the table button free', async ({ page }) => {
+test('on a narrow window the folded row of tools leaves the table menus free', async ({ page }) => {
   const rows = Array.from({ length: 40 }, (_, i) => row('tableCell', `Name ${i}`, `Team ${i}`));
   const { id } = await pageWith(page, 'Narrow table', [{ type: 'table', content: rows }]);
   await page.setViewportSize({ width: 1280, height: 720 });
@@ -146,23 +160,15 @@ test('on a narrow window the folded row of tools leaves the table button free', 
   const tools = page.getByRole('toolbar', { name: 'Formatting' });
   await page.setViewportSize({ width: 1000, height: 720 });
   await expect(tools.getByRole('button', { name: 'More tools' })).toBeVisible();
-  await page.evaluate(() => window.scrollBy(0, 400));
 
-  // Measured where it stands: clicking would first scroll the button out from under the bar.
-  const bar = await tools.boundingBox();
-  await expect
-    .poll(async () => (await button(page).boundingBox())?.y ?? 0)
-    .toBeGreaterThanOrEqual((bar?.y ?? 0) + (bar?.height ?? 0));
+  await page.keyboard.press('Shift+F10');
+  await expect(cellMenu(page).getByRole('menuitem', { name: /^Cell colour/ })).toBeFocused();
+  await expectClearOfTheTools(page, cellMenu(page));
+  await page.keyboard.press('Escape');
 
   await page.keyboard.press('Control+Shift+.');
   await expect(menu(page).getByRole('menuitem', { name: 'Add row above' })).toBeFocused();
   await expectClearOfTheTools(page);
-  await page.keyboard.press('Escape');
-
-  // Narrower still the bars scroll away with the page, and the button keeps to the top.
-  await page.setViewportSize({ width: 600, height: 720 });
-  await page.evaluate(() => window.scrollBy(0, 400));
-  await expect.poll(async () => (await button(page).boundingBox())?.y ?? 720).toBeLessThan(40);
 });
 
 test('labels can still be set while editing', async ({ page }) => {
@@ -190,14 +196,13 @@ test('the block handle stays off the cells of a stretched table', async ({ page 
   expect(Math.abs(handle.x - frame.x)).toBeLessThan(handle.width);
 });
 
-test('the menu acts on the table under the pointer, and colours a whole column', async ({ page }) => {
+test('the column handle acts on the table with the cursor, and colours a whole column', async ({ page }) => {
   const { id } = await pageWith(page, 'Two tables', [table(), paragraph('between').content[0], table()]);
   await page.goto(`/pages/${id}/edit`);
-  await body(page).locator('p').filter({ hasText: 'between' }).click();
+  await body(page).locator('.tableWrapper').nth(1).locator('td').first().click();
   await editorSettled(page);
-  await body(page).locator('.tableWrapper').nth(1).hover();
-  await button(page).click();
-  await menu(page).getByRole('menuitem', { name: 'Column: Yellow' }).click();
+  await page.getByRole('button', { name: 'Column options' }).click();
+  await page.getByRole('menuitem', { name: 'Column colour: Yellow' }).click();
   await expect(body(page).locator('.tableWrapper').nth(1).locator('.mark-yellow')).toHaveCount(2);
   await expect(body(page).locator('.tableWrapper').first().locator('.mark-yellow')).toHaveCount(0);
 });
@@ -212,8 +217,11 @@ test('a table stretches from the menu and by keys, and readers see the same', as
   const narrow = await frame.boundingBox();
   expect(narrow?.width).toBeCloseTo(text?.width ?? 0, 0);
 
-  await button(page).click();
-  await menu(page).getByRole('menuitemradio', { name: 'Full width' }).click();
+  await bar(page).getByRole('button', { name: 'Table width' }).click();
+  await page
+    .getByRole('menu', { name: 'Table width' })
+    .getByRole('menuitemradio', { name: 'Full width' })
+    .click();
   await expect(edge(page)).toHaveAttribute('aria-valuenow', '100');
   const full = await frame.boundingBox();
   expect(full?.width ?? 0).toBeGreaterThan((text?.width ?? 0) + 200);
@@ -365,7 +373,7 @@ test('a code block finds any language, also by a short name, and keeps its colou
   await page.keyboard.press('Enter');
   await expect(page.getByRole('button', { name: 'Language: rust' })).toBeVisible();
   await expect(body(page).locator('.hljs-keyword')).toHaveText('fn');
-  await page.getByRole('button', { name: 'Publish', exact: true }).click();
+  await publishFromEditor(page);
   await expect(page.locator('.prose .hljs-keyword')).toHaveText('fn');
   await page.reload();
   await expect(page.locator('.prose .hljs-keyword')).toHaveText('fn');

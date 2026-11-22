@@ -276,13 +276,13 @@ test.describe('shortcuts that come with the editor', () => {
 });
 
 test.describe('the / menu', () => {
-  test('has group headings, and what was used lately comes first', async ({ page }) => {
+  test('is one flat list by role, and what was used lately comes first', async ({ page }) => {
     await editing(page, 'Slash menu', [paragraph('')]);
     await intoBody(page);
     await page.keyboard.type('/');
     const list = page.getByRole('listbox', { name: 'Insert' });
-    await expect(list.getByRole('group', { name: 'Text and lists' })).toBeVisible();
-    await expect(list.getByRole('group', { name: 'Used lately' })).toHaveCount(0);
+    await expect(list.getByRole('group')).toHaveCount(0);
+    await expect(list.getByRole('option').first()).toHaveAccessibleName(/^Task list/);
     await checkAccessibility(page);
     await page.keyboard.type('quote');
     await page.keyboard.press('Enter');
@@ -290,8 +290,8 @@ test.describe('the / menu', () => {
     await page.keyboard.press('Enter');
     await page.keyboard.press('Enter');
     await page.keyboard.type('/');
-    await expect(list.getByRole('option').first()).toContainText('Quote');
-    await expect(list.getByRole('group', { name: 'Used lately' })).toBeVisible();
+    await expect(list.getByRole('option').first()).toHaveAccessibleName(/^Quote/);
+    await expect(list.getByRole('option').filter({ hasText: 'Quote' })).toHaveCount(1);
   });
 });
 

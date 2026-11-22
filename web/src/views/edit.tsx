@@ -13,7 +13,9 @@ import {
   type Json,
   type PageDetail,
   type PageRef,
+  type Version,
 } from '../api';
+import { EditHistoryPanel, restoreText } from './edit-history';
 import { Link, navigate } from '../router';
 import { unsavedKey, usePerson } from '../personal';
 import { useSaveBeforeReload } from '../before-reload';
@@ -23,7 +25,6 @@ import { DocumentEditor } from '../components/editor/editor';
 import { StageControl } from '../components/page-marks';
 import {
   seed,
-  TogetherPeople,
   useSharedTitle,
   useTogether,
   writeSharedTitle,
@@ -32,20 +33,25 @@ import {
   type Together,
 } from '../components/editor/together';
 import { SheetEditor } from '../components/sheet/editor';
-import { IconArrowBack, IconChevronDown } from '../components/icons';
 import { PageHeader, usePageLook } from '../components/page-header';
 import { LabelBar } from '../components/page-labels';
-import { PreviewDialog, PublishOptionsDialog, type PublishChoices } from '../components/publish-options';
+import {
+  NO_CHOICES,
+  PreviewDialog,
+  PublishStep,
+  type DiscardOffer,
+  type PublishChoices,
+} from '../components/publish-options';
 import { useDelayed } from '../components/quick-search';
 import { ShareDialog } from '../components/share-dialog';
 import { TemplatePanel } from '../components/template-panel';
 import { useToast } from '../components/toast';
 import { useDates } from '../dates';
-import { ConfirmButton, Dialog, ErrorNote, Loading } from '../components/ui';
+import { Dialog, ErrorNote, Loading } from '../components/ui';
 import { MoveDialog } from './move-dialogs';
-import { EditingTogether } from '../components/presence';
-import { PublicMark } from './exchange';
 import { pageTitle } from '../page-name';
+import { EditStrip, type SaveState } from './edit-strip';
+import { EditorByline } from './edit-byline';
 
 const AUTOSAVE_MS = 1500;
 const EDITORS_CHECK_MS = 60_000;
@@ -217,20 +223,22 @@ function Form({ data, together, link }: { data: Loaded; together: Together | nul
   const look = usePageLook(page);
   const backupKey = unsavedKey(usePerson(), page.id);
   const [title, setTitle] = useState(data.title);
-  const [summary, setSummary] = useState('');
-  const [state, setState] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle');
+  const [state, setState] = useState<SaveState>('idle');
   const [error, setError] = useState<unknown>(null);
   const [conflict, setConflict] = useState(false);
-  const [optionsOpen, setOptionsOpen] = useState(false);
+  const [stepOpen, setStepOpen] = useState(false);
+  const [scheduled, setScheduled] = useState(!!page.scheduled);
   const [previewing, setPreviewing] = useState(false);
   const [moving, setMoving] = useState(false);
   const [closeFailed, setCloseFailed] = useState(false);
-  const [choices, setChoices] = useState<PublishChoices>({ silent: false, stage: null });
+  const [choices, setChoices] = useState<PublishChoices>(NO_CHOICES);
+  const publishButton = useRef<HTMLButtonElement>(null);
   const [backup, setBackup] = useState(() => readBackup(localStorage.getItem(backupKey)));
   const [start, setStart] = useState({ document: data.document, generation: 0 });
   const [typing, setTyping] = useState(false);
   const [commenting, setCommenting] = useState<CommentAnchor | null>(null);
   const [sharing, setSharing] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [offerDraft, setOfferDraft] = useState(!!data.privateDraft);
   const sharedEditor = useRef<Editor | null>(null);
   const titleField = useRef<HTMLTextAreaElement>(null);
@@ -283,6 +291,37 @@ function Form({ data, together, link }: { data: Loaded; together: Together | nul
     clearTimeout(timer.current);
     timer.current = setTimeout(() => void save(), AUTOSAVE_MS);
   }, [save, together]);
+
+  const changeTitle = (next: string) => {
+    setTitle(next);
+    if (together) writeSharedTitle(together, next);
+    schedule();
+  };
+
+  /**
+   * Puts a version's title and text into the draft as one step (EDT-172, PAG-089). Undo in the
+   * text takes the text back; the Undo of the message takes back the title as well. Editing
+   * together, the shared draft changes for everyone (D18). No version changes until Publish.
+   */
+  const restoreVersion = (version: Version) => {
+    const editor = sharedEditor.current;
+    if (!editor || !version.document) return;
+    const titleBefore = titleRef.current;
+    restoreText(editor, version.document);
+    changeTitle(version.title);
+    toast({
+      message: t(together ? 'editor.historyRestoreShared' : 'editor.historyRestored', {
+        number: version.number,
+      }),
+      action: {
+        label: t('page.undo'),
+        run: () => {
+          editor.chain().focus().undo().run();
+          changeTitle(titleBefore);
+        },
+      },
+    });
+  };
 
   // Leaving is one click away in the tree, so what was typed last must not depend on a
   // timer. If saving fails, the text stays in the browser and a message leads back to it.
@@ -344,7 +383,7 @@ function Form({ data, together, link }: { data: Loaded; together: Together | nul
         title,
         document: doc.current,
         base_version: data.base,
-        summary,
+        summary: choices.summary,
         // Everyone typed in the same document, so there is nothing to compare.
         overwrite: overwrite || !!together,
         silent: choices.silent,
@@ -368,6 +407,36 @@ function Form({ data, together, link }: { data: Loaded; together: Together | nul
         setError(e);
       }
     }
+  };
+
+  /** Publishing at a date publishes the draft of that moment, so the draft is saved first. */
+  const publishLater = async () => {
+    clearTimeout(timer.current);
+    setError(null);
+    try {
+      if (!(await save())) return;
+      await api.put(`/pages/${page.id}/schedule`, {
+        at: new Date(choices.at).toISOString(),
+        silent: choices.silent,
+      });
+      setScheduled(true);
+      await finish();
+    } catch (e) {
+      setError(e);
+    }
+  };
+
+  const cancelSchedule = async () => {
+    await api.del(`/pages/${page.id}/schedule`);
+    setScheduled(false);
+    await client.invalidateQueries({ queryKey: ['page', page.id] });
+  };
+
+  /** The primary button of the step; it closes first, so an error or a conflict shows in the editor. */
+  const publishFromStep = () => {
+    setStepOpen(false);
+    if (choices.at) void publishLater();
+    else void publish(false);
   };
 
   const discard = async () => {
@@ -414,6 +483,8 @@ function Form({ data, together, link }: { data: Loaded; together: Together | nul
   const changed = published && (page.has_draft || state !== 'idle');
   const showOffer = !published && !typing && isEmptyDocument(data.document) && page.kind === 'page';
   const isDatabase = page.kind === 'database';
+  // Editing together there is no draft of this person to throw away (spec 082, 5).
+  const discardOffer: DiscardOffer = together ? { kind: 'none' } : { kind: published ? 'revert' : 'discard' };
   const titleInput = (
     <textarea
       ref={titleField}
@@ -441,64 +512,19 @@ function Form({ data, together, link }: { data: Loaded; together: Together | nul
   );
   return (
     <>
-      <div className="edit-bar">
-        <Link className="button quiet edit-close" href={pagePath(page.id)} onClick={(e) => void close(e)}>
-          <IconArrowBack size={18} /> {t('editor.close')}
-        </Link>
-        {changed && <span className="lozenge">{t('editor.unpublishedChanges')}</span>}
-        {together ? <TogetherPeople together={together} /> : <EditingTogether pageId={page.id} />}
-        <PublicMark pageId={page.id} />
-        <span role="status" className="muted edit-status">
-          {state === 'saving' && t('editor.saving')}
-          {state === 'saved' && t('editor.saved')}
-          {state === 'failed' && t('editor.saveFailed')}
-          {together && t(`together.link_${link}`)}
-        </span>
-        <input
-          className="edit-summary"
-          value={summary}
-          onChange={(e) => setSummary(e.target.value)}
-          maxLength={500}
-          aria-label={t('editor.summary')}
-          placeholder={t('editor.summary')}
-        />
-        {page.status === 'published' && !isDatabase && (
-          <button
-            type="button"
-            className="quiet"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={startComment}
-          >
-            {t('comments.comment')}
-          </button>
-        )}
-        {together ? (
-          <button type="button" className="quiet" onClick={() => setSharing(true)}>
-            {t('together.invite')}
-          </button>
-        ) : (
-          <ConfirmButton
-            label={published ? t('editor.revert') : t('editor.discard')}
-            message={published ? t('editor.confirmRevert') : t('editor.confirmDiscard')}
-            className="quiet"
-            onConfirm={() => void discard()}
-          />
-        )}
-        <span className="publish-group">
-          <button type="button" className="primary" onClick={() => void publish(false)}>
-            {t('editor.publish')}
-          </button>
-          <button
-            type="button"
-            className="primary publish-more"
-            aria-label={t('organise.publishOptions')}
-            title={t('organise.publishOptions')}
-            onClick={() => setOptionsOpen(true)}
-          >
-            <IconChevronDown size={16} />
-          </button>
-        </span>
-      </div>
+      <EditStrip
+        page={page}
+        title={title}
+        emoji={look.look.emoji}
+        changed={changed}
+        together={together}
+        link={link}
+        state={state}
+        publishButton={publishButton}
+        onClose={(e) => void close(e)}
+        onPublish={() => setStepOpen(true)}
+        onInvite={() => setSharing(true)}
+      />
       <ErrorNote error={error} />
       {together && <p className="note">{t('together.sharedDraft')}</p>}
       {offerDraft && <PrivateDraftOffer onUse={usePrivateDraft} onDrop={dropPrivateDraft} />}
@@ -516,7 +542,7 @@ function Form({ data, together, link }: { data: Loaded; together: Together | nul
       {showOffer && <TemplatePanel page={page} />}
       {isDatabase && (
         <div className="sheet-page">
-          <PageHeader page={page} look={look} title={titleInput} />
+          <PageHeader page={page} look={look} title={titleInput} below={<EditorByline page={page} />} />
           <SheetEditor
             key={start.generation}
             initial={start.document}
@@ -545,6 +571,7 @@ function Form({ data, together, link }: { data: Loaded; together: Together | nul
           together={together}
           onReady={editorReady}
           onFocusTitle={() => titleField.current?.focus()}
+          history={{ open: historyOpen, onToggle: () => setHistoryOpen(!historyOpen) }}
           onComment={page.status === 'published' && !isDatabase ? startComment : undefined}
           onShare={() => setSharing(true)}
           onPublish={() => void publish(false)}
@@ -553,24 +580,41 @@ function Form({ data, together, link }: { data: Loaded; together: Together | nul
             void save();
           }}
           header={
-            <PageHeader page={page} look={look} title={titleInput} above={<StageControl page={page} />} />
+            <PageHeader
+              page={page}
+              look={look}
+              title={titleInput}
+              above={<StageControl page={page} />}
+              below={<EditorByline page={page} />}
+            />
           }
           footer={<LabelBar page={page} />}
         />
       )}
-      {optionsOpen && (
-        <PublishOptionsDialog
+      {stepOpen && (
+        <PublishStep
           page={page}
           choices={choices}
           onChange={setChoices}
+          discard={discardOffer}
+          scheduled={scheduled}
+          onPublish={publishFromStep}
+          onDiscard={() => void discard()}
+          onCancelSchedule={cancelSchedule}
           onPreview={() => setPreviewing(true)}
           onMove={() => setMoving(true)}
-          onClose={() => setOptionsOpen(false)}
+          onClose={() => {
+            setStepOpen(false);
+            publishButton.current?.focus();
+          }}
         />
       )}
       {previewing && <PreviewDialog document={doc.current} onClose={() => setPreviewing(false)} />}
       {moving && <MoveDialog page={page} onClose={() => setMoving(false)} />}
       {sharing && <ShareDialog page={page} onClose={() => setSharing(false)} />}
+      {historyOpen && (
+        <EditHistoryPanel pageId={page.id} onRestore={restoreVersion} onClose={() => setHistoryOpen(false)} />
+      )}
       {commenting && (
         <NewThread page={page} anchor={commenting} editorsOnly onDone={() => setCommenting(null)} />
       )}
