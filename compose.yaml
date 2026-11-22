@@ -150,7 +150,7 @@ services:
   # KENWERK_PDF_PASSWORD in .env. With a password set, it answers nobody without it.
   # It never fetches an address, runs no script in pages, and holds nothing on disk.
   pdf:
-    image: gotenberg/gotenberg:8.40.0@sha256:53073e798c8ef39ea2187e44cb67bab77894ea2509100b94c4fe3b461f7b2996
+    image: gotenberg/gotenberg:9.9.3@sha256:9731688d1b6290e4c04d9a47dbd5fb29f92aa0076feb6592c5c777525892cd72
     profiles: [pdf]
     restart: unless-stopped
     networks: [helpers]

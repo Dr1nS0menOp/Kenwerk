@@ -62,7 +62,7 @@ services:
   # starts with this profile. See "Mail while developing" in docs/development.md.
   # The helper for PDF files (spec 014). Optional: start it with --profile pdf.
   pdf:
-    image: gotenberg/gotenberg:8
+    image: gotenberg/gotenberg:9
     profiles: [pdf]
 
   mailpit:
