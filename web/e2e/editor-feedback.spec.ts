@@ -165,6 +165,8 @@ test('on a narrow window the folded row of tools leaves the table menus free', a
   await expect(cellMenu(page).getByRole('menuitem', { name: /^Cell colour/ })).toBeFocused();
   await expectClearOfTheTools(page, cellMenu(page));
   await page.keyboard.press('Escape');
+  // Escape gives the focus back to the text a frame later; keys sent before that miss it.
+  await editorSettled(page);
 
   await page.keyboard.press('Control+Shift+.');
   await expect(menu(page).getByRole('menuitem', { name: 'Add row above' })).toBeFocused();

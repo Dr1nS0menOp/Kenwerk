@@ -228,6 +228,8 @@ test('indent steps in and out, and clear formatting removes marks', async ({ pag
   await expect(body(page).locator('p')).toHaveAttribute('data-indent', '2');
   await listChoice('Outdent');
   await expect(body(page).locator('p')).toHaveAttribute('data-indent', '1');
+  // A menu gives the focus back to the text a frame after its choice; keys sent before that miss it.
+  await editorSettled(page);
 
   await page.keyboard.press('Control+A');
   await page.keyboard.press('Control+b');
