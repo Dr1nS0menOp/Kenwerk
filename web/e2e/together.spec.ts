@@ -395,11 +395,13 @@ test('a mention tells the person, and warns about who cannot see the page', asyn
   await openPage(page, pageId);
   await page.keyboard.press('m');
   await expect(page.locator('#comment-box')).toBeFocused();
-  await page.keyboard.type(`Please look @${name.slice(0, 12)}`);
+  // The whole name: a full run makes many people whose names start the same way, and the list
+  // shows only the first few that match.
+  await page.keyboard.type(`Please look @${name}`);
   const list = page.getByRole('listbox', { name: 'People' });
   await expect(list.getByRole('option', { name: new RegExp(name) })).toBeVisible();
   await page.keyboard.press('Enter');
-  await page.keyboard.type(`and @${outsider.slice(0, 11)}`);
+  await page.keyboard.type(`and @${outsider}`);
   await expect(list.getByRole('option', { name: /Cannot see this page/ })).toBeVisible();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('status').filter({ hasText: 'cannot see this page' })).toBeVisible();
