@@ -134,6 +134,8 @@ func (s *Server) fail(w http.ResponseWriter, r *http.Request, err error) {
 		w.Header().Set("Retry-After", busyRetrySeconds)
 	case apperr.KindNoRoom:
 		status = http.StatusInsufficientStorage
+	case apperr.KindTooMany:
+		status = http.StatusTooManyRequests
 	}
 	writeErrorFields(w, status, e.Code, e.Message, e.Fields)
 }
@@ -480,24 +482,15 @@ func (s *Server) handlePageGet(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, d)
 }
 
-// failPage answers like fail, and adds an offer to ask for access when the space of
-// the page chose that. The status stays 404: a page stays "not found" (COL-049).
+// failPage answers like fail, except that a page someone may not see gets the answer its space
+// chose, which the sharing module decides: not found, no access, or no access with an offer to
+// ask (spec 094).
 func (s *Server) failPage(w http.ResponseWriter, r *http.Request, id uuid.UUID, err error) {
-	e, known := apperr.As(err)
-	if !known || e.Kind != apperr.KindNotFound {
+	if !apperr.IsNotFound(err) {
 		s.fail(w, r, err)
 		return
 	}
-	offer, askErr := s.deps.Sharing.MayAsk(r.Context(), s.caller(r), id)
-	if askErr != nil {
-		s.internalError(w, r, askErr)
-		return
-	}
-	if !offer {
-		s.fail(w, r, err)
-		return
-	}
-	writeError(w, http.StatusNotFound, "not_found_ask", e.Message)
+	s.fail(w, r, s.deps.Sharing.Refusal(r.Context(), id, err))
 }
 
 func (s *Server) handlePageRename(w http.ResponseWriter, r *http.Request) {

@@ -53,14 +53,14 @@ A page goes through a simple life: a private draft, a published page, new versio
 ## 3.5 Renaming, moving, copying
 
 - **PAG-037** · built · Rename changes the title and creates a version.
-- **PAG-038** · built · The address stays the same after a rename or a move.
+- **PAG-038** · built · The address keeps the page's id after a rename or a move; a move gives it the key of its new space, and the old address leads to the new one (NAV-008, spec 094).
 - **PAG-039** · built · Move opens a dialog with the tree of the space, to choose a new parent and position.
 - **PAG-040** · built · The Move dialog has a search tab to find a parent by title, and can start over.
 - **PAG-041** · built · Moving a page takes its whole branch, its attachments and its history along.
 - **PAG-042** · built · A page can be moved to another space. The person needs view and create in the target space, and the rights to move it in the current space. Everything below it moves too.
 - **PAG-043** · built · A move that would remove an inherited view restriction needs *manage restrictions* and says so before it happens.
 - **PAG-044** · built · A move shows what will change in who can see the page before it is carried out.
-- **PAG-045** · built · A move to another space keeps old addresses working. Labels and watchers stay, and favourites stay when the person can still see the page.
+- **PAG-045** · built · A move to another space keeps old addresses working, through the page's id. Labels and watchers stay, and favourites stay when the person can still see the page.
 - **PAG-046** · built · Copy creates an independent page with the same content, attachments and direct restrictions. The title gets a prefix.
 - **PAG-047** · built · Copy can include the visible pages below it.
 - **PAG-048** · built · The Copy dialog picks a target space and parent, and whether to keep labels and restrictions. Comments, versions, favourites and watchers are never copied.

@@ -441,17 +441,19 @@ type plan struct {
 	pair      pair
 	published spaces.Space
 	draft     spaces.Space
-	src       pages.ReleaseSource
-	existing  *pagePair
-	version   pages.ReleasedVersion
-	number    int
-	action    string
-	aspects   []string
-	place     placement
-	files     []fileStep
-	targets   map[uuid.UUID]pages.LinkTarget
-	twins     map[uuid.UUID]uuid.UUID
-	foreign   map[uuid.UUID]bool
+	// draftOldKeys still lead to the draft space, so a release rewrites them too (spec 094).
+	draftOldKeys []string
+	src          pages.ReleaseSource
+	existing     *pagePair
+	version      pages.ReleasedVersion
+	number       int
+	action       string
+	aspects      []string
+	place        placement
+	files        []fileStep
+	targets      map[uuid.UUID]pages.LinkTarget
+	twins        map[uuid.UUID]uuid.UUID
+	foreign      map[uuid.UUID]bool
 	// made is the twin a run made for this page before writing it, so links from pages
 	// written earlier could lead to it (PUB-513, PUB-514).
 	made *uuid.UUID
@@ -497,7 +499,11 @@ func (s *Service) planPage(ctx context.Context, q db.Querier, p pair, src pages.
 	if err != nil {
 		return plan{}, err
 	}
-	return s.planPageWith(ctx, q, planInput{pair: p, src: src, number: number, draft: draft, published: published})
+	oldKeys, err := spaces.OldKeysIn(ctx, q, draft.ID)
+	if err != nil {
+		return plan{}, err
+	}
+	return s.planPageWith(ctx, q, planInput{pair: p, src: src, number: number, draft: draft, draftOldKeys: oldKeys, published: published})
 }
 
 // planInput is what working out the release of one page starts from: in a run, the spaces it
@@ -507,13 +513,15 @@ type planInput struct {
 	src              pages.ReleaseSource
 	number           int
 	draft, published spaces.Space
-	runTwins         map[uuid.UUID]uuid.UUID
+	// draftOldKeys are read once with the spaces, as they are.
+	draftOldKeys []string
+	runTwins     map[uuid.UUID]uuid.UUID
 }
 
 // planPageWith works out the release of one page from what the caller read already.
 func (s *Service) planPageWith(ctx context.Context, q db.Querier, in planInput) (plan, error) {
 	p, src, runTwins := in.pair, in.src, in.runTwins
-	pl := plan{pair: p, src: src, number: in.number, draft: in.draft, published: in.published}
+	pl := plan{pair: p, src: src, number: in.number, draft: in.draft, draftOldKeys: in.draftOldKeys, published: in.published}
 	var err error
 	if pl.existing, err = loadPagePair(ctx, q, p.ID, src.ID); err != nil {
 		return pl, err
@@ -521,6 +529,7 @@ func (s *Service) planPageWith(ctx context.Context, q db.Querier, in planInput) 
 	if pl.version, err = pages.VersionForRelease(ctx, q, src.ID, in.number); err != nil {
 		return pl, err
 	}
+
 	if pl.twins, err = twinsOf(ctx, q, p.ID, append(slices.Clone(src.Ancestors), referencedPages(pl.version.Doc)...)); err != nil {
 		return pl, err
 	}
@@ -807,7 +816,7 @@ func (pl plan) rewriteInput(files map[uuid.UUID]uuid.UUID) rewriteInput {
 	if pl.existing != nil {
 		twins[pl.src.ID] = pl.existing.Twin
 	}
-	return rewriteInput{draft: spaceRef{ID: pl.draft.ID, Key: pl.draft.Key}, published: spaceRef{ID: pl.published.ID, Key: pl.published.Key},
+	return rewriteInput{draft: spaceRef{ID: pl.draft.ID, Key: pl.draft.Key, OldKeys: pl.draftOldKeys}, published: spaceRef{ID: pl.published.ID, Key: pl.published.Key},
 		twins: twins, targets: pl.targets, files: files, foreign: pl.foreign}
 }
 

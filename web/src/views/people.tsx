@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { pagePath } from '../addresses';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
@@ -151,7 +152,7 @@ function PersonPages({ id }: { id: string }) {
         {q.data?.pages.map((p) => (
           <li key={p.id}>
             <PageMark page={p} />
-            <Link href={`/pages/${p.id}`}>{pageTitle(t, p.title)}</Link>
+            <Link href={pagePath(p.id)}>{pageTitle(t, p.title)}</Link>
             <span className="muted">{p.space_name}</span>
           </li>
         ))}
@@ -174,7 +175,7 @@ function PersonMentions({ id }: { id: string }) {
         {q.data?.pages.map((p) => (
           <li key={p.id}>
             <PageMark page={p} />
-            <Link href={`/pages/${p.id}`}>{pageTitle(t, p.title)}</Link>
+            <Link href={pagePath(p.id)}>{pageTitle(t, p.title)}</Link>
             <span className="muted">{p.space_name}</span>
           </li>
         ))}

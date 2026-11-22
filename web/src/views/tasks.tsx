@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { pagePath } from '../addresses';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -35,7 +36,7 @@ function Row({ task, onDone }: { task: TaskItem; onDone: (done: boolean) => void
         checked={task.done}
         onChange={(e) => onDone(e.target.checked)}
       />
-      <Link href={`/pages/${task.page_id}`}>{title}</Link>
+      <Link href={pagePath(task.page_id)}>{title}</Link>
       <span className="muted">
         {pageTitle(t, task.page_title)} · {task.space_name}
         {task.due && ` · ${formatStoredDate(task.due)}`}

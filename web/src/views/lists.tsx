@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // The two personal lists: where a person has been, and what they starred.
+import { pagePath } from '../addresses';
 import { useRef, useState, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -63,7 +64,7 @@ function RecentList({ tab, filter }: { tab: Tab; filter: string }) {
         {pages.map((p) => (
           <li key={p.id}>
             <PageMark page={p} />
-            <Link href={tab === 'drafts' ? `/pages/${p.id}/edit` : `/pages/${p.id}`}>
+            <Link href={tab === 'drafts' ? pagePath(p.id, { screen: 'edit' }) : pagePath(p.id)}>
               {pageTitle(t, p.title)}
             </Link>
             <span className="muted">
@@ -206,7 +207,7 @@ function FavouritePages({ filter }: { filter: string }) {
               />
               {!filtering && <IconGrip size={MOVE_ICON_SIZE} />}
               <PageMark page={p} />
-              <Link href={`/pages/${p.id}`}>{title}</Link>
+              <Link href={pagePath(p.id)}>{title}</Link>
               <span className="muted">{p.space_name}</span>
               {!filtering && (
                 <>

@@ -2,6 +2,7 @@
 // The form a person fills in to start pages from a template (spec 074, wave GT2): one step
 // at a time, each question in a Field, errors beside their field and in a summary, the
 // place of the pages last, and a check step that shows what will be made before anything is.
+import { pagePath } from '../addresses';
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -154,7 +155,7 @@ export async function startPage(
       );
   if (made.job_id) return { kind: 'queued', job_id: made.job_id };
   if (!made.page) throw new Error('no page');
-  navigate(`/pages/${made.page.id}/edit`);
+  navigate(pagePath(made.page.id, { screen: 'edit' }));
   return { kind: 'made', page: made.page, set_id: made.set_id ?? '' };
 }
 

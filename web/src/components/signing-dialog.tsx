@@ -3,6 +3,7 @@
 // version and its title before anything else, asks for a fresh confirmation of identity in
 // the same dialog, and says the result in a live region. Its heading and its button carry the
 // meaning, so a screen reader hears what the person puts their name to.
+import { pagePath } from '../addresses';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery } from '@tanstack/react-query';
@@ -136,7 +137,11 @@ export function SigningDialog({
         <>
           <p>
             {t('signing.statement', { meaning, version: data.version, title: pageTitle(t, data.title) })}{' '}
-            <a href={`/pages/${pageId}/history?version=${data.version}`} target="_blank" rel="noreferrer">
+            <a
+              href={pagePath(pageId, { screen: 'history', query: `?version=${data.version}` })}
+              target="_blank"
+              rel="noreferrer"
+            >
               {t('signing.exactText')}
             </a>
           </p>

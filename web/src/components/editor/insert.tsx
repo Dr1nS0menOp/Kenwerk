@@ -529,8 +529,9 @@ export const MentionSuggestions = Extension.create<{ pageId: string; onNoAccess:
         pluginKey: new PluginKey('mentionSuggestions'),
         allow: ({ editor }) => !editor.isActive('codeBlock'),
         items: async ({ query }) => {
-          const path = `/pages/${pageId}/mention-candidates?q=${encodeURIComponent(query)}`;
-          const found = await api.get<{ candidates: MentionCandidate[] }>(path);
+          const found = await api.get<{ candidates: MentionCandidate[] }>(
+            `/pages/${pageId}/mention-candidates?q=${encodeURIComponent(query)}`,
+          );
           return found.candidates;
         },
         command: ({ editor, range, props }) => {

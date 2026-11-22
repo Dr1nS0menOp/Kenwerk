@@ -3,6 +3,7 @@
 // in no pair, what a pair is and the way to link one, with its preview; in a draft space the
 // settings of the pair, who may release and its health; in a published space where it comes
 // from. Ending a pair stays here for the administrators of both spaces.
+import { pagePath } from '../addresses';
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -354,7 +355,7 @@ function VerifySpace({ space }: { space: Space }) {
                   {differing.map((p) => (
                     <tr key={p.twin_page_id}>
                       <td>
-                        <Link href={`/pages/${p.twin_page_id}`}>{pageTitle(t, p.title)}</Link>
+                        <Link href={pagePath(p.twin_page_id)}>{pageTitle(t, p.title)}</Link>
                       </td>
                       <td>{t(`publishing.verify_${p.outcome}`)}</td>
                     </tr>
@@ -619,7 +620,7 @@ function LinkingIn({ space }: { space: Space }) {
         <ul className="plain-list">
           {q.data.pages.map((p) => (
             <li key={p.page_id}>
-              <Link href={`/pages/${p.page_id}`}>{pageTitle(t, p.title)}</Link>{' '}
+              <Link href={pagePath(p.page_id)}>{pageTitle(t, p.title)}</Link>{' '}
               <span className="muted">· {p.space_name}</span>
             </li>
           ))}

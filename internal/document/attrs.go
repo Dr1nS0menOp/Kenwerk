@@ -13,6 +13,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/uuid"
+
+	"github.com/kenwerk/kenwerk/internal/address"
 )
 
 // Limits on attribute values.
@@ -226,7 +228,7 @@ func cleanImage(in, out map[string]any) error {
 		if err != nil {
 			return err
 		}
-		out["href"] = safe
+		out["href"] = address.KeyFree(safe)
 	}
 	return nil
 }
@@ -347,7 +349,7 @@ func cleanSpotlight(in, out map[string]any) error {
 	}
 	keepText(in, out, "button_text", maxButtonBytes)
 	if out["button_text"] != nil {
-		out["button_href"] = safe
+		out["button_href"] = address.KeyFree(safe)
 	}
 	return nil
 }
@@ -482,8 +484,8 @@ func cleanLink(m Mark) (Mark, error) {
 		return Mark{}, err
 	}
 	// A link keeps no title: its tooltip could name another address than the one it opens
-	// (spec 090).
-	return Mark{Type: MarkLink, Attrs: map[string]any{"href": safe}}, nil
+	// (spec 090). A page is stored by its id alone (spec 094, D7).
+	return Mark{Type: MarkLink, Attrs: map[string]any{"href": address.KeyFree(safe)}}, nil
 }
 
 func cleanMark(m Mark) (Mark, error) {

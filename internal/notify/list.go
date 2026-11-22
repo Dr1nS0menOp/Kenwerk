@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/kenwerk/kenwerk/internal/address"
 	"github.com/kenwerk/kenwerk/internal/apperr"
 	"github.com/kenwerk/kenwerk/internal/identity"
 )
@@ -85,6 +86,9 @@ type Item struct {
 	Data      map[string]any `json:"data"`
 	// PageKind is the kind of content the notification is about, for its icon.
 	PageKind string `json:"page_kind"`
+	// SpaceKey and Address give the page's canonical address, read when the row is (spec 094).
+	SpaceKey string `json:"space_key"`
+	Address  string `json:"address"`
 	// Excerpt is the start of the comment, only when asked for and allowed (COL-118).
 	Excerpt string `json:"excerpt,omitempty"`
 
@@ -104,7 +108,7 @@ type stored struct {
 // page (spec 064, DOC-603, DOC-604). A row about a template hangs on its hidden page, and
 // comes back while the person owns the template or looks after it (spec 074, TPL-722).
 const visibleRows = `SELECT n.id, n.type, n.reason, COALESCE(u.display_name, ''), n.page_id, p.title, n.space_id, sp.name,
-		n.comment_id, n.read_at IS NOT NULL, n.created_at, n.data, n.group_key, p.kind
+		n.comment_id, n.read_at IS NOT NULL, n.created_at, n.data, n.group_key, p.kind, sp.key, sp.home_page_id IS NOT DISTINCT FROM n.page_id
 	FROM notifications n
 	JOIN (SELECT page_id FROM perm_visible_pages($1) UNION SELECT page_id FROM perm_review_pages($1)
 		UNION SELECT page_id FROM perm_template_notice_pages($1)) v ON v.page_id = n.page_id
@@ -117,11 +121,13 @@ const visibleRows = `SELECT n.id, n.type, n.reason, COALESCE(u.display_name, '')
 func scanStored(r pgx.CollectableRow) (stored, error) {
 	var v stored
 	var data []byte
+	var home bool
 	err := r.Scan(&v.ID, &v.Type, &v.Reason, &v.actor, &v.PageID, &v.PageTitle, &v.SpaceID, &v.SpaceName,
-		&v.CommentID, &v.Read, &v.At, &data, &v.groupKey, &v.PageKind)
+		&v.CommentID, &v.Read, &v.At, &data, &v.groupKey, &v.PageKind, &v.SpaceKey, &home)
 	if err != nil {
 		return v, err
 	}
+	v.Address = address.Page(v.SpaceKey, v.PageID, home)
 	if err := json.Unmarshal(data, &v.Data); err != nil {
 		return v, fmt.Errorf("notify: read data: %v", err)
 	}

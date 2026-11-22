@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // The Content screen: one table to keep a space tidy (spec 011, D12).
+import { pagePath } from '../addresses';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -148,7 +149,7 @@ function ActionDialog({
           <ul className="plain-list">
             {result?.failed?.map((f) => (
               <li key={f.id}>
-                <Link href={`/pages/${f.id}`}>{f.id}</Link> <span className="muted">{f.reason}</span>
+                <Link href={pagePath(f.id)}>{f.id}</Link> <span className="muted">{f.reason}</span>
               </li>
             ))}
           </ul>
@@ -323,7 +324,7 @@ export function ContentView({ spaceKey }: { spaceKey: string }) {
                       />
                     </td>
                     <td>
-                      <Link href={`/pages/${r.id}`}>{pageTitle(t, r.title)}</Link>
+                      <Link href={pagePath(r.id)}>{pageTitle(t, r.title)}</Link>
                     </td>
                     <td>
                       {r.owner_name}

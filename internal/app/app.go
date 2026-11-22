@@ -238,7 +238,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 		backupMailer = accountMailer{keyring: a.keyring}
 	}
 	a.backups = backups.NewService(a.pool, a.settings, backupMailer, cfg.PublicOrigin()+"/admin/backups")
-	a.sharing = sharing.NewService(a.pool, a.perms, a.identity, a.settings, a.notify, a.features)
+	a.sharing = sharing.NewService(a.pool, a.perms, a.identity, a.settings, a.notify, a.spaces)
 	a.search = search.NewService(a.pool)
 	a.analytics = analytics.NewService(a.pool, a.perms, a.features)
 	a.presence = presence.NewService(a.pool, a.perms, a.identity, a.settings)

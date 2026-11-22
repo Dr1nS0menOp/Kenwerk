@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { pagePath } from '../addresses';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type Space, type SpaceOverview } from '../api';
@@ -110,7 +111,7 @@ export function SpaceOverviewView({ spaceKey }: { spaceKey: string }) {
               {facts.recent.map((p) => (
                 <li key={p.id}>
                   <PageMark page={p} />
-                  <Link href={`/pages/${p.id}`}>{pageTitle(t, p.title)}</Link>
+                  <Link href={pagePath(p.id)}>{pageTitle(t, p.title)}</Link>
                   <span className="muted">
                     <RelativeTime value={p.at} />
                   </span>
@@ -124,7 +125,7 @@ export function SpaceOverviewView({ spaceKey }: { spaceKey: string }) {
               <ul className="page-list">
                 {popular.data?.pages.map((p) => (
                   <li key={p.id}>
-                    <Link href={`/pages/${p.id}`}>{pageTitle(t, p.title)}</Link>
+                    <Link href={pagePath(p.id)}>{pageTitle(t, p.title)}</Link>
                   </li>
                 ))}
               </ul>
@@ -136,7 +137,7 @@ export function SpaceOverviewView({ spaceKey }: { spaceKey: string }) {
               <ul className="page-list">
                 {facts.posts.map((p) => (
                   <li key={p.id}>
-                    <Link href={`/pages/${p.id}`}>{pageTitle(t, p.title)}</Link>
+                    <Link href={pagePath(p.id)}>{pageTitle(t, p.title)}</Link>
                     <span className="muted">
                       <RelativeTime value={p.published_at} />
                     </span>

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // The search box in the top bar: a combobox with a list popup (spec 009, B3). The
 // input keeps focus, and aria-activedescendant points at the marked row.
+import { pagePath } from '../addresses';
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
@@ -89,7 +90,7 @@ export function rowsOf(
       title: pageTitle(untitled, p.title),
       detail: `${p.space_name} · ${day(p.updated_at)}`,
       run: 'open' as const,
-      target: `/pages/${p.page_id}`,
+      target: pagePath(p.page_id),
       mark: pageMark(p),
     })),
     ...(results.posts ?? []).map((p) => ({
@@ -98,7 +99,7 @@ export function rowsOf(
       title: pageTitle(untitled, p.title),
       detail: `${p.space_name} · ${day(p.updated_at)}`,
       run: 'open' as const,
-      target: `/pages/${p.page_id}`,
+      target: pagePath(p.page_id),
       mark: pageMark(p),
     })),
     ...results.spaces.map((s) => ({
@@ -116,7 +117,7 @@ export function rowsOf(
       title: f.filename,
       detail: `${pageTitle(untitled, f.page_title)} · ${f.space_name}`,
       run: 'open' as const,
-      target: `/pages/${f.page_id}`,
+      target: pagePath(f.page_id),
       mark: { type: 'file' as const, filename: f.filename },
     })),
     ...results.people.map((person) => ({
@@ -188,7 +189,7 @@ export function QuickSearch() {
       title: pageTitle(t, p.title),
       detail: p.space_name,
       run: 'open' as const,
-      target: `/pages/${p.id}`,
+      target: pagePath(p.id),
       mark: { type: 'page' as const, emoji: p.emoji },
     })),
     ...searches.map((s) => ({

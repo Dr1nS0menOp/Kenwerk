@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type TrashItem } from '../api';
-import { navigate } from '../router';
-import { spaceByKeyQuery } from '../components/frame';
+import { SpaceShell, spaceByKeyQuery } from '../components/frame';
+import { SpaceRefused } from '../components/no-access';
+import { PageView } from './page';
 import { useDelayed } from '../components/quick-search';
 import { ConfirmButton, ErrorNote, Loading } from '../components/ui';
 import { useDates } from '../dates';
@@ -15,20 +16,17 @@ function useSpaceByKey(key: string) {
   return useQuery(spaceByKeyQuery(key));
 }
 
-/** Opening a space goes to its home page. */
+/** The home page of a space, at the space's own address (spec 094, rule 1). The frame then puts the current key in the bar. */
 export function SpaceHome({ spaceKey }: { spaceKey: string }) {
   const space = useSpaceByKey(spaceKey);
-  useEffect(() => {
-    if (space.data?.home_page_id) navigate(`/pages/${space.data.home_page_id}`, true);
-  }, [space.data]);
-  if (space.error) {
-    return (
-      <main id="main" className="plain reading">
-        <ErrorNote error={space.error} />
-      </main>
-    );
-  }
-  return <Loading />;
+  if (space.error) return <SpaceRefused error={space.error} />;
+  const home = space.data?.home_page_id;
+  if (!home) return <Loading />;
+  return (
+    <SpaceShell pageId={home}>
+      <PageView pageId={home} />
+    </SpaceShell>
+  );
 }
 
 export function TrashView({ spaceKey }: { spaceKey: string }) {

@@ -120,7 +120,7 @@ describe('the registry of space settings', () => {
       'workflows',
       'insights',
     ]);
-    expect(of('space-access')).toEqual(['permissions', 'sites', 'audit']);
+    expect(of('space-access')).toEqual(['permissions', 'no-access', 'sites', 'audit']);
     expect(of('space-pages')).toEqual([
       'placeholders',
       'files',

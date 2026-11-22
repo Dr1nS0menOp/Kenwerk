@@ -34,8 +34,9 @@ func TestFeaturesHaveOneStore(t *testing.T) {
 		t.Fatalf("a page reads the same store: %v", got)
 	}
 	got := owner.ok("GET", "/api/v1/spaces/"+space, nil)["features"].(map[string]any)
-	if got["comments"] != false || got["access_requests"] != false || got["blog"] != true {
-		t.Fatalf("a space reads the same store, and asking for access starts off: %v", got)
+	// Asking for access is no feature switch any more, but what someone without access sees (spec 094).
+	if _, listed := got["access_requests"]; got["comments"] != false || listed || got["blog"] != true {
+		t.Fatalf("a space reads the same store: %v", got)
 	}
 }
 

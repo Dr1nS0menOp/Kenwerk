@@ -141,6 +141,13 @@ docker compose exec kenwerk kenwerk events switch nats
 
 New events go through NATS again. What the event log already holds is still handed to every consumer, by every worker of this release, until nothing is left. The drain is forgotten; switching to postgres again starts a new one. If a node of an older release published to NATS after the drain, `events status` says so; stop that node, run `kenwerk events switch postgres` again and wait for the drain.
 
+## Addresses and what a person without access sees (spec 094)
+
+- Page addresses change their form, to `/spaces/<key>/pages/<id>` and `/spaces/<key>` for a home page. Every old address keeps working, including those in sent mail and saved bookmarks: the page opens and the bar shows the new form.
+- Spaces that offered requests for access now say "no access" instead of "not found", with the same button. Every other existing space still answers not found. A space made after the upgrade starts at "no access", with a button to ask its owners for access; its administrators can choose otherwise under Space settings, Access, **When someone cannot see this**. One person may have at most 20 open requests to view.
+- With two nodes of different releases: a reload of a new address on a node of the previous release says not found until that node is upgraded, and a space made by such a node starts at "no access, and ask for it" on the new nodes while the old nodes still answer not found for it. The previous release reads the feature `access_requests`, which the new release keeps in step with the setting. With one node there is no overlap.
+- Migration 0076 also lists every key a space holds, current and old, in `space_key_claims`, which triggers keep in step. Should an existing old key already be another space's current key, the old key keeps its row without a claim: every lookup finds the current key first.
+
 ## Rolling back
 
 Expand migrations leave the old structure in place, so the previous version runs on a database the new version has migrated. Roll back by starting the previous version.

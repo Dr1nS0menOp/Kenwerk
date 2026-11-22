@@ -2,6 +2,7 @@
 // More on a page (spec 079, PAG-148 to PAG-151): four groups divided by lines and without
 // headings, an icon and words on every row, sub-menus for what has choices, and no entry in
 // the danger colour, because the dialog that asks first carries that (PAG-149).
+import { pagePath } from '../addresses';
 import { Fragment, useEffect, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -77,9 +78,11 @@ export function usePageWatch(pageId: string, spaceId: string | undefined) {
   });
   const set = useMutation({
     mutationFn: (v: { scope: WatchScope; on: boolean }) => {
-      const path =
-        v.scope === 'space' ? `/spaces/${spaceId}/watch` : `/pages/${pageId}/watch?scope=${v.scope}`;
-      return v.on ? api.put(path) : api.del(path);
+      if (v.scope === 'space')
+        return v.on ? api.put(`/spaces/${spaceId}/watch`) : api.del(`/spaces/${spaceId}/watch`);
+      return v.on
+        ? api.put(`/pages/${pageId}/watch?scope=${v.scope}`)
+        : api.del(`/pages/${pageId}/watch?scope=${v.scope}`);
     },
     onSuccess: (_, v) => toast({ message: v.on ? t('watching.started') : t('watching.stopped') }),
     onError: (e) => toast({ message: e.message }),
@@ -264,7 +267,7 @@ export function PageMenu({
     </Entry>,
   ];
   const about: ReactNode[] = [
-    <MenuLink key="history" href={`/pages/${page.id}/history`}>
+    <MenuLink key="history" href={pagePath(page.id, { screen: 'history' })}>
       {icon(IconClock)} {t('page.history')}
     </MenuLink>,
     <MenuSub key="details" label={t('page.moreDetails')} icon={icon(IconInfo)}>

@@ -16,7 +16,6 @@ import {
   targetsOfDocument,
   unlink,
 } from './link-commands';
-import { pageAddress } from './page-links';
 
 const page = '11111111-1111-4111-8111-111111111111';
 
@@ -49,8 +48,14 @@ describe('the link at the cursor', () => {
   });
 
   it('builds an address without a place', () => {
-    expect(pageAddress(page)).toBe(`/pages/${page}`);
-    expect(pageAddress(page, null)).toBe(`/pages/${page}`);
+    expect(addressOf({ kind: 'page', page, fragment: null, display: 'title' })).toBe(`/pages/${page}`);
+  });
+
+  it('reads a link of the canonical form as a link to its page (spec 094)', () => {
+    expect(linkedPageOf({ kind: 'mark', href: `/spaces/Blue/pages/${page}#steps` })).toEqual({
+      page,
+      fragment: 'steps',
+    });
   });
 });
 

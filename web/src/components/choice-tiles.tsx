@@ -13,16 +13,19 @@ export function ChoiceTiles<T extends string>({
   legend,
   tiles,
   value,
+  disabled = false,
   onChange,
 }: {
   legend: string;
   tiles: ChoiceTile<T>[];
   value: T;
+  /** The choice shows but cannot change. */
+  disabled?: boolean;
   onChange: (value: T) => void;
 }) {
   const name = useId();
   return (
-    <fieldset className="choice-tiles">
+    <fieldset className="choice-tiles" disabled={disabled}>
       <legend>{legend}</legend>
       {tiles.map((tile) => (
         <label key={tile.value} className="choice-tile">

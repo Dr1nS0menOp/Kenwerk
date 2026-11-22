@@ -3,8 +3,10 @@
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { pagePath } from '../../../addresses';
 import { api, type Json } from '../../../api';
 import { navigate } from '../../../router';
+import { useCurrentSpace } from '../../current-space';
 import { TimelineChart } from '../../chart';
 import { ErrorNote } from '../../ui';
 import { contentsOf, jumpToHeading, type Heading } from '../outline';
@@ -93,10 +95,9 @@ function SearchBox({ settings }: { settings: Settings }) {
   );
 }
 
-const PAGE_IN_ADDRESS = /^\/pages\/([0-9a-f-]{36})/i;
-
+/** The page being read, whichever form its address has, the home page at its space's address included. */
 function usePageIdFromAddress(): string | undefined {
-  return PAGE_IN_ADDRESS.exec(window.location.pathname)?.[1];
+  return useCurrentSpace().page?.id;
 }
 
 /** The server decides whether this person may start a page here (spec 026, D9). */
@@ -113,7 +114,7 @@ function CreateFromTemplate({ settings }: { settings: Settings }) {
         parent_id: parent ?? null,
       });
     },
-    onSuccess: (made) => navigate(`/pages/${made.page.id}/edit`),
+    onSuccess: (made) => navigate(pagePath(made.page.id, { screen: 'edit' })),
   });
   if (!template) return <p className="muted">{t('blocks.chooseTemplate')}</p>;
   const label = typeof settings.label === 'string' ? settings.label : t('blocks.createFromTemplate');

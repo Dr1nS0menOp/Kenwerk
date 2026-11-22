@@ -354,7 +354,7 @@ test('closing comments stops new ones, and a space can turn them off', async ({ 
   expect(refused.ok()).toBeFalsy();
 
   const off = await page.request.put(`/api/v1/spaces/${spaceId}/features`, {
-    data: { comments: false, reactions: false, access_requests: false },
+    data: { comments: false, reactions: false },
   });
   expect(off.ok(), await off.text()).toBeTruthy();
   await openPage(other, pageId);
@@ -558,19 +558,23 @@ test('sharing tells people but gives nobody access', async ({ page, browser }) =
   await expect(other.getByText('Have a look at this.')).toBeVisible();
   const third = await signedIn(browser, `${outsider}@example.com`);
   await third.goto(`/pages/${pageId}`);
-  await expect(third.getByRole('alert')).toContainText('does not exist, or you cannot see it');
+  await expect(third.getByRole('heading', { name: "You don't have access to this page" })).toBeVisible();
   await other.context().close();
   await third.context().close();
 });
 
 test('asking for access only exists where the space allows it', async ({ page, browser }) => {
   const { other, pageId, spaceId } = await team(page, browser, null);
+  const hidden = await page.request.put(`/api/v1/spaces/${spaceId}/access-answer`, {
+    data: { answer: 'not_found' },
+  });
+  expect(hidden.ok(), await hidden.text()).toBeTruthy();
   await other.goto(`/pages/${pageId}`);
   await expect(other.getByRole('alert')).toContainText('does not exist, or you cannot see it');
   await expect(other.getByRole('button', { name: 'Ask for access' })).toHaveCount(0);
 
-  const on = await page.request.put(`/api/v1/spaces/${spaceId}/features`, {
-    data: { comments: true, reactions: true, access_requests: true },
+  const on = await page.request.put(`/api/v1/spaces/${spaceId}/access-answer`, {
+    data: { answer: 'no_access_ask' },
   });
   expect(on.ok(), await on.text()).toBeTruthy();
   await other.reload();

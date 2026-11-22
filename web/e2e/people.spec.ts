@@ -366,7 +366,8 @@ test('a personal space starts private, and is handed over when its owner leaves'
   const owner = await browserAs(browser, email);
   await owner.getByRole('button', { name: 'Account' }).click();
   await owner.getByRole('menuitem', { name: 'Create personal space' }).click();
-  await expect(owner).toHaveURL(/\/pages\//);
+  // A personal space opens at its own address, its key starting with ~ (spec 094).
+  await expect(owner).toHaveURL(/\/spaces\/~[0-9a-f]+$/);
   await owner.getByRole('button', { name: 'Account' }).click();
   await expect(owner.getByRole('menuitem', { name: 'My space' })).toBeVisible();
   await owner.context().close();

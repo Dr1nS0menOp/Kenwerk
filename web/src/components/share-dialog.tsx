@@ -336,7 +336,7 @@ export function ShareDialog({
   onRestrictions,
   onSharedPage,
 }: {
-  page: PageSummary;
+  page: PageSummary & { address: string };
   onClose: () => void;
   /** Opens the restrictions in detail, from More in the title row (COL-108). */
   onRestrictions?: () => void;
@@ -413,7 +413,7 @@ export function ShareDialog({
         <button
           type="button"
           className="quiet"
-          onClick={() => void copy(`${window.location.origin}/pages/${page.id}`, t('tree.linkCopied'))}
+          onClick={() => void copy(`${window.location.origin}${page.address}`, t('tree.linkCopied'))}
         >
           <IconLink size={MARK_SIZE} /> {t('tree.copyLink')}
         </button>

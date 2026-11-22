@@ -31,6 +31,15 @@ export function navigate(to: string, replace = false): void {
   }
 }
 
+/**
+ * Replaces the address in the bar with another form of the same screen, without a new entry in
+ * the history and without moving the page (spec 094): what is shown stays as it is.
+ */
+export function replaceAddress(to: string): void {
+  window.history.replaceState(window.history.state, '', to);
+  listeners.forEach((l) => l());
+}
+
 /** Returns the named parts when the path fits the pattern: /pages/:id/edit */
 export function match(pattern: string, path: string): Record<string, string> | null {
   const a = pattern.split('/');

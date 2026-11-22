@@ -3,10 +3,10 @@
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, type LabelCount, type Space } from '../api';
+import { api, type AccessAnswer, type LabelCount, type Space } from '../api';
 import { useCapabilities } from '../capabilities';
 import { AnimalChoice } from '../components/animal-choice';
-import { ChoiceTiles } from '../components/choice-tiles';
+import { ChoiceTiles, type ChoiceTile } from '../components/choice-tiles';
 import {
   IconAutomation,
   IconBlog,
@@ -14,20 +14,19 @@ import {
   IconComment,
   IconDate,
   IconEmoji,
-  IconLock,
   IconStatus,
 } from '../components/icons';
+import { Notice } from '../components/notice';
 import { SaveReset } from '../components/save-reset';
 import { Switch } from '../components/switch';
 import { useSaved } from '../components/toast';
 import { Dialog, ErrorNote, Field, FilePicker } from '../components/ui';
 
-/** The switches of a space, each with its icon (SPC-115). Requests for access stay (D14). */
+/** The switches of a space, each with its icon (SPC-115). Requests for access became the access answer (spec 094). */
 const FEATURES = [
   { id: 'blog', icon: IconBlog },
   { id: 'comments', icon: IconComment },
   { id: 'reactions', icon: IconEmoji },
-  { id: 'access_requests', icon: IconLock },
   { id: 'stages', icon: IconStatus },
   { id: 'analytics', icon: IconChart },
   { id: 'automation', icon: IconAutomation },
@@ -75,6 +74,49 @@ export function FeaturesSection({ space }: { space: Space }) {
           ))}
         </ul>
       </section>
+    </>
+  );
+}
+
+const ACCESS_ANSWERS: readonly AccessAnswer[] = ['not_found', 'no_access', 'no_access_ask'];
+
+/**
+ * What a person without access sees (spec 094, section 5, SPC-161); it applies at once and says so.
+ * The draft space of a pair always stays hidden (rule 28).
+ */
+export function AccessAnswerSection({ space }: { space: Space }) {
+  const { t } = useTranslation();
+  const refresh = useSpaceRefresh(space);
+  const saved = useSaved();
+  // The choice shows at once and stays while the space is read again, so the radio never jumps back.
+  const [chosen, setChosen] = useState<AccessAnswer | null>(null);
+  const save = useMutation({
+    mutationFn: (answer: AccessAnswer) => api.put(`/spaces/${space.id}/access-answer`, { answer }),
+    onSuccess: saved,
+    onError: () => setChosen(null),
+    onSettled: refresh,
+  });
+  const managed = space.pair_role === 'draft';
+  const tiles: ChoiceTile<AccessAnswer>[] = ACCESS_ANSWERS.map((answer) => ({
+    value: answer,
+    title: t(`accessAnswer.${answer}`),
+    help: t(`accessAnswer.${answer}Help`),
+  }));
+  return (
+    <>
+      {managed && <Notice kind="info">{t('accessAnswer.draftSpace')}</Notice>}
+      {!managed && space.access_ask_off && <Notice kind="info">{t('accessAnswer.askOff')}</Notice>}
+      <ErrorNote error={save.error} />
+      <ChoiceTiles
+        legend={t('accessAnswer.legend')}
+        value={chosen ?? space.access_answer ?? 'not_found'}
+        disabled={managed}
+        onChange={(answer) => {
+          setChosen(answer);
+          save.mutate(answer);
+        }}
+        tiles={tiles}
+      />
     </>
   );
 }

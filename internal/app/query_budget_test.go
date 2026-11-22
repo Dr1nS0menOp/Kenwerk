@@ -26,6 +26,8 @@ var queryBudgets = map[string]int64{
 	"the bell":         3,
 	"a page's summary": 13,
 	"the space":        11,
+	// Spec 094: a page someone may not see reads what its space answers, on the failing path only.
+	"a page refused": 10,
 }
 
 // queriesOf counts the queries of one request. Background work can add queries in the same
@@ -35,7 +37,9 @@ func queriesOf(t *testing.T, e *env, u *user, path string) int64 {
 	lowest := int64(-1)
 	for range 3 {
 		before := db.Queries(e.app.Pool())
-		u.ok("GET", path, nil)
+		if status, out := u.do("GET", path, nil); status >= 500 {
+			t.Fatalf("%s: %d %s", path, status, out)
+		}
 		if n := db.Queries(e.app.Pool()) - before; lowest < 0 || n < lowest {
 			lowest = n
 		}
@@ -51,6 +55,9 @@ func TestTheMainScreensStayWithinTheirQueryBudget(t *testing.T) {
 	page := owner.page(space, parent, "Budget page", "the release plan and its review")
 	owner.page(space, parent, "Budget sibling", "another plan")
 	tasks := owner.page(space, parent, "Budget tasks", "x")
+	asking, _ := owner.spaceAsMade("BUDGETASK")
+	refused := owner.page(asking, nil, "Budget refused", "x")
+	stranger := e.user("budget-stranger@example.com", identity.PermUseProduct)
 	owner.publish(tasks, "Budget tasks", 1, taskDoc(map[string]any{"checked": false}, "Write the plan"))
 
 	paths := map[string]string{
@@ -61,9 +68,14 @@ func TestTheMainScreensStayWithinTheirQueryBudget(t *testing.T) {
 		"the bell":         "/api/v1/me/notifications/count",
 		"a page's summary": "/api/v1/pages/" + page + "/summary",
 		"the space":        "/api/v1/spaces/" + space,
+		"a page refused":   "/api/v1/pages/" + refused,
 	}
 	for screen, path := range paths {
-		got := queriesOf(t, e, owner, path)
+		who := owner
+		if screen == "a page refused" {
+			who = stranger
+		}
+		got := queriesOf(t, e, who, path)
 		budget := queryBudgets[screen]
 		switch {
 		case got > budget:

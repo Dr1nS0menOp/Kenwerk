@@ -3114,6 +3114,58 @@ test.describe('the administration as blueprint 03 arranges it', () => {
   });
 });
 
+// Spec 094: what a person without access sees, as the space chose, and where it is chosen.
+test.describe('the screen of someone without access', () => {
+  test('NoAccess: a page someone may not see, with and without asking, wide and narrow', async ({
+    browser,
+  }) => {
+    const setup = await (await browser.newContext({ baseURL: 'http://localhost:8080' })).newPage();
+    await login(setup, ADMIN.email, ADMIN.password);
+    const created = await setup.request.post('/api/v1/spaces', {
+      data: { key: 'CLOSED', name: 'Closed space' },
+    });
+    expect(created.status(), await created.text()).toBe(201);
+    const space = (await created.json()) as { id: string };
+    const page = await publishedPage(setup, space.id, 'Budget 2027', 'Numbers.');
+    for (const [answer, name] of [
+      ['no_access_ask', 'no-access-ask'],
+      ['no_access', 'no-access'],
+    ] as const) {
+      const set = await setup.request.put(`/api/v1/spaces/${space.id}/access-answer`, { data: { answer } });
+      expect(set.ok(), await set.text()).toBeTruthy();
+      for (const [viewport, suffix] of [
+        [{ width: 1280, height: 720 }, ''],
+        [{ width: 360, height: 720 }, '-narrow'],
+      ] as const) {
+        const context = await browser.newContext({ baseURL: 'http://localhost:8080', viewport });
+        const reader = await context.newPage();
+        await login(reader, READER.email, PASSWORD);
+        await reader.goto(`/pages/${page}`);
+        await expect(
+          reader.getByRole('heading', { name: "You don't have access to this page" }),
+        ).toBeVisible();
+        await expect(reader.getByRole('button', { name: 'Ask for access' })).toHaveCount(
+          answer === 'no_access_ask' ? 1 : 0,
+        );
+        // The address is never replaced: the canonical one would hold the key (rule 25).
+        expect(new URL(reader.url()).pathname).toBe(`/pages/${page}`);
+        await expect(reader.getByText('Budget 2027')).toHaveCount(0);
+        await picture(reader, `${name}${suffix}`);
+        await checkAccessibility(reader);
+        await context.close();
+      }
+    }
+    await setup.goto('/spaces/CLOSED/settings?section=no-access');
+    await expect(
+      setup.getByRole('heading', { name: 'When someone cannot see this', level: 1 }),
+    ).toBeVisible();
+    await expect(setup.getByRole('radio', { name: /^No access(?!,)/ })).toBeChecked();
+    await picture(setup, 'space-settings-no-access');
+    await checkAccessibility(setup);
+    await setup.context().close();
+  });
+});
+
 // The settings of a space as blueprint 03 arranges them (spec 083). One space with a fixed key and
 // one person with a fixed name, so the badge, the animal and the pictures of people never change.
 test.describe('the settings of a space as blueprint 03 arranges them', () => {

@@ -2,6 +2,7 @@
 // What greets someone new (spec 013, F7), and the page an administrator put on the
 // start screen. The tour starts from the card and not by itself: a dialog that opens
 // on its own takes the focus from someone who came here to read.
+import { pagePath } from '../addresses';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
@@ -83,7 +84,7 @@ export function WelcomePage() {
   return (
     <section className="first-use">
       <h2>
-        <Link href={`/pages/${page.data.id}`}>{pageTitle(t, page.data.title)}</Link>
+        <Link href={pagePath(page.data.id)}>{pageTitle(t, page.data.title)}</Link>
       </h2>
       <DocumentView document={page.data.document} plain />
     </section>

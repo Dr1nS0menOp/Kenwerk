@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Recent, Favourites and Spaces open a panel beside the sidebar, so a person picks where to go
 // without leaving the screen (spec 078, NAV-131 to NAV-136). Each list loads when its panel opens.
+import { pagePath } from '../addresses';
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode, type RefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -217,7 +218,7 @@ function RecentGroup({
         <PageRow
           key={p.id}
           page={p}
-          href={kind === 'drafts' ? `/pages/${p.id}/edit` : `/pages/${p.id}`}
+          href={kind === 'drafts' ? pagePath(p.id, { screen: 'edit' }) : pagePath(p.id)}
           onChoose={onChoose}
         />
       ))}
@@ -256,7 +257,7 @@ export function FavouritesPanel(props: PanelProps) {
         empty={pages.data && shownPages.length === 0 ? t('nav.noFavourites') : null}
       >
         {shownPages.map((p) => (
-          <PageRow key={p.id} page={p} href={`/pages/${p.id}`} onChoose={props.onClose} />
+          <PageRow key={p.id} page={p} href={pagePath(p.id)} onChoose={props.onClose} />
         ))}
       </PanelGroup>
       <PanelGroup
@@ -310,7 +311,7 @@ function SpaceRow({
         if (!dragged) return;
         e.preventDefault();
         onChoose();
-        navigate(`/pages/${dragged}?move_to=${space.id}`);
+        navigate(pagePath(dragged, { query: `?move_to=${space.id}` }));
       }}
     >
       <Link href={`/spaces/${space.key}`} className="panel-row" onClick={onChoose}>

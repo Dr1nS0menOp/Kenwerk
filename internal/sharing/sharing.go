@@ -19,13 +19,13 @@ import (
 	"github.com/kenwerk/kenwerk/internal/apperr"
 	"github.com/kenwerk/kenwerk/internal/audit"
 	"github.com/kenwerk/kenwerk/internal/db"
-	"github.com/kenwerk/kenwerk/internal/features"
 	"github.com/kenwerk/kenwerk/internal/identity"
 	"github.com/kenwerk/kenwerk/internal/ids"
 	"github.com/kenwerk/kenwerk/internal/notify"
 	"github.com/kenwerk/kenwerk/internal/outbox"
 	"github.com/kenwerk/kenwerk/internal/permissions"
 	"github.com/kenwerk/kenwerk/internal/settings"
+	"github.com/kenwerk/kenwerk/internal/spaces"
 )
 
 const (
@@ -52,12 +52,13 @@ type Service struct {
 	identity *identity.Service
 	settings *settings.Service
 	notify   *notify.Service
-	features *features.Service
+	// spaces says what a person without access to a space is told (spec 094).
+	spaces *spaces.Service
 }
 
 // NewService creates the service.
-func NewService(pool *pgxpool.Pool, perms *permissions.Service, id *identity.Service, st *settings.Service, n *notify.Service, f *features.Service) *Service {
-	return &Service{pool: pool, perms: perms, identity: id, settings: st, notify: n, features: f}
+func NewService(pool *pgxpool.Pool, perms *permissions.Service, id *identity.Service, st *settings.Service, n *notify.Service, sp *spaces.Service) *Service {
+	return &Service{pool: pool, perms: perms, identity: id, settings: st, notify: n, spaces: sp}
 }
 
 // Entry is someone who has access.
@@ -437,9 +438,10 @@ func canOpenAll(levels []Level) bool {
 	return !slices.ContainsFunc(levels, func(l Level) bool { return !l.CanManage })
 }
 
-// whoToAsk finds the first person who may grant it: the creator, the last editor, and
-// then the space administrators (COL-051).
-func (s *Service) whoToAsk(ctx context.Context, q db.Querier, pageID uuid.UUID, effect string) (uuid.UUID, error) {
+// whoToAsk finds the first person who may grant it: for a request to view, the owners of the
+// space first (spec 094, D17), then the creator, the last editor, and the space administrators
+// (COL-051).
+func (s *Service) whoToAsk(ctx context.Context, q db.Querier, pageID uuid.UUID, kind, effect string) (uuid.UUID, error) {
 	var creator, editor, spaceID uuid.UUID
 	err := q.QueryRow(ctx, "SELECT created_by, updated_by, space_id FROM pages WHERE id = $1", pageID).Scan(&creator, &editor, &spaceID)
 	if err != nil {
@@ -454,7 +456,14 @@ func (s *Service) whoToAsk(ctx context.Context, q db.Querier, pageID uuid.UUID, 
 	if err != nil {
 		return uuid.Nil, err
 	}
-	for _, person := range append([]uuid.UUID{creator, editor}, admins...) {
+	var people []uuid.UUID
+	if kind == kindView {
+		if people, err = spaces.OwnerIDsIn(ctx, q, spaceID); err != nil {
+			return uuid.Nil, err
+		}
+	}
+	people = append(append(people, creator, editor), admins...)
+	for _, person := range people {
 		d, err := s.perms.CheckPage(ctx, q, person, pageID, grantAction(effect), uuid.Nil)
 		if err != nil {
 			return uuid.Nil, err
@@ -466,37 +475,68 @@ func (s *Service) whoToAsk(ctx context.Context, q db.Querier, pageID uuid.UUID, 
 	return uuid.Nil, apperr.Conflict("nobody_to_ask", "Nobody can grant this at the moment.")
 }
 
-// MayAsk reports whether a person who cannot see a page may be offered a request. It
-// stays false unless the space chose to allow that, so "not found" reveals nothing.
-func (s *Service) MayAsk(ctx context.Context, c identity.Caller, pageID uuid.UUID) (bool, error) {
-	return s.mayAskIn(ctx, s.pool, pageID)
+// Refusal is what a person who may not see a page is told, given the "not found" they would get
+// otherwise (spec 094): what the page's space chose, for a page a reader could be given, and
+// "not found" for everything else (rules 21 and 26). A failure to decide comes back as itself.
+func (s *Service) Refusal(ctx context.Context, pageID uuid.UUID, notFound error) error {
+	answer, err := s.answerFor(ctx, s.pool, pageID)
+	if err != nil {
+		return err
+	}
+	return spaces.Refusal(answer, notFound)
 }
 
-// mayAskIn is MayAsk through q, for code that holds a transaction (spec 050).
-func (s *Service) mayAskIn(ctx context.Context, q db.Querier, pageID uuid.UUID) (bool, error) {
+// answerFor decides, through q, what someone without access to a page is told. Only a published
+// page that is no template and was approved where it is controlled exists in a form a reader
+// could be given; anything else stays "not found" whatever its space chose.
+func (s *Service) answerFor(ctx context.Context, q db.Querier, pageID uuid.UUID) (string, error) {
 	space, page, err := s.perms.LoadPage(ctx, q, pageID)
-	if e, known := apperr.As(err); known && e.Kind == apperr.KindNotFound {
-		return false, nil
+	if apperr.IsNotFound(err) {
+		return spaces.AnswerNotFound, nil
 	}
 	if err != nil {
-		return false, err
+		return "", err
 	}
-	if page.Status != "published" {
-		return false, nil
+	if page.Status != "published" || page.Kind == permissions.KindTemplate || page.ControlHidden {
+		return spaces.AnswerNotFound, nil
 	}
-	return s.features.Enabled(ctx, q, space.ID, features.AccessRequests)
+	return s.spaces.AnswerFor(ctx, q, space.ID)
 }
 
 func (s *Service) checkMayRequest(ctx context.Context, q db.Querier, c identity.Caller, pageID uuid.UUID, kind string) error {
 	if kind == kindEdit {
 		return s.perms.RequirePage(ctx, q, c.UserID, pageID, permissions.ActionPageView, uuid.Nil)
 	}
-	allowed, err := s.mayAskIn(ctx, q, pageID)
+	answer, err := s.answerFor(ctx, q, pageID)
 	if err != nil {
 		return err
 	}
-	if !allowed {
+	if answer != spaces.AnswerNoAccessAsk {
 		return apperr.NotFound()
+	}
+	return nil
+}
+
+// maxOpenViewRequests is how many requests to view one person may have open across the
+// installation: asking is offered by default, and the other limits are per page (D18).
+const maxOpenViewRequests = 20
+
+// checkRoomToAsk refuses a request to view past the limit. Requests of one person take turns,
+// so two at the same moment cannot both take the last place.
+func (s *Service) checkRoomToAsk(ctx context.Context, tx pgx.Tx, c identity.Caller, kind string) error {
+	if kind != kindView {
+		return nil
+	}
+	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtextextended('access_requests:' || $1::text, 0))", c.UserID); err != nil {
+		return err
+	}
+	var open int
+	if err := tx.QueryRow(ctx, `SELECT count(*) FROM access_requests WHERE requester_id = $1 AND kind = $2 AND status = $3`,
+		c.UserID, kindView, statusOpen).Scan(&open); err != nil {
+		return err
+	}
+	if open >= maxOpenViewRequests {
+		return apperr.TooMany("too_many_requests", "You have 20 open requests to view. Wait for an answer before asking for more.")
 	}
 	return nil
 }
@@ -534,7 +574,10 @@ func (s *Service) Ask(ctx context.Context, c identity.Caller, pageID uuid.UUID, 
 		if err := s.checkNotRefused(ctx, tx, c, pageID, kind); err != nil {
 			return err
 		}
-		asked, err := s.whoToAsk(ctx, tx, pageID, effect)
+		if err := s.checkRoomToAsk(ctx, tx, c, kind); err != nil {
+			return err
+		}
+		asked, err := s.whoToAsk(ctx, tx, pageID, kind, effect)
 		if err != nil {
 			return err
 		}

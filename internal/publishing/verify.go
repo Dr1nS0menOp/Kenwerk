@@ -217,6 +217,9 @@ func inputFromMap(links map[string]string) (rewriteInput, error) {
 	in := rewriteInput{draft: spaceRef{ID: draftID, Key: links[mapDraftKey]}, published: spaceRef{Key: links[mapPublishedKey]},
 		twins: map[uuid.UUID]uuid.UUID{}, targets: map[uuid.UUID]pages.LinkTarget{}, files: map[uuid.UUID]uuid.UUID{},
 		foreign: map[uuid.UUID]bool{}}
+	if old := links[mapDraftOldKeys]; old != "" {
+		in.draft.OldKeys = strings.Split(old, ",")
+	}
 	// Another space only needs to differ from the draft space for the rewrite to keep it.
 	elsewhere := uuid.Max
 	for key, value := range links {

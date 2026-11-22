@@ -2,6 +2,7 @@
 // The header row and the byline of a page (spec 079): breadcrumbs at the start; the
 // publishing state, who else is reading, Edit, Share with Copy link, and More at the end;
 // under the title one line of small parts, without a date or a version.
+import { pagePath } from '../addresses';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -34,7 +35,7 @@ export function useSpaceOf(page: PageDetail | undefined) {
 function Crumb({ page }: { page: { id: string; title: string; emoji: string } }) {
   const { t } = useTranslation();
   return (
-    <Link href={`/pages/${page.id}`}>
+    <Link href={pagePath(page.id)}>
       {page.emoji && <span aria-hidden="true">{page.emoji} </span>}
       {pageTitle(t, page.title)}
     </Link>
@@ -62,7 +63,7 @@ function Breadcrumbs({ page, space }: { page: PageDetail; space: Space | undefin
           <li>
             <Menu label={t('page.moreCrumbs')} align="start" className="crumb-fold" trigger="…">
               {folded.map((c) => (
-                <MenuLink key={c.id} href={`/pages/${c.id}`}>
+                <MenuLink key={c.id} href={pagePath(c.id)}>
                   {pageTitle(t, c.title)}
                 </MenuLink>
               ))}
@@ -116,7 +117,7 @@ function ShareControl({ page, onShare }: { page: PageDetail; onShare: () => void
         className="share-link"
         aria-label={t('tree.copyLink')}
         title={t('tree.copyLink')}
-        onClick={() => void copy(`${window.location.origin}/pages/${page.id}`, t('tree.linkCopied'))}
+        onClick={() => void copy(`${window.location.origin}${page.address}`, t('tree.linkCopied'))}
       >
         <IconLink size={ROW_ICON_SIZE} />
       </button>
@@ -151,7 +152,7 @@ export function PageHeaderRow({
         {!personalHome && <PublishState page={page} />}
         <PresencePeople people={present} />
         {page.can['page.edit'] && (
-          <Link className="button" href={`/pages/${page.id}/edit`}>
+          <Link className="button" href={pagePath(page.id, { screen: 'edit' })}>
             <IconPencil size={ROW_ICON_SIZE} /> {t('page.edit')}
           </Link>
         )}
@@ -169,7 +170,7 @@ function AddReaction({ page }: { page: PageDetail }) {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLSpanElement>(null);
   const button = useRef<HTMLButtonElement>(null);
-  const path = `/pages/${page.id}`;
+  const path = pagePath(page.id);
   const add = useMutation({
     mutationFn: (glyph: string) => api.put(`${path}/reactions/${encodeURIComponent(glyph)}`),
     onSettled: async () => {
@@ -252,7 +253,7 @@ export function Byline({
       </button>
       {page.owner_disabled && <span className="muted">{t('content.noLongerActive')}</span>}
       {views !== null && (
-        <Link className="byline-part" href={`/pages/${page.id}/insights`}>
+        <Link className="byline-part" href={pagePath(page.id, { screen: 'insights' })}>
           <IconEye size={ROW_ICON_SIZE} /> {t('insights.viewCount', { count: views })}
         </Link>
       )}

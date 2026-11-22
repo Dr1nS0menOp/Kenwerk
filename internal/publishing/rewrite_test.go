@@ -28,7 +28,7 @@ func newWorld() world {
 		database: uuid.New(), elsewhere: uuid.New(), file: uuid.New(), fileCopy: uuid.New(), foreignFile: uuid.New(), oldFile: uuid.New()}
 	draft, other := uuid.New(), uuid.New()
 	w.in = rewriteInput{
-		draft:     spaceRef{ID: draft, Key: "DRAFTKEY"},
+		draft:     spaceRef{ID: draft, Key: "DRAFTKEY", OldKeys: []string{"olddraft"}},
 		published: spaceRef{ID: uuid.New(), Key: "PUBKEY"},
 		twins:     map[uuid.UUID]uuid.UUID{w.self: w.twin, w.released: w.releasedTwin, w.database: uuid.New()},
 		targets: map[uuid.UUID]pages.LinkTarget{
@@ -145,6 +145,38 @@ func TestAddressesIntoTheDraftSpaceAreRewritten(t *testing.T) {
 	}
 }
 
+// Spec 094, rule 35: the canonical form of an address, and an old key of the draft space, are
+// rewritten as the id form and the current key are, so no key of the draft space reaches readers.
+func TestCanonicalAddressesAndOldKeysOfTheDraftSpaceAreRewritten(t *testing.T) {
+	w := newWorld()
+	text := func(href string) document.Node {
+		return document.Node{Type: document.TypeText, Text: "x", Marks: []document.Mark{{Type: document.MarkLink, Attrs: map[string]any{"href": href}}}}
+	}
+	filter := document.Node{Type: document.TypeDynamic, Attrs: map[string]any{"kind": "filter_list",
+		"settings": map[string]any{"spaces": []any{"OldDraft", "OTHER"}}}}
+	out := rewrite(doc(para(text("/spaces/DRAFTKEY/pages/"+w.released.String()+"#steps"),
+		text("/spaces/olddraft/pages/"+w.unreleased.String()), text("/spaces/OldDraft/overview"), text("/spaces/OLDDRAFT"),
+		text("/spaces/OTHER/pages/"+w.elsewhere.String()+"#a")), filter), w.in)
+	got := marshal(t, out.doc)
+	for _, want := range []string{`"/pages/` + w.releasedTwin.String() + `#steps"`, "/spaces/PUBKEY/overview", `"/spaces/PUBKEY"`,
+		`"/pages/` + w.elsewhere.String() + `#a"`, `"PUBKEY","OTHER"`} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("missing %s in %s", want, got)
+		}
+	}
+	if strings.Contains(strings.ToLower(got), "olddraft") || strings.Contains(got, "DRAFTKEY") || strings.Contains(got, w.unreleased.String()) {
+		t.Fatalf("a key or page of the draft space survived: %s", got)
+	}
+	// Verification does the same rewrite from the map the release kept (PUB-732).
+	again, err := inputFromMap(out.linkMap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(again.draft.OldKeys) != 1 || again.draft.OldKeys[0] != "olddraft" {
+		t.Fatalf("the map lost the old keys: %v", again.draft.OldKeys)
+	}
+}
+
 func TestDraftingMarksAndPlaceholdersAreRemoved(t *testing.T) {
 	w := newWorld()
 	instruction := document.Node{Type: document.TypeInstruction, Attrs: map[string]any{"text": "Write the scope here"}}
@@ -214,7 +246,7 @@ func FuzzRewriteLeavesNoDraftID(f *testing.F) {
 			return draftIDs[rng.IntN(len(draftIDs))]
 		}
 		inline := func() document.Node {
-			switch rng.IntN(6) {
+			switch rng.IntN(8) {
 			case 0:
 				return link(anyID(), "h")
 			case 1:
@@ -227,6 +259,14 @@ func FuzzRewriteLeavesNoDraftID(f *testing.F) {
 			case 4:
 				return document.Node{Type: document.TypeText, Text: "s", Marks: []document.Mark{{Type: document.MarkLink,
 					Attrs: map[string]any{"href": "/spaces/DRAFTKEY/x"}}}}
+			case 5:
+				// The canonical form of spec 094, under the current key or an old one.
+				key := []string{"DRAFTKEY", "OldDraft", "elsewhere"}[rng.IntN(3)]
+				return document.Node{Type: document.TypeText, Text: "c", Marks: []document.Mark{{Type: document.MarkLink,
+					Attrs: map[string]any{"href": "/spaces/" + key + "/pages/" + anyID().String() + "#y"}}}}
+			case 6:
+				return document.Node{Type: document.TypeText, Text: "o", Marks: []document.Mark{{Type: document.MarkLink,
+					Attrs: map[string]any{"href": "/spaces/OLDDRAFT/overview"}}}}
 			}
 			return document.Node{Type: document.TypeText, Text: "words"}
 		}

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { pagePath } from '../addresses';
 import { useEffect, useRef, useState, type ComponentType, type KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
@@ -79,7 +80,7 @@ function PickUpCards() {
         {cards.map(({ page, did }) => (
           <li key={page.id}>
             <Link
-              href={page.unpublished ? `/pages/${page.id}/edit` : `/pages/${page.id}`}
+              href={page.unpublished ? pagePath(page.id, { screen: 'edit' }) : pagePath(page.id)}
               className="touch-card"
             >
               <span className="touch-kind">
@@ -122,7 +123,7 @@ function FeedEntry({ item, at, total }: { item: FeedItem; at: number; total: num
       </div>
       <div className="feed-card-body">
         <h3 className="feed-card-title">
-          <PageMark page={item} /> <Link href={`/pages/${item.page_id}`}>{pageTitle(t, item.title)}</Link>
+          <PageMark page={item} /> <Link href={pagePath(item.page_id)}>{pageTitle(t, item.title)}</Link>
         </h3>
         <p className="muted">{item.space_name}</p>
         {item.excerpt && <p className="feed-card-excerpt">{item.excerpt}</p>}

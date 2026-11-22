@@ -20,6 +20,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kenwerk/kenwerk/internal/address"
 	"github.com/kenwerk/kenwerk/internal/apperr"
 )
 
@@ -395,10 +396,6 @@ func Text(n Node) string {
 	return b.String()
 }
 
-// pageLink finds the page in a link inside this instance. Anything after the id,
-// such as a heading, still points at that page.
-var pageLink = regexp.MustCompile(`^/pages/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})(?:[/?#]|$)`)
-
 // LinkedPages lists the pages a document links to, each once.
 func LinkedPages(n Node) []uuid.UUID {
 	seen := map[uuid.UUID]bool{}
@@ -415,11 +412,7 @@ func LinkedPages(n Node) []uuid.UUID {
 		}
 		for _, m := range c.Marks {
 			href, _ := m.Attrs["href"].(string)
-			found := pageLink.FindStringSubmatch(href)
-			if m.Type != MarkLink || found == nil {
-				continue
-			}
-			if id, err := uuid.Parse(found[1]); err == nil {
+			if id, _, found := address.PageOf(href); m.Type == MarkLink && found {
 				add(id)
 			}
 		}

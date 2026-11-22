@@ -18,6 +18,7 @@ const (
 	KindTooLarge
 	KindBusy
 	KindNoRoom
+	KindTooMany
 )
 
 // Denied describes a refused action, so it can be audited after the
@@ -94,6 +95,11 @@ func Busy(message string) *Error {
 // such as saving text, still goes on (spec 051, D4).
 func NoRoom(message string) *Error {
 	return &Error{Kind: KindNoRoom, Code: "no_room", Message: message}
+}
+
+// TooMany means a person reached a limit on how many of something they may have at once.
+func TooMany(code, message string) *Error {
+	return &Error{Kind: KindTooMany, Code: code, Message: message}
 }
 
 // As extracts an *Error from err.

@@ -32,7 +32,7 @@ func (s *Service) values(ctx context.Context, r *run, a Action, page *uuid.UUID)
 		return nil, err
 	}
 	out["page.title"], out["found.title"] = d.Title, d.Title
-	out["page.url"] = s.Origin + "/pages/" + page.String()
+	out["page.url"] = s.Origin + d.Address
 	out["page.author"], out["page.owner"] = d.CreatedByName, d.OwnerName
 	if a.WithText {
 		if out["page.text"], err = plainText(d.Document); err != nil {

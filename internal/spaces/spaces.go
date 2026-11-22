@@ -63,6 +63,14 @@ type Space struct {
 	Features         map[string]bool `json:"features,omitempty"`
 	// PairRole is the side of a pair the space is on, draft or published, or empty (spec 073).
 	PairRole string `json:"pair_role"`
+	// AccessAnswer is what a person without access sees (spec 094), shown to those who may
+	// administer the space only.
+	AccessAnswer string `json:"access_answer,omitempty"`
+	// AccessAskOff says an administrator turned requests for access off for every space, so a
+	// space set to ask answers No access (D12). Shown with AccessAnswer.
+	AccessAskOff bool `json:"access_ask_off,omitempty"`
+
+	accessAnswer string
 }
 
 // Input is what a user fills in.
@@ -113,12 +121,12 @@ func (in *Input) validate() error {
 }
 
 const columns = `id, key, name, description, icon, status, home_page_id, created_by, created_at, updated_at,
-	icon_object <> '', title_align, review_months, approval_required, kind, owner_id, COALESCE(pair_role, '')`
+	icon_object <> '', title_align, review_months, approval_required, kind, owner_id, COALESCE(pair_role, ''), access_answer`
 
 func scan(r pgx.Row) (Space, error) {
 	var s Space
 	err := r.Scan(&s.ID, &s.Key, &s.Name, &s.Description, &s.Icon, &s.Status, &s.HomePageID, &s.CreatedBy, &s.CreatedAt, &s.UpdatedAt,
-		&s.HasIcon, &s.TitleAlign, &s.ReviewMonths, &s.ApprovalRequired, &s.Kind, &s.OwnerID, &s.PairRole)
+		&s.HasIcon, &s.TitleAlign, &s.ReviewMonths, &s.ApprovalRequired, &s.Kind, &s.OwnerID, &s.PairRole, &s.accessAnswer)
 	return s, err
 }
 
@@ -205,6 +213,9 @@ func (s *Service) create(ctx context.Context, tx pgx.Tx, c identity.Caller, in I
 	if err := s.features.Start(ctx, tx, id); err != nil {
 		return Space{}, err
 	}
+	if err := s.startAnswer(ctx, tx, id); err != nil {
+		return Space{}, err
+	}
 	if err := record(ctx, tx, c, "space.created", out, map[string]any{"name": out.Name}); err != nil {
 		return Space{}, err
 	}
@@ -277,6 +288,8 @@ func (s *Service) Get(ctx context.Context, c identity.Caller, id uuid.UUID) (Spa
 	if sp.Features, err = s.features.ForSpace(ctx, s.pool, id); err != nil {
 		return sp, err
 	}
+	// The access answer replaces this switch (spec 094); the feature stays for the previous release.
+	delete(sp.Features, features.AccessRequests)
 	// The facts are loaded once and asked about every action, so a capability more costs
 	// no query.
 	user, err := s.perms.LoadUser(ctx, s.pool, c.UserID)
@@ -295,10 +308,16 @@ func (s *Service) Get(ctx context.Context, c identity.Caller, id uuid.UUID) (Spa
 		permissions.TemplatePropose} {
 		sp.Can[action] = permissions.Evaluate(permissions.Input{User: user, Space: facts, Action: action}).Allowed
 	}
+	if sp.Can[permissions.SpaceAdminister] {
+		if err := s.fillAccessAnswer(ctx, &sp); err != nil {
+			return sp, err
+		}
+	}
 	return sp, nil
 }
 
-// GetByKey resolves a key, and then behaves like Get.
+// GetByKey resolves a key, current or old and in any case, and then behaves like Get; the answer
+// carries the current key. Who may not see the space is told what the space chose (spec 094).
 func (s *Service) GetByKey(ctx context.Context, c identity.Caller, key string) (Space, error) {
 	var id uuid.UUID
 	err := s.pool.QueryRow(ctx, `SELECT id FROM spaces WHERE lower(key) = lower($1)
@@ -309,7 +328,15 @@ func (s *Service) GetByKey(ctx context.Context, c identity.Caller, key string) (
 	if err != nil {
 		return Space{}, err
 	}
-	return s.Get(ctx, c, id)
+	sp, err := s.Get(ctx, c, id)
+	if !apperr.IsNotFound(err) {
+		return sp, err
+	}
+	answer, answerErr := s.AnswerFor(ctx, s.pool, id)
+	if answerErr != nil {
+		return Space{}, answerErr
+	}
+	return Space{}, Refusal(answer, err)
 }
 
 // Update changes the details of a space. The key stays: it identifies the space.

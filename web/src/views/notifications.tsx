@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { pagePath } from '../addresses';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -278,11 +279,12 @@ export function NotificationSettingsView() {
 }
 
 function hrefOf(entry: WatchEntry): string {
-  return entry.type === 'space' ? '/spaces' : `/pages/${entry.id}`;
+  return entry.type === 'space' ? '/spaces' : pagePath(entry.id);
 }
 
 function stopPath(entry: WatchEntry): string {
   if (entry.type === 'space') return `/spaces/${entry.id}/watch`;
+  // eslint-disable-next-line no-restricted-syntax -- a path of the API, not the address of a page
   return `/pages/${entry.id}/watch?scope=${entry.type}`;
 }
 

@@ -96,7 +96,18 @@ func para(text string) map[string]any {
 		map[string]any{"type": "paragraph", "content": []any{map[string]any{"type": "text", "text": text}}}}}
 }
 
+// space makes a space that keeps itself hidden from whoever may not see it, as every space did
+// before spec 094: these tests are about who may see what, and a refusal stays "not found". A
+// space as a new one starts, which says "no access" and offers to ask, comes from spaceAsMade.
 func (u *user) space(key string) (id, home string) {
+	u.e.t.Helper()
+	id, home = u.spaceAsMade(key)
+	u.ok("PUT", "/api/v1/spaces/"+id+"/access-answer", map[string]any{"answer": "not_found"})
+	return id, home
+}
+
+// spaceAsMade makes a space with the answer a new space starts with (spec 094, D11).
+func (u *user) spaceAsMade(key string) (id, home string) {
 	u.e.t.Helper()
 	m := u.ok("POST", "/api/v1/spaces", map[string]any{"key": key, "name": "Space " + key})
 	return m["id"].(string), m["home_page_id"].(string)

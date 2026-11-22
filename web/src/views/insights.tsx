@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { pagePath } from '../addresses';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
@@ -118,7 +119,7 @@ function LinkList({ title, rows }: { title: string; rows: LinkCount[] }) {
       <ul className="page-list">
         {rows.map((r) => (
           <li key={r.id}>
-            <Link href={`/pages/${r.id}`}>{pageTitle(t, r.title)}</Link>
+            <Link href={pagePath(r.id)}>{pageTitle(t, r.title)}</Link>
             {r.count > 0 && <span className="muted">{r.count}</span>}
           </li>
         ))}
@@ -213,7 +214,7 @@ export function PageInsightsView({ pageId }: { pageId: string }) {
   return (
     <div className="column">
       <p>
-        <Link href={`/pages/${pageId}`}>{t('insights.backToPage')}</Link>
+        <Link href={pagePath(pageId)}>{t('insights.backToPage')}</Link>
       </p>
       <h1>{t('insights.title')}</h1>
       <PeriodChoice value={period} onChange={setPeriod} />
@@ -238,7 +239,7 @@ function ContentTable({ space, query }: { space: Space; query: string }) {
         key: 'title',
         label: t('insights.page'),
         value: (r) => r.title,
-        show: (r) => <Link href={`/pages/${r.id}`}>{pageTitle(t, r.title)}</Link>,
+        show: (r) => <Link href={pagePath(r.id)}>{pageTitle(t, r.title)}</Link>,
       },
       { key: 'views', label: t('insights.views'), value: (r) => r.views },
       { key: 'readers', label: t('insights.readerDays'), value: (r) => r.readers },

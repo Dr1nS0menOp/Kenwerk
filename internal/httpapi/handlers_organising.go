@@ -77,6 +77,7 @@ func (s *Server) registerOrganisingRoutes() {
 	r.HandleFunc("PUT "+spacesPath+"/{id}/home", Object("space.look"), s.handleSpaceHome)
 	r.HandleFunc("PUT "+spacesPath+"/{id}/features", Object("space.administer"), s.handleSpaceFeatures)
 	r.HandleFunc("PUT "+spacesPath+"/{id}/title-align", Object("space.look"), s.handleSpaceTitleAlign)
+	r.HandleFunc("PUT "+spacesPath+"/{id}/access-answer", Object("space.administer"), s.handleSpaceAccessAnswer)
 	r.HandleFunc("POST "+spacesPath+"/{id}/icon", Object("space.look"), s.handleSpaceIcon)
 	r.HandleFunc("DELETE "+spacesPath+"/{id}/icon", Object("space.look"), s.handleSpaceIconRemove)
 	r.HandleFunc("GET "+spacesPath+"/{id}/icon", Object("space.view"), s.handleSpaceIconGet)
@@ -941,6 +942,25 @@ func (s *Server) handleSpaceTitleAlign(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.deps.Spaces.SetTitleAlign(r.Context(), s.caller(r), id, in.Align); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// handleSpaceAccessAnswer chooses what a person without access sees (spec 094, section 5).
+func (s *Server) handleSpaceAccessAnswer(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r, "id")
+	if !ok {
+		return
+	}
+	var in struct {
+		Answer string `json:"answer"`
+	}
+	if !body(w, r, &in) {
+		return
+	}
+	if err := s.deps.Spaces.SetAccessAnswer(r.Context(), s.caller(r), id, in.Answer); err != nil {
 		s.fail(w, r, err)
 		return
 	}

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // One panel for the facts around a page (spec 009, D7). It sits on top of the page
 // without taking over the screen, so reading goes on beside it.
+import { pagePath } from '../addresses';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
@@ -38,7 +39,7 @@ function PageLinks({ title, pages, empty }: { title: string; pages: PageRef[]; e
         {pages.map((p) => (
           <li key={p.id}>
             <PageMark page={p} />
-            <Link href={`/pages/${p.id}`}>{pageTitle(t, p.title)}</Link>
+            <Link href={pagePath(p.id)}>{pageTitle(t, p.title)}</Link>
           </li>
         ))}
       </ul>
@@ -108,7 +109,7 @@ function MadeFrom({ pageId }: { pageId: string }) {
               {origin.set.map((p) => (
                 <li key={p.id}>
                   <PageMark page={p} />
-                  <Link href={`/pages/${p.id}`}>{pageTitle(t, p.title)}</Link>
+                  <Link href={pagePath(p.id)}>{pageTitle(t, p.title)}</Link>
                 </li>
               ))}
             </ul>
@@ -275,7 +276,7 @@ export function DetailsPanel({ page, onClose }: { page: PageDetail; onClose: () 
             <Fact name={t('details.length')}>{t('details.words', { count: words })}</Fact>
             {minutes !== null && <Fact name={t('details.readTime')}>{t('page.readTime', { minutes })}</Fact>}
             <Fact name={t('details.address')}>
-              <span className="details-address">{`${window.location.origin}/pages/${page.id}`}</span>
+              <span className="details-address">{`${window.location.origin}${page.address}`}</span>
             </Fact>
           </dl>
           <section id="details-contributors">
@@ -321,7 +322,7 @@ export function ChildPages({ pageId }: { pageId: string }) {
         {q.data.map((p) => (
           <li key={p.id}>
             <PageMark page={p} />
-            <Link href={`/pages/${p.id}`}>{pageTitle(t, p.title)}</Link>
+            <Link href={pagePath(p.id)}>{pageTitle(t, p.title)}</Link>
           </li>
         ))}
       </ul>

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { pagePath } from '../addresses';
 import { Fragment, useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
@@ -133,7 +134,11 @@ function ResultRow({ result }: { result: SearchResult }) {
     <li>
       <div className="result-head">
         <KindMark item={result} />
-        <Link href={`/pages/${result.page_id}${result.comment_id ? `#comment-${result.comment_id}` : ''}`}>
+        <Link
+          href={pagePath(result.page_id, {
+            fragment: result.comment_id ? `comment-${result.comment_id}` : null,
+          })}
+        >
           {pageTitle(t, result.title)}
         </Link>
         <span className="muted">{result.space_name}</span>
@@ -144,7 +149,7 @@ function ResultRow({ result }: { result: SearchResult }) {
       {(result.breadcrumbs?.length ?? 0) > 0 && (
         <nav aria-label={t('page.breadcrumbs')} className="result-crumbs">
           {result.breadcrumbs?.map((c) => (
-            <Link key={c.id} href={`/pages/${c.id}`}>
+            <Link key={c.id} href={pagePath(c.id)}>
               {pageTitle(t, c.title)}
             </Link>
           ))}
@@ -549,7 +554,7 @@ function TaskRow({ result }: { result: SearchResult }) {
       <p className="result-facts muted">
         {task.due && <span>{t('search.taskDue', { date: dates.day(task.due) })}</span>}
         {task.assignee_name && <span>{t('search.taskFor', { name: task.assignee_name })}</span>}
-        <Link href={`/pages/${result.page_id}`}>
+        <Link href={pagePath(result.page_id)}>
           {t('search.taskOn', { title: pageTitle(t, result.title) })}
         </Link>
         <span>{result.space_name}</span>

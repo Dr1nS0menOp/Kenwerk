@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { pagePath } from '../addresses';
 import { useRef, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -54,7 +55,7 @@ export function NewPageDialog({
       api.post<Page>('/pages', { space_id: space.id, parent_id: parent, title, untitled }),
     onSuccess: (p) => {
       onClose();
-      navigate(`/pages/${p.id}/edit`);
+      navigate(pagePath(p.id, { screen: 'edit' }));
     },
   });
   const start = useOneAtATime(create.mutate);
@@ -94,7 +95,7 @@ export function NewPostDialog({ space, onClose }: { space: Space; onClose: () =>
     mutationFn: () => api.post<Page>('/pages', { space_id: space.id, title, kind: 'post' }),
     onSuccess: (p) => {
       onClose();
-      navigate(`/pages/${p.id}/edit`);
+      navigate(pagePath(p.id, { screen: 'edit' }));
     },
   });
   const start = useOneAtATime(create.mutate);
@@ -139,7 +140,7 @@ export function NewDatabaseDialog({
     onSuccess: async (p) => {
       await client.invalidateQueries({ queryKey: ['tree', space.id] });
       onClose();
-      navigate(`/pages/${p.id}/edit`);
+      navigate(pagePath(p.id, { screen: 'edit' }));
     },
   });
   const start = useOneAtATime(create.mutate);

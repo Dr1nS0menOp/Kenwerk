@@ -15,7 +15,7 @@ All of this is planned in waves C and H. The study below is for what those waves
 - **SEC-406** · built · A comment made while editing stays visible to editors only until the page is published.
 - **SEC-407** · built · **Medium.** An inline comment stores the words it points at, as the W3C annotation model does, and shows them after they are gone (COL-018). The model itself warns about copying text. When someone removes a secret from a page, or an administrator removes a version (PAG-096), that text lives on in the anchors. Removing a version must also blank the anchors that quote it. Belongs in waves C and D. Built: `TestRemovingAVersionBlanksTheQuotesThatHoldIt`, with mutations.
 - **SEC-408** · built · Share never grants access by itself. A person with the right permission can grant it, and that is audited (COL-043).
-- **SEC-409** · built · An access request reveals nothing about a page a person cannot see, unless a space chooses to allow that (COL-049). Every step is audited.
+- **SEC-409** · built · An access request reveals nothing about a page a person cannot see beyond that it exists, and only where its space chose to say so (COL-049, SPC-161); the answer names no title, space, key or owner. Every step is audited.
 
 ## 5.2 Mail
 

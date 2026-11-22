@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // The parts of a template's history beyond its texts (spec 074, wave GT5): the readable list of
 // what a version changed (TPL-602), and the sets a version made (TPL-613).
+import { pagePath } from '../addresses';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
@@ -79,7 +80,7 @@ function VersionSetsDialog({
             <ul className="plain-list details-links">
               {q.data.sets.map((s) => (
                 <li key={s.id}>
-                  <Link href={`/pages/${s.root.id}`}>{pageTitle(t, s.root.title)}</Link>{' '}
+                  <Link href={pagePath(s.root.id)}>{pageTitle(t, s.root.title)}</Link>{' '}
                   <span className="muted">
                     {t('templates.history.setPages', { count: s.pages })}, {dates.moment(s.created_at)}
                   </span>

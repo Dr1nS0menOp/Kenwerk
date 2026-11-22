@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // The page tree. A nav of links with the keys of the tree pattern on top: a real
 // tree item may not hold buttons, and our rows do (spec 009, D1).
+import { pagePath } from '../addresses';
+import { useCurrentSpace } from './current-space';
 import {
   useEffect,
   useMemo,
@@ -123,12 +125,17 @@ function RowActions({
   });
   const page = facts.data;
   const published = page?.status === 'published';
+  // The tree is the sidebar of the space on screen, so its key names every row (spec 094).
+  const { space } = useCurrentSpace();
+  const address = pagePath(node.id, {
+    place: space ? { spaceKey: space.key, isHome: node.id === space.home_page_id } : undefined,
+  });
   return (
     <>
-      <MenuDownload href={`/pages/${node.id}`} target="_blank" rel="noopener">
+      <MenuDownload href={address} target="_blank" rel="noopener">
         <IconExternal size={MENU_ICON_SIZE} /> {t('tree.openNewTab')}
       </MenuDownload>
-      <MenuItem onClick={() => void copy(`${window.location.origin}/pages/${node.id}`, t('tree.linkCopied'))}>
+      <MenuItem onClick={() => void copy(`${window.location.origin}${address}`, t('tree.linkCopied'))}>
         <IconLink size={MENU_ICON_SIZE} /> {t('tree.copyLink')}
       </MenuItem>
       {facts.isPending && <Loading />}
@@ -336,7 +343,7 @@ function RowLink({ node, current, filter, tabStop, onFocusRow, card, picking, pi
   return (
     <Link
       {...shared}
-      href={`/pages/${node.id}`}
+      href={pagePath(node.id)}
       className={node.status === 'draft' ? 'unpublished' : undefined}
       aria-current={node.id === current ? 'page' : undefined}
     >

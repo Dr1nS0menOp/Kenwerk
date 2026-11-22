@@ -2,6 +2,7 @@
 // Inside a space the sidebar holds, after the global part, the block of the space: its header
 // row, then headed groups for shortcuts, content, blogs and the space's own apps (spec 078,
 // SPC-097 to SPC-108, SPC-160).
+import { pagePath } from '../addresses';
 import { useEffect, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -353,7 +354,7 @@ function BlogsGroup({ space }: { space: Space }) {
       <ErrorNote error={q.error} />
       {q.data && posts.length === 0 && <p className="muted side-empty">{t('blog.none')}</p>}
       {posts.map((post) => (
-        <Link key={post.id} href={`/pages/${post.id}`} className="side-link">
+        <Link key={post.id} href={pagePath(post.id)} className="side-link">
           <IconBlog size={ROW_ICON_SIZE} /> <span className="side-link-text">{pageTitle(t, post.title)}</span>
         </Link>
       ))}
@@ -505,7 +506,7 @@ export function SpaceBlock({
       <div className="space-head">
         <Link
           id={HEAD_LINK_ID}
-          href={home ? `/pages/${home}` : `/spaces/${space.key}`}
+          href={home ? pagePath(home) : `/spaces/${space.key}`}
           className="side-link space-head-link"
           aria-current={home && current === home ? 'page' : undefined}
         >

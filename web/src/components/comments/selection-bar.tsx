@@ -116,7 +116,7 @@ export function SelectionBar({
   });
 
   const address = () =>
-    `${window.location.origin}/pages/${page.id}#:~:text=${encodeURIComponent(shown?.anchor.exact ?? '')}`;
+    `${window.location.origin}${page.address}#:~:text=${encodeURIComponent(shown?.anchor.exact ?? '')}`;
   return (
     <>
       {shown && !writing && (

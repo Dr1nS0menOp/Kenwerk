@@ -5,9 +5,9 @@ import { Extension } from '@tiptap/core';
 import type { Node as ProseNode } from '@tiptap/pm/model';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
+import { pageOfAddress as pageOfHref } from '../../addresses';
 import type { Json } from '../../api';
 
-const PAGE_ADDRESS = /^\/pages\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:[/?#]|$)/i;
 const MAX_LINKS_CHECKED = 500;
 
 export const refreshGoneLinks = new PluginKey<DecorationSet>('goneLinks');
@@ -18,7 +18,7 @@ interface JsonNode {
 }
 
 export const pageOfAddress = (href: unknown) =>
-  typeof href === 'string' ? PAGE_ADDRESS.exec(href)?.[1]?.toLowerCase() : undefined;
+  typeof href === 'string' ? (pageOfHref(href)?.toLowerCase() ?? undefined) : undefined;
 
 /** The pages this document links to, each once. */
 export function linkedPages(document: Json): string[] {

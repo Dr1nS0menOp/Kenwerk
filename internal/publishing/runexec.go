@@ -203,6 +203,8 @@ type batchState struct {
 	pair      pair
 	draft     spaces.Space
 	published spaces.Space
+	// draftOldKeys still lead to the draft space, so the run rewrites them too (spec 094).
+	draftOldKeys []string
 	// stopped is why the run cannot go on, or "" when it can.
 	stopped string
 }
@@ -238,6 +240,9 @@ func (s *Service) openBatch(ctx context.Context, tx pgx.Tx, r runRow) (batchStat
 			st.stopped = stopSpaces
 			return st, nil
 		}
+		return st, err
+	}
+	if st.draftOldKeys, err = spaces.OldKeysIn(ctx, tx, st.draft.ID); err != nil {
 		return st, err
 	}
 	return st, s.checkRunRights(ctx, tx, r, &st)
@@ -673,7 +678,7 @@ type runPageInput struct {
 func (s *Service) writeRunPage(ctx context.Context, tx pgx.Tx, c identity.Caller, in runPageInput) (*writtenPage, error) {
 	r, src := in.r, in.src
 	pl, err := s.planPageWith(ctx, tx, planInput{pair: in.st.pair, src: src, number: in.version, draft: in.st.draft,
-		published: in.st.published, runTwins: in.runTwins})
+		draftOldKeys: in.st.draftOldKeys, published: in.st.published, runTwins: in.runTwins})
 	if err != nil {
 		return nil, err
 	}

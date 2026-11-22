@@ -18,6 +18,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/kenwerk/kenwerk/internal/address"
 	"github.com/kenwerk/kenwerk/internal/apperr"
 	"github.com/kenwerk/kenwerk/internal/attachments"
 	"github.com/kenwerk/kenwerk/internal/audit"
@@ -120,6 +121,10 @@ type Detail struct {
 	Control *ControlInfo `json:"control"`
 
 	Features map[string]bool `json:"features"`
+	// SpaceKey is the current key of the page's space, and Address the page's canonical address
+	// in this installation, without the origin (spec 094).
+	SpaceKey string `json:"space_key"`
+	Address  string `json:"address"`
 }
 
 // Service manages pages.
@@ -687,15 +692,20 @@ func (s *Service) Get(ctx context.Context, c identity.Caller, id uuid.UUID) (Det
 		// Being asked to review opens this page, never the pages around it (DOC-203).
 		d.Breadcrumbs = []Crumb{}
 	}
+	// The key of the space rides along for the address (spec 094), as a display column.
+	var home bool
 	err = s.pool.QueryRow(ctx, `SELECT
 			EXISTS (SELECT 1 FROM drafts WHERE page_id = $1 AND user_id = $2),
 			EXISTS (SELECT 1 FROM favourites WHERE page_id = $1 AND user_id = $2),
 			EXISTS (SELECT 1 FROM page_tree t JOIN page_restrictions r ON r.page_id = t.ancestor_id
-			        WHERE t.descendant_id = $1 AND (r.kind = 'view' OR t.depth = 0))`, id, c.UserID).
-		Scan(&d.HasDraft, &d.Favourite, &d.Restricted)
+			        WHERE t.descendant_id = $1 AND (r.kind = 'view' OR t.depth = 0)),
+			sp.key, sp.home_page_id IS NOT DISTINCT FROM $1
+		FROM spaces sp WHERE sp.id = $3`, id, c.UserID, p.SpaceID).
+		Scan(&d.HasDraft, &d.Favourite, &d.Restricted, &d.SpaceKey, &home)
 	if err != nil {
 		return d, err
 	}
+	d.Address = address.Page(d.SpaceKey, id, home)
 	if d.CreatedByName, d.UpdatedByName, err = s.authorNames(ctx, p); err != nil {
 		return d, err
 	}

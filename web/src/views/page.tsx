@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { pagePath } from '../addresses';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -251,7 +252,7 @@ export function PageView({ pageId }: { pageId: string }) {
   useJumpToAddress(pageId, !!page);
   useScrollMemory(!!page);
   useShortcut('edit', () => {
-    if (page?.can['page.edit']) navigate(`/pages/${pageId}/edit`);
+    if (page?.can['page.edit']) navigate(pagePath(pageId, { screen: 'edit' }));
   });
   useShortcut('favourite', () => {
     if (page && !favourite.isPending) favourite.mutate(!page.favourite);
@@ -273,7 +274,7 @@ export function PageView({ pageId }: { pageId: string }) {
   if (page.review_only) return <ReviewOnlyPage page={page} />;
   const close = () => {
     setDialog(null);
-    if (wantsShare) navigate(`/pages/${pageId}`, true);
+    if (wantsShare) navigate(pagePath(pageId), true);
   };
   // A personal space's home page is its owner's own place: no byline (PAG-146).
   const personalHome = page.id === pageSpace.data?.home_page_id && pageSpace.data?.kind === 'personal';
@@ -335,7 +336,7 @@ export function PageView({ pageId }: { pageId: string }) {
         )}
         {page.has_draft && page.status !== 'draft' && (
           <p role="status" className="note">
-            <Link href={`/pages/${page.id}/edit`}>{t('page.draftExists')}</Link>
+            <Link href={pagePath(page.id, { screen: 'edit' })}>{t('page.draftExists')}</Link>
           </p>
         )}
         {page.kind === 'link' && (
@@ -371,7 +372,7 @@ export function PageView({ pageId }: { pageId: string }) {
         <LabelBar page={page} />
         {isPublished && page.features.reactions && (
           <Reactions
-            path={`/pages/${page.id}`}
+            path={pagePath(page.id)}
             queryKey={commentsKey(page.id)}
             readOnly={!page.can['reaction.set']}
           />
@@ -410,7 +411,7 @@ export function PageView({ pageId }: { pageId: string }) {
       {dialog === 'copy' && <CopyDialog page={page} onClose={close} />}
       {dialog === 'delete' && <DeleteDialog page={page} onClose={close} />}
       {moveTo && (
-        <MoveDialog page={page} toSpace={moveTo} onClose={() => navigate(`/pages/${page.id}`, true)} />
+        <MoveDialog page={page} toSpace={moveTo} onClose={() => navigate(pagePath(page.id), true)} />
       )}
       {dialog === 'approvals' && <ApprovalsDialog page={page} onClose={close} />}
       {dialog === 'verify' && <VerifyDialog page={page} onClose={close} />}

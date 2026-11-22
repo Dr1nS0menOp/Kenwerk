@@ -1,16 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { api, ApiError, type PageDetail, type Space } from '../api';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { canonicalPath, type PageScreen } from '../addresses';
+import { api, type PageDetail, type Space } from '../api';
 import { usePreferences } from '../preferences';
+import { replaceAddress } from '../router';
+import { spaceByKeyQuery } from './current-space';
 import { GlobalPart } from './global-sidebar';
+import { PageRefused } from './no-access';
 import { SidebarToggle, useSidebarVisible } from './sidebar-state';
 import { SpaceBlock } from './space-block';
-import { ErrorNote, Loading } from './ui';
+import { Loading } from './ui';
 
 // Every screen of a space finds its space by the key in its address.
-export { spaceByKeyQuery } from './current-space';
+export { spaceByKeyQuery };
 
 const MIN_SIDEBAR_REM = 14;
 const MAX_SIDEBAR_REM = 32;
@@ -131,38 +135,37 @@ export function Frame({
   );
 }
 
-/** "Not found", with a way to ask only when the space of the page chose that (COL-049). */
-function PageMissing({ pageId, error }: { pageId: string; error: unknown }) {
-  const { t } = useTranslation();
-  const ask = useMutation({
-    mutationFn: () => api.post(`/pages/${pageId}/access-requests`, { kind: 'view' }),
-  });
-  const mayAsk = error instanceof ApiError && error.code === 'not_found_ask';
-  return (
-    <main id="main" className="plain reading">
-      <ErrorNote error={error} />
-      <ErrorNote error={ask.error} />
-      {ask.isSuccess && (
-        <p role="status" className="note">
-          {t('share.asked')}
-        </p>
-      )}
-      {mayAsk && !ask.isSuccess && (
-        <button type="button" disabled={ask.isPending} onClick={() => ask.mutate()}>
-          {t('share.askForAccess')}
-        </button>
-      )}
-    </main>
-  );
+/**
+ * Puts the canonical address of what is shown in the bar, once the page may be shown (spec 094,
+ * rules 14, 19 and 20). It is built only from the page the server allowed, never from the key in
+ * the address, and replaces the entry, so Back does not return to the old form.
+ */
+function useCanonicalAddress(
+  page: PageDetail | undefined,
+  space: Space | undefined,
+  screen: PageScreen | null,
+) {
+  const client = useQueryClient();
+  useEffect(() => {
+    if (!page || !space) return;
+    const target = canonicalPath(page, screen);
+    if (window.location.pathname === target) return;
+    // The home page's address is the space's: the screen there finds the space it has already.
+    client.setQueryData(spaceByKeyQuery(page.space_key).queryKey, space);
+    replaceAddress(target + window.location.search + window.location.hash);
+  }, [client, page, space, screen]);
 }
 
 /** Frames a page with the sidebar of its space. */
 export function SpaceShell({
   pageId,
+  screen = null,
   focus,
   children,
 }: {
   pageId: string;
+  /** The screen of the page shown, for its canonical address. */
+  screen?: PageScreen | null;
   focus?: boolean;
   children: ReactNode;
 }) {
@@ -172,14 +175,17 @@ export function SpaceShell({
     // The frame stays while the next page loads, so the tree does not blink.
     placeholderData: (previous) => previous,
   });
+  // Another page's answer kept while this one loads never names the address.
+  const shown = page.data?.id === pageId && !page.isPlaceholderData ? page.data : undefined;
   const space = useQuery({
     queryKey: ['space-id', page.data?.space_id],
     queryFn: () => api.get<Space>(`/spaces/${page.data?.space_id}`),
     enabled: !!page.data,
   });
+  useCanonicalAddress(shown, space.data, screen);
   if (page.isPending || (page.data && space.isPending)) return <Loading />;
   if (page.error || space.error || !space.data) {
-    return <PageMissing pageId={pageId} error={page.error ?? space.error} />;
+    return <PageRefused pageId={pageId} error={page.error ?? space.error} />;
   }
   return (
     <Frame

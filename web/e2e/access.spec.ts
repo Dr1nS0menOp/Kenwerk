@@ -67,7 +67,8 @@ test('a guest cannot find a restricted page by any route', async ({ page, browse
 
   for (const id of [secret, below]) {
     await guest.goto(`/pages/${id}`);
-    await expect(guest.getByRole('alert')).toContainText('does not exist, or you cannot see it');
+    // A new space says there is no access, and nothing more of the page (spec 094).
+    await expect(guest.getByRole('heading', { name: "You don't have access to this page" })).toBeVisible();
     await expect(guest.getByText('Secret page')).toHaveCount(0);
   }
 

@@ -61,6 +61,7 @@ var tableOwners = map[string]string{
 	"space_favourites":     "internal/spaces",
 	"space_owners":         "internal/spaces",
 	"space_key_aliases":    "internal/spaces",
+	"space_key_claims":     "internal/spaces",
 	"space_categories":     "internal/spaces",
 	"space_category_links": "internal/spaces",
 	"space_features":       "internal/features",
@@ -399,8 +400,9 @@ var crossings = map[crossing]int{
 	{"internal/pages", "attachments"}:       4,
 	{"internal/pages", "comments"}:          2,
 	{"internal/pages", "page_restrictions"}: 8,
-	// The move from today's approvals reads the rule of the space (spec 064, DOC-1101).
-	{"internal/pages", "spaces"}:      30,
+	// The move from today's approvals reads the rule of the space (spec 064, DOC-1101). A page
+	// reads the key of its space for its address in the query it runs anyway (spec 094).
+	{"internal/pages", "spaces"}:      31,
 	{"internal/pages", "trash_items"}: 1,
 	// The control history and the auditor's export name the author of each version (DOC-1010).
 	// Delegation, absence, reminders, reports and the reading list name and check active

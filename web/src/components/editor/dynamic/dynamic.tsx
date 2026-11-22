@@ -7,7 +7,9 @@ import { useQuery } from '@tanstack/react-query';
 import { Node as DocumentNode } from '@tiptap/core';
 import { NodeViewWrapper, ReactNodeViewRenderer, type ReactNodeViewProps } from '@tiptap/react';
 import { api, type Json } from '../../../api';
-import { match, useLocation } from '../../../router';
+import { readPagePath } from '../../../addresses';
+import { useLocation } from '../../../router';
+import { useCurrentSpace } from '../../current-space';
 import { IconSliders } from '../../icons';
 import { Dialog, ErrorNote, Field, Loading } from '../../ui';
 import { Answer, type BlockAnswer } from './answers';
@@ -21,13 +23,15 @@ const LINES_ROWS = 6;
 
 type Settings = Record<string, unknown>;
 
+/** The page the block sits on: from either form of its address, or the home page at its space's address (spec 094). */
 function usePageId(): string | undefined {
   const { pathname } = useLocation();
-  return (
-    match('/pages/:id', pathname)?.id ??
-    match('/pages/:id/edit', pathname)?.id ??
-    match('/pages/:id/history', pathname)?.id
-  );
+  const home = useCurrentSpace().page?.id;
+  const shown = readPagePath(pathname);
+  if (!shown) return home;
+  return shown.screen === null || shown.screen === 'edit' || shown.screen === 'history'
+    ? shown.id
+    : undefined;
 }
 
 /** Asks only when the block comes near the screen, so text never waits for it. */

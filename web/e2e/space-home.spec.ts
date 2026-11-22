@@ -11,8 +11,10 @@ test('the home page is marked as home, and is not a row of the tree', async ({ p
   const name = unique('Hearth');
   const space = await newSpace(page, name);
   const child = await publishedPage(page, space.id, 'Below home', 'x', space.home_page_id);
+  // The home page stays at its space's address (spec 094).
   await page.goto(`/spaces/${space.key}`);
-  await expect(page).toHaveURL(new RegExp(`/pages/${space.home_page_id}$`));
+  await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/spaces/${space.key}$`));
 
   const home = page.locator('#space-head-link');
   await expect(home).toHaveText(name);
@@ -41,7 +43,7 @@ test('the home page is marked as home, and is not a row of the tree', async ({ p
   await expect(home).not.toHaveAttribute('aria-current', /./);
   await expect(page.locator('.crumbs [aria-current]')).toHaveCount(0);
   await home.click();
-  await expect(page).toHaveURL(new RegExp(`/pages/${space.home_page_id}$`));
+  await expect(page).toHaveURL(new RegExp(`/spaces/${space.key}$`));
 });
 
 test('a row can be dropped between top rows that have different parents', async ({ page }) => {

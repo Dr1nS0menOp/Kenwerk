@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // The small editor of a comment. It writes the same document format as a page, with a
 // shorter list, and the server checks it through the same gate (spec 010, D4).
+import { pagePath, readPagePath } from '../../addresses';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Extension } from '@tiptap/core';
@@ -156,11 +157,12 @@ export function CommentBox({
   const reopened = useOpenAfterReload(draftKey);
   // Sharing happens on the page itself, so from an editor the warning stands alone.
   const warnNoAccess = (name: string) => {
-    const onPage = match('/pages/:id', window.location.pathname);
+    const shown = readPagePath(window.location.pathname);
+    const onPage = shown ? shown.screen === null : match('/spaces/:key', window.location.pathname) !== null;
     toast({
       message: t('mentions.noAccess', { name }),
       action: onPage
-        ? { label: t('share.button'), run: () => navigate(`/pages/${pageId}?share=1`) }
+        ? { label: t('share.button'), run: () => navigate(pagePath(pageId, { query: '?share=1' })) }
         : undefined,
     });
   };
@@ -209,8 +211,10 @@ export function CommentBox({
   const addImage = async (file: File) => {
     setFailed(null);
     try {
-      const path = `/pages/${pageId}/attachments?filename=${encodeURIComponent(file.name)}`;
-      const attachment = await api.upload<Attachment>(path, file);
+      const attachment = await api.upload<Attachment>(
+        `/pages/${pageId}/attachments?filename=${encodeURIComponent(file.name)}`,
+        file,
+      );
       if (attachment.inline) editor.chain().focus().insertContent(attachmentNode(attachment)).run();
       else setFailed(new Error(t('comments.notAnImage')));
     } catch (error) {

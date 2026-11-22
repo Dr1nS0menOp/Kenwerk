@@ -12,6 +12,8 @@ import (
 	"unicode"
 
 	"github.com/google/uuid"
+
+	"github.com/kenwerk/kenwerk/internal/address"
 )
 
 // ExportStyle is the style sheet of exported HTML, a public site and PDF. A
@@ -412,16 +414,15 @@ func (w *htmlWriter) cell(name string, n Node) {
 
 func (w *htmlWriter) link(mark Mark) (open, closing string) {
 	href, _ := mark.Attrs["href"].(string)
-	if found := pageLink.FindStringSubmatch(href); found != nil {
-		id, err := uuid.Parse(found[1])
-		if err != nil || w.o.PageHref == nil {
+	if id, rest, found := address.PageOf(href); found {
+		if w.o.PageHref == nil {
 			return "", ""
 		}
 		target, ok := w.o.PageHref(id)
 		if !ok {
 			return "", ""
 		}
-		return `<a href="` + esc(target+strings.TrimPrefix(href, found[0][:len("/pages/")+len(found[1])])) + `">`, "</a>"
+		return `<a href="` + esc(target+rest) + `">`, "</a>"
 	}
 	safe, err := SafeHref(href)
 	// An address inside the instance means nothing in a file, and must not leak out.

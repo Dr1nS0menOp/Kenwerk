@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // What a page says about its own state: status, verified, approval, archive.
+import { pagePath } from '../addresses';
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -391,7 +392,12 @@ export function ApprovalBanner({ page, onOpen }: { page: PageDetail; onOpen: () 
   return (
     <p role="status" className="note">
       {t('organise.olderApproved', { number: a.approved_version })}{' '}
-      <Link href={`/pages/${page.id}/compare?from=${a.approved_version}&to=${page.current_version}`}>
+      <Link
+        href={pagePath(page.id, {
+          screen: 'compare',
+          query: `?from=${a.approved_version}&to=${page.current_version}`,
+        })}
+      >
         {t('organise.compareApproved')}
       </Link>
     </p>
@@ -439,7 +445,12 @@ export function PageNotes({ page }: { page: PageDetail }) {
       {pastReview && <p className="muted">{t('organise.pastReview', { date: page.review_on })}</p>}
       {whatChanged && (
         <p>
-          <Link href={`/pages/${page.id}/compare?from=${page.seen_version}&to=${page.current_version}`}>
+          <Link
+            href={pagePath(page.id, {
+              screen: 'compare',
+              query: `?from=${page.seen_version}&to=${page.current_version}`,
+            })}
+          >
             {t('organise.whatChanged')}
           </Link>
         </p>

@@ -3661,7 +3661,7 @@
     "archiveOrDelete": "Archive or delete the space",
     "back": "Back to the space",
     "key": "Space key",
-    "keyHelp": "The old key keeps working as a redirect, and stays taken until you free it.",
+    "keyHelp": "The key shows in the address of every page of this space, so everyone who sees a link sees it: choose one that keeps a confidential name to itself. The old key keeps working in every address, and stays taken until you free it. Once freed, another space can take it, and the old key then leads there.",
     "owners": "Space owners",
     "addOwner": "Add an owner",
     "home": "Home page",
@@ -3761,6 +3761,10 @@
     "permissions": {
       "name": "Permissions",
       "intro": "Everyone who can open this space, and how they got in. Who holds which role is changed in"
+    },
+    "no-access": {
+      "name": "When someone cannot see this",
+      "intro": "What a person sees who opens a link to this space or one of its pages without access to it."
     },
     "sites": {
       "name": "Public site",
@@ -5236,5 +5240,23 @@
   "saveReset": {
     "reset": "Reset changes",
     "unchanged": "Nothing has changed yet."
+  },
+  "noAccess": {
+    "pageTitle": "You don't have access to this page",
+    "spaceTitle": "You don't have access to this space",
+    "line": "If you need it, ask someone who works with it to share it with you.",
+    "askLine": "You can ask for access. The people who look after it decide.",
+    "toStart": "Go to the start screen"
+  },
+  "accessAnswer": {
+    "legend": "What they see",
+    "not_found": "Not found",
+    "not_foundHelp": "The space and its pages stay hidden: the same screen as for an address that does not exist.",
+    "no_access": "No access",
+    "no_accessHelp": "The screen says the person has no access, and nothing more.",
+    "no_access_ask": "No access, and ask for it",
+    "no_access_askHelp": "As No access, with a button to ask for access to the page. A request goes to the owners of this space first.",
+    "draftSpace": "This is the draft space of a pair. It always stays hidden from readers, so it answers Not found.",
+    "askOff": "An administrator turned requests for access off for every space, so No access, and ask for it answers as No access."
   }
 }

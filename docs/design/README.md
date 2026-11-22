@@ -222,6 +222,7 @@ Use these. Reuse beats a new variant.
 | A space | `SpaceBadge`, which shows its animal |
 | Choosing the icon of a space | `AnimalChoice` |
 | A person or group in a form | `SubjectPicker`, which shows people on focus |
+| A page or space someone may not see | `PageRefused` or `SpaceRefused` in `components/no-access.tsx`: not found, or the centred `.no-access` block the space chose (spec 094) |
 | A comparison of versions | `DiffDocument` |
 | A status | `.lozenge` |
 | A person | `PersonName` for a name on someone's work, `PersonPicture`, and `PersonMark` for the words Guest and No longer active |
@@ -338,7 +339,7 @@ Every screen handles all of these:
 | Loading | `Loading` |
 | Failed | `ErrorNote`, or `.note-error` with a clear sentence |
 | Empty | A muted sentence that says what will appear here, not a blank |
-| No permission | The control is absent, not disabled. Pages say "does not exist, or you cannot see it" |
+| No permission | The control is absent, not disabled. Pages say "does not exist, or you cannot see it", or "no access" where their space chose that (spec 094) |
 | Busy | The button is disabled while the action runs |
 
 ## Icons and logo

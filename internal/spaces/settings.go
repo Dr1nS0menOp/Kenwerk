@@ -15,6 +15,7 @@ import (
 
 	"github.com/kenwerk/kenwerk/internal/apperr"
 	"github.com/kenwerk/kenwerk/internal/db"
+	"github.com/kenwerk/kenwerk/internal/features"
 	"github.com/kenwerk/kenwerk/internal/identity"
 	"github.com/kenwerk/kenwerk/internal/ids"
 	"github.com/kenwerk/kenwerk/internal/permissions"
@@ -90,6 +91,9 @@ func (s *Service) ChangeKey(ctx context.Context, c identity.Caller, id uuid.UUID
 		if strings.EqualFold(sp.Key, key) {
 			out = sp
 		} else if _, err := tx.Exec(ctx, "INSERT INTO space_key_aliases (alias, space_id) VALUES (lower($1), $2) ON CONFLICT DO NOTHING", sp.Key, id); err != nil {
+			if db.IsUniqueViolation(err) {
+				return apperr.Conflict("key_taken", "This key is already in use.")
+			}
 			return err
 		}
 		if _, err := tx.Exec(ctx, "DELETE FROM space_key_aliases WHERE alias = lower($1) AND space_id = $2", key, id); err != nil {
@@ -149,6 +153,10 @@ type Person struct {
 
 // Owners lists who to ask about a space. Those need not hold any rights.
 func (s *Service) Owners(ctx context.Context, q db.Querier, id uuid.UUID) ([]Person, error) {
+	return ownersIn(ctx, q, id)
+}
+
+func ownersIn(ctx context.Context, q db.Querier, id uuid.UUID) ([]Person, error) {
 	rows, err := q.Query(ctx, `SELECT o.user_id, u.display_name FROM space_owners o JOIN users u ON u.id = o.user_id
 		WHERE o.space_id = $1 ORDER BY lower(u.display_name)`, id)
 	if err != nil {
@@ -240,6 +248,9 @@ func (s *Service) SetStorageLimit(ctx context.Context, c identity.Caller, id uui
 // SetFeatures turns features on and off. Nothing is deleted: turning one back on
 // brings everything back.
 func (s *Service) SetFeatures(ctx context.Context, c identity.Caller, id uuid.UUID, values map[string]bool) error {
+	if _, set := values[features.AccessRequests]; set {
+		return apperr.Invalid("Requests for access follow what someone without access sees: set that instead.")
+	}
 	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
 		sp, err := s.requireAdmin(ctx, tx, c, id)
 		if err != nil {

@@ -5,6 +5,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { pagePath } from '../addresses';
 import { api, type PageRef, type Space } from '../api';
 import { useCapabilities } from '../capabilities';
 import { Link, navigate, useLocation } from '../router';
@@ -21,6 +22,7 @@ import { FileList, SpaceUsage } from './files';
 import { ArchiveList } from './organise';
 import { DetailsSection } from './space-details';
 import {
+  AccessAnswerSection,
   DeleteSpaceDialog,
   FeaturesSection,
   LabelsSection,
@@ -126,6 +128,8 @@ function SectionContent({ id, space }: { id: string; space: Space }) {
       return <StatusesAndApprovals space={space} />;
     case 'workflows':
       return <WorkflowsSection space={space} />;
+    case 'no-access':
+      return <AccessAnswerSection space={space} />;
     case 'placeholders':
       return <PlaceholdersSection space={space} />;
     case 'files':
@@ -264,7 +268,7 @@ function PlaceholdersSection({ space }: { space: Space }) {
             <tr key={`${one.source.id}-${one.title}`}>
               <td>{one.title}</td>
               <td>
-                <Link href={`/pages/${one.source.id}`}>{pageTitle(t, one.source.title)}</Link>
+                <Link href={pagePath(one.source.id)}>{pageTitle(t, one.source.title)}</Link>
               </td>
               {mayCreate && (
                 <td>

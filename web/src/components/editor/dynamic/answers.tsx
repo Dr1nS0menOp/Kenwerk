@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // How the answer of a block looks. The server has already left out what this reader may
 // not see, so everything here only draws.
+import { pagePath } from '../../../addresses';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Json } from '../../../api';
@@ -53,7 +54,7 @@ export interface BlockAnswer {
 function RowLink({ row }: { row: BlockRow }) {
   const { t } = useTranslation();
   return (
-    <Link href={`/pages/${row.id}`}>
+    <Link href={pagePath(row.id)}>
       {row.emoji && <span aria-hidden="true">{row.emoji} </span>}
       {pageTitle(t, row.title)}
     </Link>
@@ -468,9 +469,9 @@ function PlainRows({ answer, kind }: { answer: BlockAnswer; kind: string }) {
           {kind === 'attachments_here' || kind === 'space_files' ? (
             <a href={`/api/v1/attachments/${row.id}/content?download=1`}>{row.title}</a>
           ) : kind === 'decision_report' || kind === 'popular_pages' ? (
-            <Link href={`/pages/${row.id}`}>{pageTitle(t, row.title)}</Link>
+            <Link href={pagePath(row.id)}>{pageTitle(t, row.title)}</Link>
           ) : kind === 'task_report' || kind === 'my_tasks' ? (
-            <Link href={`/pages/${row.parent_id}`}>{row.title}</Link>
+            <Link href={pagePath(row.parent_id ?? '')}>{row.title}</Link>
           ) : kind === 'spaces_list' ? (
             <Link href={`/spaces/${row.space_key}`}>{row.title}</Link>
           ) : (
@@ -512,11 +513,11 @@ function Include({ answer, frame, synced }: { answer: BlockAnswer; frame: boolea
       {answer.document !== undefined && <DocumentView document={answer.document} plain />}
       {source?.title && (
         <span className="row">
-          <Link className="block-source" href={`/pages/${source.id}`}>
+          <Link className="block-source" href={pagePath(source.id)}>
             {t(synced ? 'blocks.syncedFrom' : 'blocks.source', { title: source.title })}
           </Link>
           {synced && source.can_edit && (
-            <Link className="block-source" href={`/pages/${source.id}/edit`}>
+            <Link className="block-source" href={pagePath(source.id, { screen: 'edit' })}>
               {t('blocks.editSource')}
             </Link>
           )}

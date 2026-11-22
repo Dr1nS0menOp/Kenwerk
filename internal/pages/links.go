@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/kenwerk/kenwerk/internal/address"
 	"github.com/kenwerk/kenwerk/internal/apperr"
 	"github.com/kenwerk/kenwerk/internal/document"
 	"github.com/kenwerk/kenwerk/internal/identity"
@@ -31,6 +32,8 @@ type LinkFact struct {
 	SpaceName string    `json:"space_name"`
 	Excerpt   string    `json:"excerpt"`
 	UpdatedAt time.Time `json:"updated_at"`
+	// Address is the canonical address of the page (spec 094, rule 36).
+	Address string `json:"address"`
 }
 
 // LinkFacts answers for the pages the caller can open. A page that is hidden and a page
@@ -39,7 +42,7 @@ func (s *Service) LinkFacts(ctx context.Context, c identity.Caller, ids []uuid.U
 	if len(ids) > maxReachableIDs {
 		return nil, apperr.Invalid("That is too many pages to ask about at once.")
 	}
-	rows, err := s.pool.Query(ctx, `SELECT p.id, p.title, p.emoji, sp.key, sp.name, p.updated_at
+	rows, err := s.pool.Query(ctx, `SELECT p.id, p.title, p.emoji, sp.key, sp.name, p.updated_at, sp.home_page_id IS NOT DISTINCT FROM p.id
 		FROM pages p
 		JOIN perm_visible_pages($1) v ON v.page_id = p.id
 		JOIN spaces sp ON sp.id = p.space_id
@@ -49,7 +52,9 @@ func (s *Service) LinkFacts(ctx context.Context, c identity.Caller, ids []uuid.U
 	}
 	out, err := pgx.CollectRows(rows, func(r pgx.CollectableRow) (LinkFact, error) {
 		var f LinkFact
-		err := r.Scan(&f.ID, &f.Title, &f.Emoji, &f.SpaceKey, &f.SpaceName, &f.UpdatedAt)
+		var home bool
+		err := r.Scan(&f.ID, &f.Title, &f.Emoji, &f.SpaceKey, &f.SpaceName, &f.UpdatedAt, &home)
+		f.Address = address.Page(f.SpaceKey, f.ID, home)
 		return f, err
 	})
 	if err != nil {

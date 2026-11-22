@@ -283,7 +283,14 @@ export interface Space {
   features?: Features;
   /** The side of a pair of spaces, draft or published, or empty (spec 073). */
   pair_role?: '' | 'draft' | 'published';
+  /** What a person without access sees, for those who may administer the space (spec 094). */
+  access_answer?: AccessAnswer;
+  /** An administrator turned requests for access off for every space, so asking is not offered (D12). */
+  access_ask_off?: boolean;
 }
+
+/** What a person without access to a space or its pages is told (spec 094). */
+export type AccessAnswer = 'not_found' | 'no_access' | 'no_access_ask';
 
 /** A space as the other side of a pair names it, for those who may see it (spec 073). */
 export interface PairSpaceRef {
@@ -951,7 +958,6 @@ export interface PageSummary extends Page {
 export interface Features {
   comments: boolean;
   reactions: boolean;
-  access_requests: boolean;
   [name: string]: boolean;
 }
 
@@ -973,6 +979,9 @@ export interface PageDetail extends PageSummary {
   control: ControlInfo | null;
   /** The person reads this page only because they are asked to review it (DOC-203). */
   review_only: boolean;
+  /** The current key of the page's space, and the page's canonical address (spec 094). */
+  space_key: string;
+  address: string;
 }
 
 /** What a state means to Kenwerk, whatever a space calls it (spec 064). */
@@ -1499,6 +1508,8 @@ export interface Notification {
   page_kind: string;
   space_id: string;
   space_name: string;
+  /** The canonical address of the page, read with the row (spec 094). */
+  address: string;
   comment_id: string | null;
   read: boolean;
   at: string;

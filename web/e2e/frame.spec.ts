@@ -153,7 +153,7 @@ test('the Spaces panel lists the current space and favourites, stars them and go
   await expect(current).toHaveCount(0);
   await favourites.getByRole('link', { name: likedName }).click();
   await expect(panel).toHaveCount(0);
-  await expect(page).toHaveURL(new RegExp(`/pages/${liked.home_page_id}$`));
+  await expect(page).toHaveURL(new RegExp(`/spaces/${liked.key}$`));
 });
 
 test('an archived space still shows as the current space in the Spaces panel', async ({ page }) => {
@@ -314,7 +314,7 @@ test('the block of a space: its header row leads home, its menu holds the tools,
   await page.getByRole('link', { name: 'Row 00' }).click();
   await expect(head).not.toHaveAttribute('aria-current', /./);
   await head.click();
-  await expect(page).toHaveURL(new RegExp(`/pages/${space.home_page_id}$`));
+  await expect(page).toHaveURL(new RegExp(`/spaces/${space.key}$`));
 });
 
 test('the add button of Content and the order and view menu replace the row of tree tools', async ({

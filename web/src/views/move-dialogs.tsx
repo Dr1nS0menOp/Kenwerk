@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Moving and copying a page: within a space, or to another one (spec 011, D8).
+import { pagePath } from '../addresses';
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -368,7 +369,7 @@ export function CopyDialog({ page, onClose }: { page: PageSummary; onClose: () =
         onClose();
         return;
       }
-      navigate(`/pages/${p.id}`);
+      navigate(pagePath(p.id));
     },
   });
   return (

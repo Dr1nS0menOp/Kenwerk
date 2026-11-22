@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Screens that list things by what they are: labels, blog posts, the archive.
+import { pagePath } from '../addresses';
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -110,7 +111,7 @@ export function LabelView({ label }: { label: string }) {
         {q.data?.pages.map((p) => (
           <li key={p.id}>
             <PageMark page={p} />
-            <Link href={`/pages/${p.id}`}>{pageTitle(t, p.title)}</Link>
+            <Link href={pagePath(p.id)}>{pageTitle(t, p.title)}</Link>
             <span className="muted">{p.space_name}</span>
           </li>
         ))}
@@ -157,7 +158,7 @@ function PostList({ path }: { path: string }) {
               .filter((p) => monthOf(p.published_at) === month)
               .map((p) => (
                 <li key={p.id}>
-                  <Link href={`/pages/${p.id}`}>{pageTitle(t, p.title)}</Link>
+                  <Link href={pagePath(p.id)}>{pageTitle(t, p.title)}</Link>
                   <span className="muted">
                     {t('page.byline', { name: p.author_name })} · {dates.day(p.published_at)} · {p.space_name}
                   </span>
@@ -216,7 +217,7 @@ export function ArchiveList({ space }: { space: Space }) {
       <ul className="page-list">
         {pages.map((p) => (
           <li key={p.id}>
-            <Link href={`/pages/${p.id}`}>{pageTitle(t, p.title)}</Link>
+            <Link href={pagePath(p.id)}>{pageTitle(t, p.title)}</Link>
             <span className="muted">
               {p.archived_by_name} · <RelativeTime value={p.archived_at} />
             </span>
@@ -240,7 +241,7 @@ export function MissingPage({ spaceKey }: { spaceKey: string }) {
   const spaceId = space.data?.id;
   const create = useMutation({
     mutationFn: () => api.post<Page>('/pages', { space_id: spaceId, title }),
-    onSuccess: (p) => navigate(`/pages/${p.id}/edit`, true),
+    onSuccess: (p) => navigate(pagePath(p.id, { screen: 'edit' }), true),
   });
   const { mutate, isIdle } = create;
   useEffect(() => {

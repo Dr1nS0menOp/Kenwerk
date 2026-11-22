@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Every file of a space in one list (FIL-010). The server leaves out what the reader
 // may not see, so nothing here decides about access.
+import { pagePath } from '../addresses';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -85,7 +86,7 @@ function FileTable({
                 <a href={`/api/v1/attachments/${file.id}/content?download=1`}>{file.filename}</a>
               </td>
               <td>
-                <Link href={`/pages/${file.page_id}`}>{pageTitle(t, file.page_title)}</Link>
+                <Link href={pagePath(file.page_id)}>{pageTitle(t, file.page_title)}</Link>
               </td>
               <td>{formatSize(file.size)}</td>
               <td>{file.uploader}</td>

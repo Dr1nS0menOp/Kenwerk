@@ -24,13 +24,13 @@ A line describes the end result, not the code. A requirement becomes a spec in `
 
 | Chapter | Covers | Requirements |
 |---|---|---|
-| [1. The frame and getting around](03-functional/01-frame-and-navigation.md) | Top bar, the sidebar outside a space, start screen, personal lists, directories, shortcuts, help, shared conventions of every screen, accessibility | 178 |
-| [2. Spaces](03-functional/02-spaces.md) | Creating, overview, sidebar, tree, features, permissions, clearing up, archive, personal spaces, the settings and the look of a space | 160 |
+| [1. The frame and getting around](03-functional/01-frame-and-navigation.md) | Top bar, the sidebar outside a space, start screen, personal lists, directories, shortcuts, help, shared conventions of every screen, accessibility | 180 |
+| [2. Spaces](03-functional/02-spaces.md) | Creating, overview, sidebar, tree, features, permissions, clearing up, archive, personal spaces, the settings and the look of a space | 161 |
 | [3. Pages: life cycle and reading](03-functional/03-pages.md) | Drafts, publishing, moving, status, owner, approvals, archive, trash, versions, reading, the page header, classification | 164 |
 | [4. The editor](03-functional/04-editor.md) | Slash menu, the insert dialog, blocks, text, links, images, tables, code, columns, charts, paste, find | 223 |
 | [5. Dynamic blocks](03-functional/05-dynamic-blocks.md) | Blocks that show something by themselves, with every setting, and blocks of document control | 90 |
 | [6. Files](03-functional/06-files.md) | Dropping files in, tiles, previews, the list, versions, watermarks | 69 |
-| [7. Working together](03-functional/07-collaboration.md) | Comments, reactions, mentions, tasks, sharing, watching, notifications, e-mail, editing together, chat messages, reporting content | 133 |
+| [7. Working together](03-functional/07-collaboration.md) | Comments, reactions, mentions, tasks, sharing, watching, notifications, e-mail, editing together, chat messages, reporting content | 134 |
 | [8. Finding and organising](03-functional/08-finding-and-organising.md) | Search, labels, templates, blog posts, folders | 86 |
 | [9. People and access](03-functional/09-people-and-access.md) | Login, your account, profile, groups, guests, service accounts, permissions, restrictions, where people may connect from | 171 |
 | [10. Administration](03-functional/10-administration.md) | The arrangement of the administration, users, look, rules, e-mail, spaces, audit, health, data care, security and data protection | 206 |
@@ -38,7 +38,7 @@ A line describes the end result, not the code. A requirement becomes a spec in `
 | [12. Analytics, automation and the platform](03-functional/12-analytics-automation-platform.md) | Insights, rules and their screens, the rule builder, API, apps, connections to other tools, AI, linked instances | 160 |
 | [13. Other kinds of content](03-functional/13-other-content-types.md) | Live documents, whiteboards, databases, calendars, the work module, mobile, asset registers, questions and answers | 43 |
 
-In total 1772 requirements: 961 built, 61 partly, 27 on the roadmap, 522 new and 201 for later. Of these, 762 came from the study of 2026-11-14.
+In total 1776 requirements: 965 built, 61 partly, 27 on the roadmap, 522 new and 201 for later. Of these, 762 came from the study of 2026-11-14.
 
 ## Words we use
 
@@ -74,7 +74,7 @@ Behaviour can be familiar, but these points were decided differently, for good r
 6. **Files are never trusted.** Only safe images show in the browser. Everything else is a download (chapter 6).
 7. **Analytics start without names.** Reading is personal. Page views are not in the audit log, and name reports are an explicit choice (chapter 12).
 8. **Mentions and notifications never leak.** Nobody learns a title or a sentence from a page they may not see (chapter 7).
-9. **"Not found" comes first.** Someone without access cannot tell that a page exists, unless a space chooses to allow access requests (chapter 7).
+9. **Each space chooses what someone without access sees.** "Not found", "no access", or "no access" with a way to ask (SPC-161). A new space says "no access" and offers to ask, as the product owner decided on 2026-11-16; a space that existed before keeps its answer, and whatever a space chose, nothing more than that the page or space exists is revealed (chapter 7, spec 094).
 10. **Colours in documents are names, not values,** so every page works in dark mode and passes contrast (chapter 4).
 11. **Everything can leave.** Every format that goes in can come out, and a bundle moves a space to another instance with its history (chapter 11).
 

@@ -1304,7 +1304,7 @@ mutate "a saved block skips the document gate" internal/savedblocks/savedblocks.
 mutate "a spotlight button takes any address" internal/document/attrs.go \
   's.replace("safe, err := SafeHref(href)\n\tif err != nil {\n\t\treturn err\n\t}\n\tkeepText(in, out, \"button_text\", maxButtonBytes)", "safe := href\n\tkeepText(in, out, \"button_text\", maxButtonBytes)")' ./internal/document/
 mutate "an image link takes any address" internal/document/attrs.go \
-  's.replace("safe, err := SafeHref(href)\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\tout[\"href\"] = safe", "out[\"href\"] = href")' ./internal/document/
+  's.replace("safe, err := SafeHref(href)\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\tout[\"href\"] = address.KeyFree(safe)", "out[\"href\"] = href")' ./internal/document/
 mutate "an inline image points anywhere" internal/document/attrs.go \
   's.replace("func cleanInlineImage(in, out map[string]any) error {\n\tid, ok := attachmentID(in)\n\tif !ok {\n\t\treturn errors.New(\"images must point to an attachment; external images are not allowed\")\n\t}", "func cleanInlineImage(in, out map[string]any) error {\n\tid, _ := attachmentID(in)")' ./internal/document/
 mutate "a panel emoji takes markup" internal/document/attrs.go \
@@ -1819,7 +1819,7 @@ mutate_web "taking one role away takes them all" src/views/access-roles.tsx \
 # request for a connection has a limit, and the feed, the bell and file search ask the
 # permission rule about few pages.
 mutate "a new space reads the instance through a second connection" internal/features/features.go \
-  's.replace("v, err := s.instanceIn(ctx, tx)", "v, err := s.Instance(ctx)")' ./internal/features/ -run TestStartingASpaceReadsTheDefaultsThroughItsOwnTransaction
+  's.replace("v, err := s.InstanceIn(ctx, tx)", "v, err := s.Instance(ctx)")' ./internal/features/ -run TestStartingASpaceReadsTheDefaultsThroughItsOwnTransaction
 mutate "a wait for a connection has no limit" internal/db/db.go \
   's.replace("bounded, cancel := context.WithTimeoutCause(ctx, watch.limit, errAcquireLimit)", "bounded, cancel := context.WithTimeoutCause(ctx, watch.limit*100000, errAcquireLimit)")' ./internal/db/ -run TestAWaitForAConnectionGivesUpAtTheLimitOfItsRequest
 mutate "a wait that ran out is not noted" internal/db/db.go \
@@ -3176,7 +3176,7 @@ mutate "a reset of the look leaves the old appearance" internal/settings/section
 mutate "the appearance answer has no limit per address" internal/httpapi/handlers_appearance.go \
   's.replace("if PrincipalFrom(r.Context()) == nil \x26\x26 !s.appearanceCalls.allow(", "if false \x26\x26 !s.appearanceCalls.allow(")' $app -run '^TestTheAppearanceAnswerIsLimitedPerAddressWithoutALogin$'
 mutate "a saved link keeps its title" internal/document/attrs.go \
-  's.replace("\treturn Mark{Type: MarkLink, Attrs: map[string]any{\"href\": safe}}, nil", "\tattrs := map[string]any{\"href\": safe}\n\tkeepText(m.Attrs, attrs, \"title\", 1000)\n\treturn Mark{Type: MarkLink, Attrs: attrs}, nil")' ./internal/document/
+  's.replace("\treturn Mark{Type: MarkLink, Attrs: map[string]any{\"href\": address.KeyFree(safe)}}, nil", "\tattrs := map[string]any{\"href\": address.KeyFree(safe)}\n\tkeepText(m.Attrs, attrs, \"title\", 1000)\n\treturn Mark{Type: MarkLink, Attrs: attrs}, nil")' ./internal/document/
 # Spec 081, wave SC4: the administration answers only the sections of its registry, hides a
 # section whose experimental part is off, and its jump field finds nothing of a hidden section.
 mutate_web "an unknown address opens a section of the administration" src/views/admin-sections.ts \
@@ -3187,6 +3187,31 @@ mutate_web "the jump field finds settings of a section that is not shown" src/vi
   's.replace("...SETTINGS_INDEX.filter((entry) => ids.has(entry.tab)),", "...SETTINGS_INDEX,")' src/views/admin-search.test.ts
 mutate_web "a section sits in two groups" src/views/admin-sections.ts \
   's.replace("{ id: \x27webhooks\x27, group: \x27admin-data\x27, width: \x27column\x27 },", "{ id: \x27webhooks\x27, group: \x27admin-data\x27, width: \x27column\x27 },\n  { id: \x27webhooks\x27, group: \x27tools\x27, width: \x27column\x27, icon: IconList },")' src/views/admin-sections.test.ts
+# Spec 094: the key of a space in addresses, and what a person without access sees.
+mutate "a space set to stay hidden answers no access" internal/spaces/access.go \
+  's.replace("\tswitch answer {\n\tcase AnswerNoAccess:", "\tswitch AnswerNoAccess {\n\tcase AnswerNoAccess:")' $app -run '^(TestASpaceThatStaysHiddenAnswersEveryRefusalAlike|TestASpaceSetToStayHiddenStillAnswersNotFound)$'
+mutate "the no-access answer names the page" internal/httpapi/handlers_content.go \
+  's.replace("\ts.fail(w, r, s.deps.Sharing.Refusal(r.Context(), id, err))", "\tif refusal, ok := apperr.As(s.deps.Sharing.Refusal(r.Context(), id, err)); ok \x26\x26 refusal.Kind == apperr.KindForbidden {\n\t\twriteError(w, http.StatusForbidden, refusal.Code, id.String())\n\t\treturn\n\t}\n\ts.fail(w, r, err)")' $app -run '^TestNoAccessSaysSoAndNothingMore$'
+mutate "the draft space of a pair takes the setting" internal/spaces/access.go \
+  's.replace("\t\tif sp.PairRole == permissions.PairDraft {\n\t\t\treturn apperr.Conflict(", "\t\tif false {\n\t\t\treturn apperr.Conflict(")' $app -run '^TestTheDraftSpaceOfAPairStaysHidden$'
+mutate "the draft space of a pair answers what it holds" internal/spaces/access.go \
+  's.replace("status == StatusTrashed || system || pairRole == permissions.PairDraft", "status == StatusTrashed || system")' $app -run '^TestTheDraftSpaceOfAPairStaysHidden$'
+mutate "anyone who sees a space sets its access answer" internal/spaces/access.go \
+  's.replace("\t\tsp, err := s.requireAdmin(ctx, tx, c, id)\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\tif !slices.Contains(answers", "\t\tsp, err := load(ctx, tx, id)\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\tif !slices.Contains(answers")' $app -run '^TestTheAccessAnswerIsASettingOfItsAdministrators$'
+mutate "every reader of a space reads its access answer" internal/spaces/spaces.go \
+  's.replace("\tif sp.Can[permissions.SpaceAdminister] {\n\t\tif err := s.fillAccessAnswer", "\tif sp.Can != nil {\n\t\tif err := s.fillAccessAnswer")' $app -run '^TestTheAccessAnswerIsASettingOfItsAdministrators$'
+mutate "a saved link keeps the key of its space" internal/document/attrs.go \
+  's.replace("Attrs: map[string]any{\"href\": address.KeyFree(safe)}}, nil", "Attrs: map[string]any{\"href\": safe}}, nil")' ./internal/document/ -run '^TestASavedLinkToAPageHoldsNoKey$'
+mutate "a request from the no-access screen skips the space owners" internal/sharing/sharing.go \
+  's.replace("\tif kind == kindView {\n\t\tif people, err = spaces.OwnerIDsIn(", "\tif len(kind) < 0 {\n\t\tif people, err = spaces.OwnerIDsIn(")' $app -run '^TestARequestFromTheNoAccessScreenAsksTheSpaceOwnersFirst$'
+mutate "one person opens any number of view requests" internal/sharing/sharing.go \
+  's.replace("\tif open >= maxOpenViewRequests {", "\tif open < 0 {")' $app -run '^TestOnePersonHasAtMostTwentyOpenViewRequests$'
+mutate "an old key of the draft space reaches readers" internal/publishing/rewrite.go \
+  's.replace("\treturn slices.ContainsFunc(s.OldKeys,", "\treturn false \x26\x26 slices.ContainsFunc(s.OldKeys,")' ./internal/publishing/ -run '^TestCanonicalAddressesAndOldKeysOfTheDraftSpaceAreRewritten$'
+mutate "a release keeps a draft id in a canonical address" internal/publishing/rewrite.go \
+  's.replace("var pageHref = regexp.MustCompile(`^(?:/spaces/[^/?#]+)?/pages/", "var pageHref = regexp.MustCompile(`^/pages/")' ./internal/publishing/ -run '^TestCanonicalAddressesAndOldKeysOfTheDraftSpaceAreRewritten$'
+mutate "one key is one space's old key and another's current key" internal/db/migrations/0076_space_access_answer.sql \
+  's.replace("RAISE EXCEPTION \x27this key is held by another space\x27 USING ERRCODE = \x27unique_violation\x27;", "NULL;")' $app -run '^TestOneKeyBelongsToOneSpaceInEitherTable$'
 finish_mutations
 if [ "$survived" -gt 0 ]; then
   echo "$survived mutation(s) were not caught"

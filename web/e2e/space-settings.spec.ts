@@ -66,7 +66,8 @@ test('the head leads back, then four entries, a divider and five groups in order
   await expect(nav(page).getByRole('link', { name: /Automation/ })).toContainText('Experimental');
   await checkAccessibility(page);
   await page.getByRole('link', { name: 'Back to the space' }).click();
-  await expect(page).toHaveURL(new RegExp(`/pages/${space.home_page_id}$`));
+  // The home page shows at the space's own address (spec 094, rule 1).
+  await expect(page).toHaveURL(new RegExp(`/spaces/${space.key}$`));
 });
 
 test('a folded group stays shut across a reload and another entry, and never folds the administration', async ({

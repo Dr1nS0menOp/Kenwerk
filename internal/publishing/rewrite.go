@@ -5,6 +5,7 @@ package publishing
 import (
 	"maps"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
@@ -25,6 +26,16 @@ const kindCreateFromTemplate = "create_from_template"
 type spaceRef struct {
 	ID  uuid.UUID
 	Key string
+	// OldKeys are the keys the space had before, which still lead to it (spec 094, rule 35).
+	OldKeys []string
+}
+
+// named says whether a key or an id in an address or a block names this space.
+func (s spaceRef) named(name string) bool {
+	if strings.EqualFold(name, s.Key) || strings.EqualFold(name, s.ID.String()) {
+		return true
+	}
+	return slices.ContainsFunc(s.OldKeys, func(old string) bool { return strings.EqualFold(name, old) })
 }
 
 // rewriteInput is what rewriting a released document needs to know (chapter 06).
@@ -54,8 +65,11 @@ type rewritten struct {
 // The keys of the link map besides plain draft page ids (PUB-732). A map without mapDraftID
 // was written before verification existed.
 const (
-	mapDraftID      = "space:draft_id"
-	mapDraftKey     = "space:draft_key"
+	mapDraftID  = "space:draft_id"
+	mapDraftKey = "space:draft_key"
+	// mapDraftOldKeys holds the old keys of the draft space, separated by commas, which a key
+	// never holds (spec 094).
+	mapDraftOldKeys = "space:draft_old_keys"
 	mapPublishedKey = "space:published_key"
 	// mapText names a draft page whose references became words, with its kind and title then.
 	mapText = "text:"
@@ -92,6 +106,9 @@ type rewriter struct {
 func rewrite(doc document.Node, in rewriteInput) rewritten {
 	r := &rewriter{in: in, textLinks: map[uuid.UUID]bool{}, linkMap: map[string]string{
 		mapDraftID: in.draft.ID.String(), mapDraftKey: in.draft.Key, mapPublishedKey: in.published.Key}}
+	if len(in.draft.OldKeys) > 0 {
+		r.linkMap[mapDraftOldKeys] = strings.Join(in.draft.OldKeys, ",")
+	}
 	out := doc
 	out.Content = r.nodes(doc.Content)
 	if len(out.Content) == 0 {
@@ -201,8 +218,10 @@ func (r *rewriter) pageReference(n document.Node) []document.Node {
 	return textNode(words)
 }
 
-// pageHref finds the page of an address inside this instance, as document.LinkedPages does.
-var pageHref = regexp.MustCompile(`^/pages/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})`)
+// pageHref finds the page of an address inside this instance, in either form of spec 094. It
+// asks for nothing after the id, unlike document.LinkedPages: an address that holds a draft id in
+// any shape must not reach readers.
+var pageHref = regexp.MustCompile(`^(?:/spaces/[^/?#]+)?/pages/([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})`)
 
 // marks rewrites the address of a link mark: to a twin, to the published space, or away.
 func (r *rewriter) marks(list []document.Mark) []document.Mark {
@@ -223,9 +242,9 @@ func (r *rewriter) marks(list []document.Mark) []document.Mark {
 			}
 			to, how := r.resolve(id)
 			switch how {
-			case keepPage:
-				out = append(out, m)
-			case toTwin:
+			case keepPage, toTwin:
+				// Either way the address loses its key: the key of the draft space must not
+				// stay, and the gate stores the id form anyway.
 				m.Attrs = maps.Clone(m.Attrs)
 				m.Attrs["href"] = "/pages/" + to.String() + href[len(found[0]):]
 				out = append(out, m)
@@ -252,8 +271,7 @@ func (r *rewriter) draftSpaceHref(href string) (string, bool) {
 	if end < 0 {
 		end = len(rest)
 	}
-	name := rest[:end]
-	if strings.EqualFold(name, r.in.draft.Key) || strings.EqualFold(name, r.in.draft.ID.String()) {
+	if r.in.draft.named(rest[:end]) {
 		return rest[end:], true
 	}
 	return "", false
@@ -340,7 +358,7 @@ func (r *rewriter) dynamic(n document.Node) []document.Node {
 		named := make([]any, 0, len(items))
 		for _, item := range items {
 			s, _ := item.(string)
-			if strings.EqualFold(s, r.in.draft.Key) || strings.EqualFold(s, r.in.draft.ID.String()) {
+			if r.in.draft.named(s) {
 				s = r.in.published.Key
 			}
 			named = append(named, s)

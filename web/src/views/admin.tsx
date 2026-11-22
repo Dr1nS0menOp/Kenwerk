@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { pagePath } from '../addresses';
 import { useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -822,7 +823,7 @@ function PageNoteFacts({ id }: { id: string }) {
       <dt>{t('page.title')}</dt>
       <dd>
         {note.readable ? (
-          <Link href={`/pages/${id}`}>{pageTitle(t, note.title)}</Link>
+          <Link href={pagePath(id)}>{pageTitle(t, note.title)}</Link>
         ) : (
           pageTitle(t, note.title)
         )}

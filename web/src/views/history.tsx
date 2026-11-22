@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { pagePath } from '../addresses';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -97,7 +98,7 @@ function VersionDialog({ pageId, number, onClose }: { pageId: string; number: nu
               name: shown.author_name || t('history.bySystem'),
               date: dates.moment(shown.created_at),
             })}{' '}
-            <Link href={`/pages/${pageId}`}>{t('history.toCurrent')}</Link>
+            <Link href={pagePath(pageId)}>{t('history.toCurrent')}</Link>
           </p>
           {hasPrevious && (
             <p>
@@ -252,7 +253,7 @@ export function HistoryView({ pageId }: { pageId: string }) {
     onSuccess: async () => {
       await client.invalidateQueries({ queryKey: ['page', pageId] });
       await client.invalidateQueries({ queryKey: ['versions', pageId] });
-      navigate(`/pages/${pageId}`);
+      navigate(pagePath(pageId));
     },
   });
   const me = useQuery({ queryKey: ['me'], queryFn: () => api.get<Me>('/me') });
@@ -271,7 +272,7 @@ export function HistoryView({ pageId }: { pageId: string }) {
     <>
       <h1>{t('history.title')}</h1>
       <p>
-        <Link href={`/pages/${pageId}`}>{page.data ? pageTitle(t, page.data.title) : null}</Link>
+        <Link href={pagePath(pageId)}>{page.data ? pageTitle(t, page.data.title) : null}</Link>
       </p>
       <ErrorNote error={q.error ?? restore.error} />
       <TableBox>
@@ -352,7 +353,10 @@ export function HistoryView({ pageId }: { pageId: string }) {
       </TableBox>
       {pair.length === 2 && (
         <div>
-          <Link className="button primary" href={`/pages/${pageId}/compare?from=${pair[0]}&to=${pair[1]}`}>
+          <Link
+            className="button primary"
+            href={pagePath(pageId, { screen: 'compare', query: `?from=${pair[0]}&to=${pair[1]}` })}
+          >
             {t('history.compareSelected')}
           </Link>
         </div>
@@ -442,7 +446,7 @@ export function CompareView({ pageId }: { pageId: string }) {
     <>
       <h1>{t('editor.compare')}</h1>
       <p>
-        <Link href={`/pages/${pageId}/history`}>{t('history.title')}</Link>
+        <Link href={pagePath(pageId, { screen: 'history' })}>{t('history.title')}</Link>
       </p>
       <p>{t('history.comparing', { from: q.data.from.number, to: q.data.to.number })}</p>
       <Changes comparison={q.data} />

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Everything can leave and come in (spec 014): the export dialog, the steps of an
 // import, and the rules for administrators.
+import { pagePath } from '../addresses';
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -785,7 +786,7 @@ export function ExportTab() {
         <ul>
           {links.data?.links.map((l) => (
             <li key={l.id}>
-              <Link href={`/pages/${l.page_id}`}>{pageTitle(t, l.page_title)}</Link>{' '}
+              <Link href={pagePath(l.page_id)}>{pageTitle(t, l.page_title)}</Link>{' '}
               <span className="muted">{t('exchange.madeBy', { name: l.created_by })}</span>
             </li>
           ))}

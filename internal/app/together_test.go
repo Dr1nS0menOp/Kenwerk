@@ -421,7 +421,7 @@ func TestAllowingAccessNamesEveryLevelAndNeedsThemAll(t *testing.T) {
 		"subject":     map[string]any{"type": "user", "id": manager.id},
 		"permissions": []string{permissions.SpaceView, permissions.RestrictionManage},
 	})
-	owner.ok("PUT", "/api/v1/spaces/"+space+"/features", map[string]any{"comments": true, "reactions": true, "access_requests": true})
+	owner.answerOf(space, "no_access_ask")
 	top := owner.page(space, nil, "Branch", "x")
 	middle := owner.page(space, top, "Middle", "x")
 	leaf := owner.page(space, middle, "Leaf", "x")
@@ -450,7 +450,7 @@ func TestAllowingAccessNamesEveryLevelAndNeedsThemAll(t *testing.T) {
 		t.Fatalf("a level out of reach: %v", seen)
 	}
 	manager.want(409, "POST", "/api/v1/access-requests/"+id+"/allow", map[string]any{})
-	reader.want(404, "GET", "/api/v1/pages/"+leaf, nil)
+	reader.want(403, "GET", "/api/v1/pages/"+leaf, nil)
 
 	setStatus("published")
 	manager.ok("POST", "/api/v1/access-requests/"+id+"/allow", map[string]any{})
@@ -463,7 +463,7 @@ func TestAllowingOpensTheSpaceAndEveryRestriction(t *testing.T) {
 	owner := e.user("owner@example.com", identity.PermUseProduct, identity.PermCreateSpace)
 	outsider := e.user("outsider@example.com", identity.PermUseProduct)
 	space, _ := owner.space("ENG")
-	owner.ok("PUT", "/api/v1/spaces/"+space+"/features", map[string]any{"comments": true, "reactions": true, "access_requests": true})
+	owner.answerOf(space, "no_access_ask")
 	page := owner.page(space, nil, "Page", "x")
 	owner.restrict(page, "view", owner.id)
 
@@ -1005,14 +1005,14 @@ func TestAskingForAccessReachesSomeoneWhoMayGrantIt(t *testing.T) {
 		t.Fatal("every step is audited")
 	}
 
-	// A page a person may not see stays not found, until the space allows requests.
+	// A page a person may not see stays not found, until the space offers requests (spec 094).
 	reader.want(404, "POST", "/api/v1/pages/"+hidden+"/access-requests", map[string]any{"kind": "view"})
 	outsider.want(404, "POST", "/api/v1/pages/"+page+"/access-requests", map[string]any{"kind": "view"})
-	if body := reader.want(404, "GET", "/api/v1/pages/"+hidden, nil); strings.Contains(body, "not_found_ask") {
+	if body := reader.want(404, "GET", "/api/v1/pages/"+hidden, nil); strings.Contains(body, "no_access") {
 		t.Fatal("the answer must not offer anything")
 	}
-	owner.ok("PUT", "/api/v1/spaces/"+space+"/features", map[string]any{"comments": true, "reactions": true, "access_requests": true})
-	if body := reader.want(404, "GET", "/api/v1/pages/"+hidden, nil); !strings.Contains(body, "not_found_ask") {
+	owner.answerOf(space, "no_access_ask")
+	if body := reader.want(403, "GET", "/api/v1/pages/"+hidden, nil); !strings.Contains(body, "no_access_ask") {
 		t.Fatalf("no offer: %s", body)
 	}
 	reader.ok("POST", "/api/v1/pages/"+hidden+"/access-requests", map[string]any{"kind": "view"})
@@ -1022,7 +1022,7 @@ func TestAskingForAccessReachesSomeoneWhoMayGrantIt(t *testing.T) {
 	}
 	id := open[0].(map[string]any)["id"].(string)
 	owner.ok("POST", "/api/v1/access-requests/"+id+"/refuse", map[string]any{"note": "not now"})
-	reader.want(404, "GET", "/api/v1/pages/"+hidden, nil)
+	reader.want(403, "GET", "/api/v1/pages/"+hidden, nil)
 	reader.want(409, "POST", "/api/v1/pages/"+hidden+"/access-requests", map[string]any{"kind": "view"})
 	if _, err := e.app.Pool().Exec(context.Background(), "UPDATE access_requests SET answered_at = now() - interval '8 days'"); err != nil {
 		t.Fatal(err)
@@ -1031,7 +1031,7 @@ func TestAskingForAccessReachesSomeoneWhoMayGrantIt(t *testing.T) {
 	id = owner.ok("GET", "/api/v1/pages/"+hidden+"/access-requests", nil)["requests"].([]any)[0].(map[string]any)["id"].(string)
 	owner.ok("POST", "/api/v1/access-requests/"+id+"/allow", map[string]any{})
 	reader.want(200, "GET", "/api/v1/pages/"+hidden, nil)
-	outsider.want(404, "GET", "/api/v1/pages/"+hidden, nil)
+	outsider.want(403, "GET", "/api/v1/pages/"+hidden, nil)
 	reader.want(400, "POST", "/api/v1/pages/"+page+"/access-requests", map[string]any{"kind": "own"})
 }
 

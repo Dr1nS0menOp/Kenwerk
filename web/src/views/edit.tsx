@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { pagePath } from '../addresses';
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -147,7 +148,7 @@ function EditorNotes({ page, title }: { page: PageDetail; title: string }) {
       {same.data?.page && (
         <p role="status" className="note">
           {t('editor.sameTitle')}{' '}
-          <Link href={`/pages/${same.data.page.id}`}>{pageTitle(t, same.data.page.title)}</Link>
+          <Link href={pagePath(same.data.page.id)}>{pageTitle(t, same.data.page.title)}</Link>
         </p>
       )}
     </>
@@ -185,7 +186,7 @@ function EditModes({ data }: { data: Loaded }) {
   if (link === 'ended') {
     return (
       <p role="alert" className="note note-error">
-        {t('together.ended')} <Link href={`/pages/${data.page.id}`}>{t('together.backToPage')}</Link>
+        {t('together.ended')} <Link href={pagePath(data.page.id)}>{t('together.backToPage')}</Link>
       </p>
     );
   }
@@ -297,7 +298,10 @@ function Form({ data, together, link }: { data: Loaded; together: Together | nul
       () =>
         toast({
           message: t('editor.notSavedOnLeaving'),
-          action: { label: t('editor.backToEditor'), run: () => navigate(`/pages/${page.id}/edit`) },
+          action: {
+            label: t('editor.backToEditor'),
+            run: () => navigate(pagePath(page.id, { screen: 'edit' })),
+          },
         }),
     );
   };
@@ -321,7 +325,7 @@ function Form({ data, together, link }: { data: Loaded; together: Together | nul
     await client.invalidateQueries({ queryKey: ['page', page.id] });
     await client.invalidateQueries({ queryKey: ['tree', page.space_id] });
     await client.invalidateQueries({ queryKey: ['versions', page.id] });
-    navigate(`/pages/${page.id}`);
+    navigate(pagePath(page.id));
   };
 
   const startComment = () => {
@@ -351,7 +355,7 @@ function Form({ data, together, link }: { data: Loaded; together: Together | nul
       if (page.status !== 'published') {
         toast({
           message: t('editor.publishedShare'),
-          action: { label: t('share.button'), run: () => navigate(`/pages/${page.id}?share=1`) },
+          action: { label: t('share.button'), run: () => navigate(pagePath(page.id, { query: '?share=1' })) },
         });
       }
     } catch (e) {
@@ -438,7 +442,7 @@ function Form({ data, together, link }: { data: Loaded; together: Together | nul
   return (
     <>
       <div className="edit-bar">
-        <Link className="button quiet edit-close" href={`/pages/${page.id}`} onClick={(e) => void close(e)}>
+        <Link className="button quiet edit-close" href={pagePath(page.id)} onClick={(e) => void close(e)}>
           <IconArrowBack size={18} /> {t('editor.close')}
         </Link>
         {changed && <span className="lozenge">{t('editor.unpublishedChanges')}</span>}
@@ -587,7 +591,7 @@ function Form({ data, together, link }: { data: Loaded; together: Together | nul
         <Dialog title={t('editor.conflictTitle')} onClose={() => setConflict(false)}>
           <p>{t('editor.conflictText')}</p>
           <div className="dialog-actions">
-            <Link className="button" href={`/pages/${page.id}/history`}>
+            <Link className="button" href={pagePath(page.id, { screen: 'history' })}>
               {t('editor.compare')}
             </Link>
             <button type="button" className="danger" onClick={() => void publish(true)}>

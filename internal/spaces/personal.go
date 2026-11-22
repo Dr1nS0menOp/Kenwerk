@@ -57,6 +57,9 @@ func (s *Service) CreatePersonal(ctx context.Context, c identity.Caller, name st
 		if err := s.features.Start(ctx, tx, out.ID); err != nil {
 			return err
 		}
+		if err := s.startAnswer(ctx, tx, out.ID); err != nil {
+			return err
+		}
 		if err := record(ctx, tx, c, "space.created", out, map[string]any{"name": out.Name, "kind": "personal"}); err != nil {
 			return err
 		}

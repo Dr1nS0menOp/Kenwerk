@@ -83,6 +83,7 @@ function notification(more: Partial<Notification>): Notification {
     actors: ['Ada'],
     count: 1,
     page_id: 'p',
+    address: '/spaces/K/pages/p',
     page_title: 'Page',
     page_kind: 'page',
     space_id: 's',

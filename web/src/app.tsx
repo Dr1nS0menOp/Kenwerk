@@ -2,6 +2,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { readPagePath, type PageScreen } from './addresses';
 import { api, ApiError, type Me } from './api';
 import { appearanceQuery, useAccent, useImportedFont } from './appearance';
 import { useCapabilities } from './capabilities';
@@ -11,7 +12,7 @@ import { forgetPersonalData, forgetSharedDocuments, PersonProvider } from './per
 import { Link, match, navigate, useLocation } from './router';
 import { applyTheme } from './preferences';
 import { NewDatabaseDialog, NewPageDialog, NewPostDialog, NewSpaceDialog } from './components/create';
-import { useCreateTarget } from './components/current-space';
+import { useCanonicalSpaceAddress, useCreateTarget } from './components/current-space';
 import { SpaceShell } from './components/frame';
 import { IconChevronDown, IconPlus, Logo } from './components/icons';
 import { Menu, MenuItem } from './components/menu';
@@ -201,9 +202,46 @@ function Plain({ width, children }: { width?: 'reading'; children: ReactNode }) 
   );
 }
 
+/** A page and its screens, at either form of its address (spec 094); the frame puts the canonical one in the bar. */
+function PageRoute({ id, screen }: { id: string; screen: PageScreen | null }) {
+  switch (screen) {
+    case 'edit':
+      return (
+        <SpaceShell pageId={id} screen={screen} focus>
+          <EditView pageId={id} />
+        </SpaceShell>
+      );
+    case 'insights':
+      return (
+        <SpaceShell pageId={id} screen={screen}>
+          <PageInsightsView pageId={id} />
+        </SpaceShell>
+      );
+    case 'history':
+      return (
+        <SpaceShell pageId={id} screen={screen}>
+          <HistoryView pageId={id} />
+        </SpaceShell>
+      );
+    case 'compare':
+      return (
+        <SpaceShell pageId={id} screen={screen}>
+          <CompareView pageId={id} />
+        </SpaceShell>
+      );
+    default:
+      return (
+        <SpaceShell pageId={id}>
+          <PageView pageId={id} />
+        </SpaceShell>
+      );
+  }
+}
+
 function Routes({ me }: { me: Me }) {
   const { t } = useTranslation();
   const { pathname } = useLocation();
+  useCanonicalSpaceAddress();
   let m;
   if (pathname === '/') {
     return (
@@ -384,41 +422,8 @@ function Routes({ me }: { me: Me }) {
   if ((m = match('/spaces/:key/labels', pathname))) return <LabelsView spaceKey={m.key ?? ''} />;
   if ((m = match('/spaces/:key/templates', pathname))) return <TemplatesView spaceKey={m.key ?? ''} />;
   if ((m = match('/spaces/:key/new', pathname))) return <MissingPage spaceKey={m.key ?? ''} />;
-  if ((m = match('/pages/:id/edit', pathname))) {
-    return (
-      <SpaceShell pageId={m.id ?? ''} focus>
-        <EditView pageId={m.id ?? ''} />
-      </SpaceShell>
-    );
-  }
-  if ((m = match('/pages/:id/insights', pathname))) {
-    return (
-      <SpaceShell pageId={m.id ?? ''}>
-        <PageInsightsView pageId={m.id ?? ''} />
-      </SpaceShell>
-    );
-  }
-  if ((m = match('/pages/:id/history', pathname))) {
-    return (
-      <SpaceShell pageId={m.id ?? ''}>
-        <HistoryView pageId={m.id ?? ''} />
-      </SpaceShell>
-    );
-  }
-  if ((m = match('/pages/:id/compare', pathname))) {
-    return (
-      <SpaceShell pageId={m.id ?? ''}>
-        <CompareView pageId={m.id ?? ''} />
-      </SpaceShell>
-    );
-  }
-  if ((m = match('/pages/:id', pathname))) {
-    return (
-      <SpaceShell pageId={m.id ?? ''}>
-        <PageView pageId={m.id ?? ''} />
-      </SpaceShell>
-    );
-  }
+  const shown = readPagePath(pathname);
+  if (shown) return <PageRoute id={shown.id} screen={shown.screen} />;
   return (
     <Plain width="reading">
       <p role="alert">{t('app.notFound')}</p>

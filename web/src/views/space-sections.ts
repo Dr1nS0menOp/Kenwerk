@@ -112,7 +112,13 @@ export const SPACE_ENTRIES: SpaceEntry[] = [
     path: '/access',
     formerly: ['access.open'],
   },
-  // What someone without access sees (wave UR1, spec 094) takes its place here, after Permissions.
+  {
+    id: 'no-access',
+    place: 'space-access',
+    width: 'column',
+    needs: ADMINISTER,
+    formerly: ['spaceSettings.feature_access_requests'],
+  },
   {
     id: 'sites',
     place: 'space-access',

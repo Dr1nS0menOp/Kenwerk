@@ -2162,6 +2162,11 @@ a.byline-part:hover {
   background: var(--color-accent-tint);
 }
 
+/* A choice that cannot change, such as the access answer of a draft space, says so by its pointer. */
+.choice-tiles:disabled .choice-tile {
+  cursor: not-allowed;
+}
+
 .choice-tile-text {
   display: flex;
   flex-direction: column;

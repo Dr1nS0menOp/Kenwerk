@@ -2,10 +2,10 @@
 // What a link is and what can become of it, for the link dialog and the link tools.
 import type { Editor, JSONContent } from '@tiptap/core';
 import { NodeSelection } from '@tiptap/pm/state';
+import { pagePath } from '../../addresses';
 import type { Json } from '../../api';
 import { pageOfAddress } from './gone-links';
 import { headingsOf } from './outline';
-import { pageAddress } from './page-links';
 
 export type LinkDisplay = 'words' | 'title' | 'tag' | 'card';
 
@@ -42,7 +42,7 @@ export function currentLink(editor: Editor): CurrentLink | null {
 /** Where a link leads, for opening or copying it. */
 export function addressOf(link: CurrentLink): string | null {
   if (link.kind === 'mark') return link.href;
-  return link.kind === 'page' ? pageAddress(link.page, link.fragment) : null;
+  return link.kind === 'page' ? pagePath(link.page, { fragment: link.fragment }) : null;
 }
 
 /** The page and the place on it, when a link leads to a page of this instance. */

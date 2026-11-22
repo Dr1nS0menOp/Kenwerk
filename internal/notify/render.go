@@ -143,7 +143,7 @@ func (s *Service) link(i Item) string {
 	if id, ok := i.Data["template_id"].(string); ok && (i.Type == TypeTemplateProposed || i.Type == TypeTemplateDecided) {
 		return fmt.Sprintf("%s/templates/%s/settings?section=versions", s.options.PublicOrigin, id)
 	}
-	address := fmt.Sprintf("%s/pages/%s", s.options.PublicOrigin, i.PageID)
+	address := s.options.PublicOrigin + i.Address
 	if i.CommentID != nil {
 		address += "#comment-" + i.CommentID.String()
 	}

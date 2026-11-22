@@ -2,6 +2,7 @@
 // The release screen of a draft space (spec 073, PUB-1210 to PUB-1220): what waits to be
 // released, what is left out, what was removed in the draft, and the history of releases. It
 // exists only for those who may release; the server leaves out what the person may not see.
+import { pagePath } from '../addresses';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -288,9 +289,9 @@ function ReleaseTable({
         <>
           <PageMark page={row} />{' '}
           {tab === 'removed' && row.twin_page_id ? (
-            <Link href={`/pages/${row.twin_page_id}`}>{pageTitle(t, row.title)}</Link>
+            <Link href={pagePath(row.twin_page_id)}>{pageTitle(t, row.title)}</Link>
           ) : (
-            <Link href={`/pages/${row.page_id}`}>{pageTitle(t, row.title)}</Link>
+            <Link href={pagePath(row.page_id)}>{pageTitle(t, row.title)}</Link>
           )}
           {row.path.length > 0 && <span className="muted"> · {row.path.join(' / ')}</span>}
         </>
@@ -343,7 +344,10 @@ function ReleaseTable({
         row.status === 'changed' ? (
           <Link
             className="button ghost"
-            href={`/pages/${row.page_id}/compare?from=${row.released_version}&to=${row.current_version}`}
+            href={pagePath(row.page_id, {
+              screen: 'compare',
+              query: `?from=${row.released_version}&to=${row.current_version}`,
+            })}
           >
             {t('publishing.compare')}
           </Link>

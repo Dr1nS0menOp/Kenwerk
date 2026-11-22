@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Node as DocumentNode } from '@tiptap/core';
 import { NodeViewWrapper, ReactNodeViewRenderer, type ReactNodeViewProps } from '@tiptap/react';
+import { pagePath } from '../../addresses';
 import { api } from '../../api';
 import { navigate } from '../../router';
 import { IconPage } from '../icons';
@@ -26,6 +27,8 @@ export interface LinkFact {
   space_name: string;
   excerpt: string;
   updated_at: string;
+  /** The canonical address, so a hover shows the space (spec 094, rule 36). */
+  address: string;
 }
 
 interface Waiting {
@@ -75,9 +78,6 @@ export function useLinkFact(id: string | null) {
   return { fact: asked.data ?? null, isPending: asked.isPending && id !== null };
 }
 
-export const pageAddress = (id: string, fragment?: string | null) =>
-  fragment ? `/pages/${id}#${fragment}` : `/pages/${id}`;
-
 function HiddenPage() {
   const { t } = useTranslation();
   return (
@@ -106,7 +106,7 @@ function PageLinkView({ node, editor }: ReactNodeViewProps) {
         <span className="muted">…</span>
       ) : fact ? (
         <a
-          href={pageAddress(id, fragment)}
+          href={fact.address + (fragment ? `#${fragment}` : '')}
           className={className}
           onClick={(e) => {
             if (editor.isEditable) e.preventDefault();
@@ -160,7 +160,7 @@ function PageCardView({ node, editor }: ReactNodeViewProps) {
   return (
     <NodeViewWrapper className="page-card" contentEditable={false}>
       <a
-        href={pageAddress(id)}
+        href={fact.address}
         className="page-card-title"
         onClick={(e) => {
           if (editor.isEditable) e.preventDefault();
@@ -219,7 +219,7 @@ function FollowButton({ sourcePage, title }: { sourcePage: string; title: string
       api.post<{ page_id: string }>(`/pages/${sourcePage}/placeholders`, {
         title,
       }),
-    onSuccess: ({ page_id: page }) => navigate(`/pages/${page}/edit`),
+    onSuccess: ({ page_id: page }) => navigate(pagePath(page, { screen: 'edit' })),
     onError: (error) => toast({ message: error instanceof Error ? error.message : t('app.error') }),
   });
   return (
@@ -243,7 +243,7 @@ function PlaceholderView({ node, editor, extension }: ReactNodeViewProps) {
   return (
     <NodeViewWrapper as="span" contentEditable={false}>
       {target ? (
-        <a href={pageAddress(target)}>{title}</a>
+        <a href={pagePath(target)}>{title}</a>
       ) : reading ? (
         <FollowButton sourcePage={sourcePage} title={title} />
       ) : (

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { pagePath } from '../../addresses';
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
@@ -121,7 +122,7 @@ export function LinkDialog({ editor, onClose }: { editor: Editor; onClose: () =>
   const newTitle = search.trim();
 
   const pick = (choice: PageChoice) => {
-    setHref(`/pages/${choice.id}`);
+    setHref(pagePath(choice.id));
     setSearch('');
     setInvalid(false);
   };

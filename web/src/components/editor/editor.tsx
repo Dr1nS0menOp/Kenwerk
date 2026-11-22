@@ -18,7 +18,8 @@ import Collaboration from '@tiptap/extension-collaboration';
 import CollaborationCaret from '@tiptap/extension-collaboration-caret';
 import { NodeSelection } from '@tiptap/pm/state';
 import type { EditorView } from '@tiptap/pm/view';
-import { api, isCancelled, type Json, type UploadWatch } from '../../api';
+import { pagePath } from '../../addresses';
+import { api, isCancelled, type Json, type PageDetail, type UploadWatch } from '../../api';
 import { offered, useCapabilities } from '../../capabilities';
 import { readRecentItems, rememberItem, usePerson } from '../../personal';
 import { usePreferences } from '../../preferences';
@@ -672,7 +673,9 @@ export function DocumentEditor({
     openTemplateItem: setTemplateItem,
     openSection: (pos) => setSection({ pos }),
     copyBlockLink: (anchor) => {
-      const address = `${window.location.origin}/pages/${pageId}#${anchor}`;
+      // The page this editor holds is loaded already; its address carries its space's key (spec 094).
+      const known = client.getQueryData<PageDetail>(['page', pageId])?.address;
+      const address = `${window.location.origin}${known ?? pagePath(pageId)}#${anchor}`;
       void copy(address, t('editor.blockLinkCopied'));
     },
     openSaveBlock: () => setSavingBlock(true),

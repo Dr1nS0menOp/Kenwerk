@@ -2,6 +2,7 @@
 // Draft and published spaces on a page (spec 073, PUB-1221 to PUB-1231): the release status of
 // a draft page under its byline, the quiet line of a page that was released, and the dialog
 // that releases one page after its preview.
+import { pagePath } from '../addresses';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -104,7 +105,7 @@ export function ReleaseBand({
           {status.draft_page_id && (
             <>
               {' · '}
-              <Link href={`/pages/${status.draft_page_id}`}>{t('publishing.openDraft')}</Link>
+              <Link href={pagePath(status.draft_page_id)}>{t('publishing.openDraft')}</Link>
             </>
           )}
         </p>
@@ -123,7 +124,7 @@ export function ReleaseBand({
           {status.twin_page_id && (
             <>
               {' · '}
-              <Link href={`/pages/${status.twin_page_id}`}>{t('publishing.openTwin')}</Link>
+              <Link href={pagePath(status.twin_page_id)}>{t('publishing.openTwin')}</Link>
             </>
           )}
           {status.can_verify && status.twin_page_id && (
@@ -174,11 +175,11 @@ export function ReleaseBand({
       )}
       {status.twin_page_id && (
         <p>
-          <Link href={`/pages/${status.twin_page_id}`}>{t('publishing.openTwin')}</Link>
+          <Link href={pagePath(status.twin_page_id)}>{t('publishing.openTwin')}</Link>
           {status.reader_comments > 0 && (
             <>
               {' · '}
-              <Link href={`/pages/${status.twin_page_id}#comments`}>
+              <Link href={pagePath(status.twin_page_id, { fragment: `comments` })}>
                 {t('publishing.readerComments', { count: status.reader_comments })}
               </Link>
             </>

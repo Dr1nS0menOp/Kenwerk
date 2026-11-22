@@ -2,6 +2,7 @@
 // The bell. It asks for a small number twice a minute, only in a visible tab, which is
 // live enough without a WebSocket (spec 010, D12). Its panel has two tabs, For me and
 // Watched, and groups what it shows per day (spec 079, COL-113 to COL-118).
+import { pagePath } from '../addresses';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -38,12 +39,14 @@ export function bellNumber(count: number): string {
 
 /** Where a notification goes: the exact spot. */
 export function notificationLink(n: Notification): string {
-  if (n.type === 'access_request') return `/pages/${n.page_id}?share=1`;
+  // The address the server read with the row carries the page's space (spec 094).
+  const at = n.address || pagePath(n.page_id);
+  if (n.type === 'access_request') return `${at}?share=1`;
   if (n.type === 'export_ready') return `/exports/${n.data.export_id}`;
   if ((n.type === 'template_proposed' || n.type === 'template_decided') && n.data.template_id) {
     return `/templates/${n.data.template_id}/settings?section=versions`;
   }
-  return n.comment_id ? `/pages/${n.page_id}#comment-${n.comment_id}` : `/pages/${n.page_id}`;
+  return n.comment_id ? `${at}#comment-${n.comment_id}` : at;
 }
 
 export function contentKind(n: Notification): ContentKind {

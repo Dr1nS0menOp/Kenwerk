@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
+import { pagePath } from '../addresses';
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -301,7 +302,7 @@ export function RestrictionsDialog({ page, onClose }: { page: PageSummary; onClo
               <ul className="plain-list">
                 {restrictions.inherited.map((i) => (
                   <li key={i.page_id}>
-                    <Link href={`/pages/${i.page_id}`}>{pageTitle(t, i.title)}</Link>
+                    <Link href={pagePath(i.page_id)}>{pageTitle(t, i.title)}</Link>
                   </li>
                 ))}
               </ul>
@@ -383,7 +384,7 @@ export function DeleteDialog({ page, onClose }: { page: PageSummary; onClose: ()
     try {
       await api.post(`/pages/${page.id}/undo-delete`);
       await refresh();
-      navigate(`/pages/${page.id}`);
+      navigate(pagePath(page.id));
     } catch (e) {
       toast({ message: e instanceof Error ? e.message : t('app.error') });
     }
@@ -394,7 +395,7 @@ export function DeleteDialog({ page, onClose }: { page: PageSummary; onClose: ()
       await refresh();
       client.removeQueries({ queryKey: ['page', page.id] });
       onClose();
-      navigate(page.parent_id ? `/pages/${page.parent_id}` : '/');
+      navigate(page.parent_id ? pagePath(page.parent_id) : '/');
       toast({
         message: t('page.deleted', { title: pageTitle(t, page.title) }),
         action: { label: t('page.undo'), run: () => void undo() },
@@ -414,7 +415,7 @@ export function DeleteDialog({ page, onClose }: { page: PageSummary; onClose: ()
           <ul className="plain-list">
             {links.map((l) => (
               <li key={l.id}>
-                <Link href={`/pages/${l.id}`}>{pageTitle(t, l.title)}</Link>
+                <Link href={pagePath(l.id)}>{pageTitle(t, l.title)}</Link>
               </li>
             ))}
           </ul>
@@ -427,7 +428,7 @@ export function DeleteDialog({ page, onClose }: { page: PageSummary; onClose: ()
           <ul className="plain-list">
             {usedBy.data?.pages.map((l) => (
               <li key={l.id}>
-                <Link href={`/pages/${l.id}`}>{pageTitle(t, l.title)}</Link>
+                <Link href={pagePath(l.id)}>{pageTitle(t, l.title)}</Link>
               </li>
             ))}
           </ul>

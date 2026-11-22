@@ -206,7 +206,7 @@ test('a template that makes a set: the Pages list, then one action makes every p
   await expect(form.getByText('Laptop')).toBeVisible();
   await form.getByRole('button', { name: 'Create 3 drafts' }).click();
   await expect(page.getByLabel('Title', { exact: true })).toBeVisible();
-  const root = new URL(page.url()).pathname.split('/')[2];
+  const root = /\/pages\/([0-9a-f-]+)\/edit$/.exec(new URL(page.url()).pathname)?.[1] ?? '';
 
   // All three pages exist at once, as drafts of their maker, below each other.
   const tree = (await (await page.request.get(`/api/v1/spaces/${space.id}/tree`)).json()) as {
