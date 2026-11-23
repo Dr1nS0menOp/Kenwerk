@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -37,6 +38,8 @@ func recordSpace(ctx context.Context, tx pgx.Tx, c identity.Caller, spaceID uuid
 
 // ContentQuery are the filters of the Content screen.
 type ContentQuery struct {
+	// Text is found in the title, ignoring case (spec 100).
+	Text           string
 	OwnerID        *uuid.UUID
 	OwnerDisabled  bool
 	Stage          string
@@ -104,6 +107,7 @@ const contentSQL = `SELECT p.id, p.parent_id, p.title, COALESCE(p.owner_id, p.cr
 	  AND ($20::timestamptz IS NULL OR p.updated_at < $20::timestamptz + interval '1 day')
 	  AND ($21::timestamptz IS NULL OR p.created_at >= $21)
 	  AND ($22::timestamptz IS NULL OR p.created_at < $22::timestamptz + interval '1 day')
+	  AND ($24 = '' OR position(lower($24) IN lower(p.title)) > 0)
 	ORDER BY
 		CASE WHEN $16 = 'changed' THEN p.updated_at END DESC NULLS LAST,
 		CASE WHEN $16 = 'created' THEN p.created_at END DESC NULLS LAST,
@@ -121,7 +125,7 @@ func (s *Service) Content(ctx context.Context, c identity.Caller, spaceID uuid.U
 	}
 	rows, err := s.pool.Query(ctx, contentSQL, c.UserID, spaceID, q.OwnerID, q.OwnerDisabled, q.Stage, q.Label, q.ContributorID,
 		q.InactiveMonths, q.WithParents, q.Restricted, q.BrokenLinks, q.Orphaned, q.PastReview, treeKinds, farFromTheTop, q.Sort, q.Limit, max(q.Offset, 0),
-		q.ChangedFrom, q.ChangedUntil, q.CreatedFrom, q.CreatedUntil, permissions.CredentialSpaces(ctx))
+		q.ChangedFrom, q.ChangedUntil, q.CreatedFrom, q.CreatedUntil, permissions.CredentialSpaces(ctx), strings.TrimSpace(q.Text))
 	if err != nil {
 		return nil, 0, err
 	}

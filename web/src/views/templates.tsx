@@ -18,7 +18,19 @@ import { spaceByKeyQuery } from '../components/frame';
 import { SpaceToolFrame } from './space-settings-frame';
 import { templateFileAddress } from '../components/template-gallery';
 import { ErrorNote, Field, FilePicker, Loading } from '../components/ui';
-import { TableBox } from '../components/table-box';
+import { TableBox, TableEmpty } from '../components/table-box';
+import { EmptyState } from '../components/empty-state';
+import { ToolRow } from '../components/tool-row';
+import { choiceFilter } from '../components/tool-row-model';
+import { queryOf, useListAddress } from '../components/list-address';
+import { IconStatus } from '../components/icons';
+import { NameDialog } from './admin-people';
+
+/** The parameters of the lists of templates that the screen sends (spec 100). */
+const TEMPLATE_PARAMS = ['q', 'state'];
+const TEMPLATE_COLUMNS = 3;
+const TEMPLATE_COLUMNS_GUIDED = 4;
+const FILTER_ICON = 16;
 import { useCapabilities } from '../capabilities';
 import { TemplatePages, useTemplateValues } from './template-pages';
 import { useConditionScope } from './template-rules';
@@ -54,29 +66,10 @@ function TemplateRows({ list, onChanged }: { list: TemplateSummary[]; onChanged:
     mutationFn: (id: string) => api.del(`/templates/${id}`),
     onSettled: onChanged,
   });
-  // The state of each template, and a filter of states, come with approval (TPL-1001).
-  const [state, setState] = useState('');
-  const shown = state ? list.filter((x) => x.state === state) : list;
-  // An empty list says what will appear, not an empty table (design standard, States).
-  if (list.length === 0) return <p className="muted">{t('templates.noneYet')}</p>;
+  // The state of each template comes with approval (TPL-1001); the server filters by it (spec 100).
   return (
     <>
       <ErrorNote error={update.error ?? remove.error} />
-      {guidedOn && list.length > 0 && (
-        <Field label={t('templates.filterState')}>
-          <select value={state} onChange={(e) => setState(e.target.value)}>
-            <option value="">{t('templates.anyState')}</option>
-            {LIST_STATES.map((s) => (
-              <option key={s} value={s}>
-                {t(`templates.state_${s}`)}
-              </option>
-            ))}
-          </select>
-        </Field>
-      )}
-      {guidedOn && shown.length === 0 && list.length > 0 && (
-        <p className="muted">{t('templates.noneInState')}</p>
-      )}
       <TableBox>
         <table>
           <thead>
@@ -84,11 +77,18 @@ function TemplateRows({ list, onChanged }: { list: TemplateSummary[]; onChanged:
               <th>{t('common.name')}</th>
               {guidedOn && <th>{t('templates.stateColumn')}</th>}
               <th>{t('templates.category')}</th>
-              <th>{t('common.actions')}</th>
+              <th>
+                <span className="visually-hidden">{t('common.actions')}</span>
+              </th>
             </tr>
           </thead>
           <tbody>
-            {shown.map((x) => (
+            {list.length === 0 && (
+              <TableEmpty columns={guidedOn ? TEMPLATE_COLUMNS_GUIDED : TEMPLATE_COLUMNS}>
+                {t('templates.noneFit')}
+              </TableEmpty>
+            )}
+            {list.map((x) => (
               <tr key={x.id}>
                 <td>
                   <Link href={`/templates/${x.id}/settings`}>{x.name}</Link>
@@ -102,7 +102,7 @@ function TemplateRows({ list, onChanged }: { list: TemplateSummary[]; onChanged:
                   </td>
                 )}
                 <td>{x.category}</td>
-                <td className="row">
+                <td className="row-actions">
                   <button
                     type="button"
                     className="ghost"
@@ -153,17 +153,34 @@ export function TemplateManager({
   const { t } = useTranslation();
   const guidedOn = useCapabilities().guided_templates;
   const client = useQueryClient();
-  const q = useQuery({
-    queryKey: ['templates', listPath],
+  const { params } = useListAddress();
+  const query = queryOf(params, TEMPLATE_PARAMS);
+  // The whole list says whether there is any template at all; the server narrows the rows shown.
+  const all = useQuery({
+    queryKey: ['templates', listPath, ''],
     queryFn: () => api.get<{ templates: TemplateSummary[] }>(listPath),
+  });
+  const q = useQuery({
+    queryKey: ['templates', listPath, query],
+    queryFn: () => api.get<{ templates: TemplateSummary[] }>(`${listPath}?${query}`),
   });
   const refresh = () => {
     void client.invalidateQueries({ queryKey: ['templates', listPath] });
   };
   const [name, setName] = useState('');
+  const [naming, setNaming] = useState(false);
   const create = useMutation({
-    mutationFn: () => api.post<TemplateSummary>(base, { name }),
+    mutationFn: (newName: string) => api.post<TemplateSummary>(base, { name: newName }),
     onSuccess: (x) => navigate(`/templates/${x.id}/edit`),
+  });
+  const isEmpty = all.data?.templates.length === 0;
+  const stateFilter = choiceFilter({
+    param: 'state',
+    label: t('templates.filterState'),
+    icon: <IconStatus size={FILTER_ICON} />,
+    place: 'row',
+    values: LIST_STATES,
+    name: (s) => t(`templates.state_${s}`),
   });
   const upload = useMutation({
     mutationFn: async (file: File) =>
@@ -176,25 +193,62 @@ export function TemplateManager({
   return (
     <>
       {q.isPending && <Loading />}
-      <ErrorNote error={q.error ?? create.error ?? upload.error} />
+      <ErrorNote error={all.error ?? q.error ?? create.error ?? upload.error} />
       {upload.data?.import_notes && <ImportNote name={upload.data.name} notes={upload.data.import_notes} />}
-      {guidedOn && q.data && <WaitingForApproval list={q.data.templates} />}
-      {q.data && <TemplateRows list={q.data.templates} onChanged={refresh} />}
+      {guidedOn && all.data && <WaitingForApproval list={all.data.templates} />}
+      {/* While there is no template, the empty block holds the one button that makes the first (NAV-173). */}
+      {isEmpty && (
+        <EmptyState
+          title={t('templates.emptyTitle')}
+          doc="operations/templates.md"
+          action={
+            <button type="button" className="primary" onClick={() => setNaming(true)}>
+              {t('templates.create')}
+            </button>
+          }
+        >
+          {t('templates.emptyText')}
+        </EmptyState>
+      )}
+      {!isEmpty && (
+        <ToolRow
+          label={t('templates.find')}
+          search={{ label: t('templates.search'), placeholder: t('templates.search') }}
+          filters={guidedOn ? [stateFilter] : []}
+          count={q.data ? t('templates.count', { count: q.data.templates.length }) : undefined}
+        />
+      )}
+      {!isEmpty && q.data && <TemplateRows list={q.data.templates} onChanged={refresh} />}
+      {naming && (
+        <NameDialog
+          title={t('templates.create')}
+          label={t('templates.newName')}
+          error={create.error}
+          busy={create.isPending}
+          onCreate={(newName) => create.mutate(newName)}
+          onClose={() => setNaming(false)}
+        />
+      )}
       <form
         className="row"
         onSubmit={(e: FormEvent) => {
           e.preventDefault();
-          create.mutate();
+          create.mutate(name);
         }}
       >
-        <input
-          required
-          value={name}
-          aria-label={t('templates.newName')}
-          placeholder={t('templates.newName')}
-          onChange={(e) => setName(e.target.value)}
-        />
-        <button type="submit">{t('templates.create')}</button>
+        {/* While empty, the block above holds the one way to make the first (NAV-173); importing stays. */}
+        {!isEmpty && (
+          <>
+            <input
+              required
+              value={name}
+              aria-label={t('templates.newName')}
+              placeholder={t('templates.newName')}
+              onChange={(e) => setName(e.target.value)}
+            />
+            <button type="submit">{t('templates.create')}</button>
+          </>
+        )}
         <FilePicker label={t('templates.import')} accept=".json" onPick={(f) => upload.mutate(f)} />
       </form>
       {guidedOn && <FourEyesSetting path={reviewPath} canChange={canSetReview} />}

@@ -93,6 +93,9 @@ type UserFilter struct {
 	Role string
 	// SpaceID keeps people who can view this space.
 	SpaceID uuid.UUID
+	// Sort is one of UserSorts; empty sorts by name. Reverse turns the order round.
+	Sort    string
+	Reverse bool
 	Limit   int
 	Offset  int
 }
@@ -100,22 +103,48 @@ type UserFilter struct {
 // FilterRoles are the global permissions the user list can filter on.
 var FilterRoles = []string{PermAdministrator, PermSystemAdministrator, PermCreateSpace, PermInvitePeople}
 
+// UserSorts are the columns the user list sorts by, the default first (spec 100).
+var UserSorts = []string{"name", "email", "last_login"}
+
+// userOrder is static: the column and the direction are parameters, never words built into
+// the query. Never logged in counts as the oldest login.
+const userOrder = ` ORDER BY
+	CASE WHEN $14 = 'email' AND NOT $15 THEN lower(u.email) END,
+	CASE WHEN $14 = 'email' AND $15 THEN lower(u.email) END DESC,
+	CASE WHEN $14 = 'last_login' AND NOT $15 THEN u.last_login_at END NULLS FIRST,
+	CASE WHEN $14 = 'last_login' AND $15 THEN u.last_login_at END DESC NULLS LAST,
+	CASE WHEN $14 = 'name' AND $15 THEN lower(u.display_name) END DESC,
+	lower(u.display_name), u.id`
+
+// userWhere is the filter of ListUsers; an empty parameter does not filter.
+const userWhere = ` WHERE ($1 = '' OR position(lower($1) IN lower(u.email)) > 0 OR position(lower($1) IN lower(u.display_name)) > 0)
+	AND ($2 = '' OR lower(u.email) = lower($2))
+	AND ($3 = '' OR lower(u.username) = lower($3))
+	AND ($4 = '' OR u.external_id = $4)
+	AND ($5 = '' OR u.type = $5)
+	AND ($6 = '' OR u.status = $6)
+	AND ($7 = '' OR u.source = $7)
+	AND ($8::uuid IS NULL OR u.id IN (SELECT m.user_id FROM group_members m WHERE m.group_id = $8))
+	AND ($9 = 0 OR u.last_login_at IS NULL OR u.last_login_at < now() - make_interval(days => $9))
+	AND ($10 = '' OR perm_has_global(u.id, $10))
+	AND ($11::uuid IS NULL OR $11 IN (SELECT ps.space_id FROM perm_spaces(u.id, 'space.view', NULL) ps))`
+
+// userSortOf is the column a filter sorts by: one of UserSorts, name when none is given.
+func userSortOf(f UserFilter) (string, error) {
+	if f.Sort == "" {
+		return UserSorts[0], nil
+	}
+	if !slices.Contains(UserSorts, f.Sort) {
+		return "", apperr.Invalid("The list of people sorts by name, email or last_login.")
+	}
+	return f.Sort, nil
+}
+
 // ListUsers returns users, and how many match in total.
 func (s *Service) ListUsers(ctx context.Context, f UserFilter) ([]UserDetail, int, error) {
 	if f.Limit <= 0 || f.Limit > 500 {
 		f.Limit = 100
 	}
-	const where = ` WHERE ($1 = '' OR position(lower($1) IN lower(u.email)) > 0 OR position(lower($1) IN lower(u.display_name)) > 0)
-		AND ($2 = '' OR lower(u.email) = lower($2))
-		AND ($3 = '' OR lower(u.username) = lower($3))
-		AND ($4 = '' OR u.external_id = $4)
-		AND ($5 = '' OR u.type = $5)
-		AND ($6 = '' OR u.status = $6)
-		AND ($7 = '' OR u.source = $7)
-		AND ($8::uuid IS NULL OR u.id IN (SELECT m.user_id FROM group_members m WHERE m.group_id = $8))
-		AND ($9 = 0 OR u.last_login_at IS NULL OR u.last_login_at < now() - make_interval(days => $9))
-		AND ($10 = '' OR perm_has_global(u.id, $10))
-		AND ($11::uuid IS NULL OR $11 IN (SELECT ps.space_id FROM perm_spaces(u.id, 'space.view', NULL) ps))`
 	var group *uuid.UUID
 	if f.GroupID != uuid.Nil {
 		group = &f.GroupID
@@ -126,11 +155,15 @@ func (s *Service) ListUsers(ctx context.Context, f UserFilter) ([]UserDetail, in
 	}
 	args := []any{f.Text, f.Email, f.Username, f.ExternalID, f.Type, f.Status, f.Source, group, f.IdleDays, f.Role, space}
 	var total int
-	if err := s.pool.QueryRow(ctx, "SELECT count(*) FROM users u"+where, args...).Scan(&total); err != nil {
+	if err := s.pool.QueryRow(ctx, "SELECT count(*) FROM users u"+userWhere, args...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
-	rows, err := s.pool.Query(ctx, userDetailSQL+where+" ORDER BY lower(u.display_name), u.id LIMIT $12 OFFSET $13",
-		append(args, f.Limit, max(f.Offset, 0))...)
+	sortBy, err := userSortOf(f)
+	if err != nil {
+		return nil, 0, err
+	}
+	rows, err := s.pool.Query(ctx, userDetailSQL+userWhere+userOrder+" LIMIT $12 OFFSET $13",
+		append(args, f.Limit, max(f.Offset, 0), sortBy, f.Reverse)...)
 	if err != nil {
 		return nil, 0, err
 	}

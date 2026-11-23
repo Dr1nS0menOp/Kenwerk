@@ -4,6 +4,8 @@ package httpapi
 
 import (
 	"net/http"
+	"slices"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -129,12 +131,27 @@ func (s *Server) handleGallery(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"templates": list})
 }
 
+// templateStates are the states a list of templates filters by (TPL-510); superseded is a
+// state of an older version, never of the newest.
+var templateStates = []string{templates.StateDraft, templates.StateWaiting, templates.StateApproved,
+	templates.StateSentBack, templates.StateWithdrawn}
+
 func (s *Server) writeTemplates(w http.ResponseWriter, r *http.Request, spaceID *uuid.UUID) {
+	q := r.URL.Query()
+	state, text := q.Get("state"), strings.ToLower(strings.TrimSpace(q.Get("q")))
+	if err := oneOf(state, "state", templateStates...); err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
+		return
+	}
 	list, err := s.deps.Templates.Manage(r.Context(), s.caller(r), spaceID)
 	if err != nil {
 		s.fail(w, r, err)
 		return
 	}
+	// Narrowed after the module's own rule chose what this person may manage (spec 100, D14).
+	list = slices.DeleteFunc(list, func(t templates.Template) bool {
+		return (state != "" && t.State != state) || (text != "" && !strings.Contains(strings.ToLower(t.Name), text))
+	})
 	writeJSON(w, http.StatusOK, map[string]any{"templates": list})
 }
 

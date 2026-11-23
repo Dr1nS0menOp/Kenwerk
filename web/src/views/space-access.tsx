@@ -13,6 +13,9 @@ import { TEMPLATES } from './space-grants';
 import { TableBox } from '../components/table-box';
 import { Link } from '../router';
 import { SpaceToolFrame } from './space-settings-frame';
+import { ToolRow } from '../components/tool-row';
+import { SortHeading } from '../components/sort-heading';
+import { queryOf, useListAddress } from '../components/list-address';
 
 const AUDIT_ID_LENGTH = 8;
 
@@ -131,26 +134,24 @@ function HolderTable({ people }: { people: Holder[] }) {
 
 function PeoplePanel({ space }: { space: Space }) {
   const { t } = useTranslation();
-  const [text, setText] = useState('');
+  const { params } = useListAddress();
+  const query = queryOf(params, ['q']);
   const q = useQuery({
-    queryKey: ['space-access', space.id, text],
-    queryFn: () => api.get<{ people: Holder[] }>(`/spaces/${space.id}/access?q=${encodeURIComponent(text)}`),
+    queryKey: ['space-access', space.id, query],
+    queryFn: () => api.get<{ people: Holder[] }>(`/spaces/${space.id}/access?${query}`),
   });
   return (
     <section>
-      <div className="row filters">
-        <input
-          type="search"
-          className="grow"
-          value={text}
-          aria-label={t('access.search')}
-          placeholder={t('access.search')}
-          onChange={(e) => setText(e.target.value)}
-        />
-        <a className="button" href={`/api/v1/spaces/${space.id}/access.csv`}>
-          {t('admin.exportCsv')}
-        </a>
-      </div>
+      <ToolRow
+        label={t('access.findWhoHasAccess')}
+        search={{ label: t('access.search'), placeholder: t('access.search') }}
+        action={
+          <a className="button" href={`/api/v1/spaces/${space.id}/access.csv`}>
+            {t('admin.exportCsv')}
+          </a>
+        }
+        count={q.data ? t('access.countWithAccess', { count: q.data.people.length }) : undefined}
+      />
       <ErrorNote error={q.error} />
       {q.data && <HolderTable people={q.data.people} />}
     </section>
@@ -245,7 +246,7 @@ function SpaceAuditTable({ space }: { space: Space }) {
         <table>
           <thead>
             <tr>
-              <th>{t('admin.when')}</th>
+              <SortHeading label={t('admin.when')} state="descending" />
               <th>{t('admin.actor')}</th>
               <th>{t('admin.action')}</th>
               <th>{t('admin.object')}</th>

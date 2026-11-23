@@ -10,6 +10,7 @@ import { SpaceToolFrame } from './space-settings-frame';
 import { ConfirmButton, Dialog, ErrorNote, Field, FilePicker, Loading, RelativeTime } from '../components/ui';
 import { Link, navigate } from '../router';
 import { TableBox } from '../components/table-box';
+import { EmptyState } from '../components/empty-state';
 
 export interface RuleAction {
   type: string;
@@ -336,15 +337,26 @@ function RuleTable({ spaceId }: { spaceId: string | null }) {
     queryKey: ['rules', spaceId],
     queryFn: () => api.get<{ rules: Rule[] }>(ruleList(spaceId)),
   });
+  const isEmpty = q.data?.rules.length === 0;
   return (
     <>
-      <div className="row">
-        <NewRule spaceId={spaceId} />
-        <ImportRule spaceId={spaceId} />
-      </div>
+      {/* While there is no rule, the empty block holds the one button that makes the first (NAV-173). */}
+      {q.data && !isEmpty && (
+        <div className="row">
+          <NewRule spaceId={spaceId} />
+          <ImportRule spaceId={spaceId} />
+        </div>
+      )}
       <ErrorNote error={q.error} />
       {q.isPending && <Loading />}
-      {q.data?.rules.length === 0 && <p className="muted">{t('rules2.none')}</p>}
+      {isEmpty && (
+        <>
+          <EmptyState title={t('rules2.emptyTitle')} action={<NewRule spaceId={spaceId} />}>
+            {t('rules2.none')}
+          </EmptyState>
+          <ImportRule spaceId={spaceId} />
+        </>
+      )}
       {(q.data?.rules.length ?? 0) > 0 && (
         <TableBox>
           <table>

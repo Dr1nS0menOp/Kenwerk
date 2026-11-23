@@ -132,8 +132,24 @@ type assignmentBody struct {
 	Roles   []uuid.UUID         `json:"roles"`
 }
 
+// assignmentFilter reads the search and filters of a list of role assignments (spec 100). A
+// role that is not an id is refused here; a kind the module does not know is refused there.
+func assignmentFilter(w http.ResponseWriter, r *http.Request) (permissions.AssignmentFilter, bool) {
+	q := r.URL.Query()
+	role, err := optionalID(q.Get("role"))
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", "role must be the id of a role")
+		return permissions.AssignmentFilter{}, false
+	}
+	return permissions.AssignmentFilter{Text: q.Get("q"), Kind: q.Get("kind"), RoleID: role}, true
+}
+
 func (s *Server) handleInstanceAssignments(w http.ResponseWriter, r *http.Request) {
-	list, err := s.deps.Permissions.InstanceAssignments(r.Context(), s.caller(r))
+	filter, ok := assignmentFilter(w, r)
+	if !ok {
+		return
+	}
+	list, err := s.deps.Permissions.InstanceAssignments(r.Context(), s.caller(r), filter)
 	if err != nil {
 		s.fail(w, r, err)
 		return
@@ -159,7 +175,11 @@ func (s *Server) handleSpaceAssignments(w http.ResponseWriter, r *http.Request) 
 	if !ok {
 		return
 	}
-	list, err := s.deps.Permissions.SpaceAssignments(r.Context(), s.caller(r), id)
+	filter, ok := assignmentFilter(w, r)
+	if !ok {
+		return
+	}
+	list, err := s.deps.Permissions.SpaceAssignments(r.Context(), s.caller(r), id, filter)
 	if err != nil {
 		s.fail(w, r, err)
 		return

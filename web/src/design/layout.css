@@ -213,6 +213,103 @@
   min-block-size: var(--size-twist);
   font-size: var(--text-small);
 }
+
+/* The one row of tools above a long list (spec 100, ADM-103): search first, a button per filter,
+   More filters, Reset, and the screen's own action alone at the end. It wraps on a narrow screen. */
+.tool-row-box {
+  margin-block: var(--space-3);
+}
+
+.tool-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.tool-row-more {
+  margin-block-start: var(--space-2);
+}
+
+.tool-search {
+  position: relative;
+  flex: 0 1 var(--size-quick-search);
+  min-inline-size: var(--size-filter-field);
+}
+
+.tool-search > svg {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: var(--space-2-5);
+  translate: 0 -50%;
+  color: var(--color-muted);
+  pointer-events: none;
+}
+
+/* A stronger border than the buttons beside it, so the search reads as the first tool. */
+.tool-search > input {
+  inline-size: 100%;
+  padding-inline-start: var(--space-8);
+  border-color: var(--color-strong);
+}
+
+/* Each filter is an icon and a name of one height, with a neutral outline until it is set. */
+.tool-row .filter-button {
+  min-block-size: var(--size-control);
+  padding: var(--space-1) var(--space-2-5);
+  border: 1px solid var(--color-line);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-size: var(--text-small);
+}
+
+.tool-row .filter-button.is-set {
+  border-color: var(--color-accent);
+  background: var(--color-accent-tint);
+  color: var(--color-accent);
+}
+
+.filter-words {
+  overflow: hidden;
+  max-inline-size: var(--size-quick-search);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-action {
+  margin-inline-start: auto;
+}
+
+.tool-chooser {
+  position: relative;
+}
+
+.tool-panel {
+  position: absolute;
+  inset-block-start: calc(100% + var(--space-1));
+  inset-inline-start: 0;
+  z-index: var(--layer-menu);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-inline-size: var(--size-menu);
+  padding: var(--space-3);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-menu);
+}
+
+.tool-panel .field {
+  margin-block-end: 0;
+}
+
+.tool-count {
+  margin-block: var(--space-2) 0;
+  color: var(--color-muted);
+  font-size: var(--text-small);
+}
 .quick-group {
   padding: var(--space-1-5) var(--space-2) var(--space-0-5);
   color: var(--color-muted);

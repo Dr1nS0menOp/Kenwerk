@@ -426,20 +426,60 @@ type RoleRef struct {
 
 // Assignment is who holds which roles, in a space or for the instance.
 type Assignment struct {
-	Subject Subject   `json:"subject"`
-	Name    string    `json:"name"`
-	Roles   []RoleRef `json:"roles"`
+	Subject Subject `json:"subject"`
+	Name    string  `json:"name"`
+	// UserType is member, guest or service for a person, so a list can say what they are
+	// (SPC-119); empty for a group and for everyone of a kind.
+	UserType string    `json:"user_type,omitempty"`
+	Roles    []RoleRef `json:"roles"`
 }
 
-func (s *Service) assignments(ctx context.Context, q db.Querier, spaceID *uuid.UUID) ([]Assignment, error) {
-	rows, err := q.Query(ctx, `SELECT a.subject_type, a.subject_id, COALESCE(u.display_name, gr.name, ''),
+// The kinds of holder a list of role assignments filters by (SPC-120, spec 100 D10): a person
+// is a user who is not a service account.
+const (
+	HolderPerson     = "person"
+	HolderService    = "service"
+	HolderGroup      = SubjectGroup
+	HolderAllMembers = SubjectAllMembers
+	HolderAllGuests  = SubjectAllGuests
+)
+
+// HolderKinds are the values of AssignmentFilter.Kind.
+var HolderKinds = []string{HolderPerson, HolderGroup, HolderService, HolderAllMembers, HolderAllGuests}
+
+// AssignmentFilter narrows a list of role assignments. Empty fields do not filter; a filter
+// never reaches beyond the list it narrows.
+type AssignmentFilter struct {
+	// Text is found in the name of a person or a group, ignoring case.
+	Text string
+	// Kind is one of HolderKinds.
+	Kind string
+	// RoleID keeps holders of this role.
+	RoleID uuid.UUID
+}
+
+func (s *Service) assignments(ctx context.Context, q db.Querier, spaceID *uuid.UUID, f AssignmentFilter) ([]Assignment, error) {
+	if f.Kind != "" && !slices.Contains(HolderKinds, f.Kind) {
+		return nil, apperr.Invalid("A kind of holder is person, group, service, all_members or all_guests.")
+	}
+	var role *uuid.UUID
+	if f.RoleID != uuid.Nil {
+		role = &f.RoleID
+	}
+	rows, err := q.Query(ctx, `SELECT a.subject_type, a.subject_id, COALESCE(u.display_name, gr.name, ''), COALESCE(u.type, ''),
 			array_agg(r.id ORDER BY lower(r.name)), array_agg(r.name ORDER BY lower(r.name))
 		FROM role_assignments a JOIN roles r ON r.id = a.role_id
 		LEFT JOIN users u ON a.subject_type = 'user' AND u.id = a.subject_id
 		LEFT JOIN groups gr ON a.subject_type = 'group' AND gr.id = a.subject_id
 		WHERE a.space_id IS NOT DISTINCT FROM $1
-		GROUP BY a.subject_type, a.subject_id, u.display_name, gr.name
-		ORDER BY a.subject_type, 3`, spaceID)
+		  AND ($2 = '' OR position(lower($2) IN lower(COALESCE(u.display_name, gr.name, ''))) > 0)
+		  AND ($3 = '' OR CASE $3
+		        WHEN 'person' THEN a.subject_type = 'user' AND u.type <> 'service'
+		        WHEN 'service' THEN a.subject_type = 'user' AND u.type = 'service'
+		        ELSE a.subject_type = $3 END)
+		GROUP BY a.subject_type, a.subject_id, u.display_name, gr.name, u.type
+		HAVING $4::uuid IS NULL OR bool_or(r.id = $4)
+		ORDER BY a.subject_type, 3`, spaceID, strings.TrimSpace(f.Text), f.Kind, role)
 	if err != nil {
 		return nil, err
 	}
@@ -447,7 +487,7 @@ func (s *Service) assignments(ctx context.Context, q db.Querier, spaceID *uuid.U
 		var v Assignment
 		var idList []uuid.UUID
 		var names []string
-		if err := r.Scan(&v.Subject.Type, &v.Subject.ID, &v.Name, &idList, &names); err != nil {
+		if err := r.Scan(&v.Subject.Type, &v.Subject.ID, &v.Name, &v.UserType, &idList, &names); err != nil {
 			return v, err
 		}
 		for i := range idList {
@@ -511,20 +551,22 @@ func (s *Service) RoleHolders(ctx context.Context, c identity.Caller, roleID uui
 	return out, total, err
 }
 
-// SpaceAssignments lists who holds which roles in a space, for those who manage access.
-func (s *Service) SpaceAssignments(ctx context.Context, c identity.Caller, spaceID uuid.UUID) ([]Assignment, error) {
+// SpaceAssignments lists who holds which roles in a space, for those who manage access,
+// narrowed by the filter.
+func (s *Service) SpaceAssignments(ctx context.Context, c identity.Caller, spaceID uuid.UUID, f AssignmentFilter) ([]Assignment, error) {
 	if err := s.RequireSpace(ctx, s.pool, c.UserID, spaceID, SpaceManageAccess); err != nil {
 		return nil, err
 	}
-	return s.assignments(ctx, s.pool, &spaceID)
+	return s.assignments(ctx, s.pool, &spaceID, f)
 }
 
-// InstanceAssignments lists who holds which instance roles, for administrators.
-func (s *Service) InstanceAssignments(ctx context.Context, c identity.Caller) ([]Assignment, error) {
+// InstanceAssignments lists who holds which instance roles, for administrators, narrowed by
+// the filter.
+func (s *Service) InstanceAssignments(ctx context.Context, c identity.Caller, f AssignmentFilter) ([]Assignment, error) {
 	if err := s.requireAdministrator(ctx, s.pool, c); err != nil {
 		return nil, err
 	}
-	return s.assignments(ctx, s.pool, nil)
+	return s.assignments(ctx, s.pool, nil, f)
 }
 
 // rolesByID loads the roles asked for, each of the scope, and fails on any other.

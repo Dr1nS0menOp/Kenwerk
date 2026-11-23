@@ -1239,7 +1239,7 @@ test.describe('the look of every kind of screen', () => {
     await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click();
     await page.goto('/spaces/HANDBOOK/settings?section=people');
     await expect(page.getByRole('heading', { name: 'People', level: 1 })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Give access' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Add people' })).toBeVisible();
     await expect(page.locator('.member-row').first()).toBeVisible();
     await picture(page, 'space-roles');
     // A combination without a name opens to show its permissions, and an administrator can name it.
@@ -2539,7 +2539,7 @@ test.describe('the settings area at the widths of a laptop', () => {
       // The address wraps, so every column and every filter is in view.
       await expect(page.getByRole('cell', { name: LONG_EMAIL })).toBeInViewport({ ratio: 1 });
       await expect(page.getByRole('columnheader', { name: 'Last login' })).toBeInViewport({ ratio: 1 });
-      await expect(page.getByRole('combobox', { name: 'Source', exact: true })).toBeInViewport({ ratio: 1 });
+      await expect(page.getByRole('button', { name: 'More filters' })).toBeInViewport({ ratio: 1 });
       await fixText(page.locator('tbody td:nth-child(7)'), LAST_LOGIN);
       await picture(page, `admin-users-1150-${colorScheme}`, [page.locator('tbody td:nth-child(7)')]);
       await checkAccessibility(page);
@@ -3251,7 +3251,7 @@ test.describe('the history of guided templates', () => {
     expect(made.status(), await made.text()).toBe(201);
     const space = ((await made.json()) as { id: string }).id;
     await page.goto('/spaces/ORIGINS/templates');
-    await expect(page.getByText('No templates yet. Create one')).toBeVisible();
+    await expect(page.getByText('No templates yet', { exact: true })).toBeVisible();
     await picture(page, 'templates-none');
 
     const created = await page.request.post(`/api/v1/spaces/${space}/templates`, {
@@ -3556,6 +3556,116 @@ test.describe('the administration as blueprint 03 arranges it', () => {
     await checkAccessibility(page);
     await page.context().close();
   });
+
+  // The tool rows of spec 100. Lists hold what other tests made, so each picture gets a fixed answer.
+  const FIXED_PEOPLE = [
+    ['Anna Visser', 'anna.visser@example.com', 'member', 'local'],
+    ['Bram de Vries', 'bram@example.com', 'member', 'oidc'],
+    ['Chris Jansen', 'chris@example.com', 'guest', 'local'],
+  ].map(([display_name, email, type, source], i) => ({
+    id: `00000000-0000-7000-8000-00000000010${i}`,
+    display_name,
+    email,
+    type,
+    source,
+    status: 'active',
+    last_login_at: null,
+    spaces: [],
+    global_permissions: [],
+  }));
+
+  test('AdminView: the tool row of Users, a filter set and More filters open', async ({ browser }) => {
+    const page = await adminPage(browser);
+    await page.route('**/api/v1/admin/users?*', (route) =>
+      route.fulfill({ json: { users: FIXED_PEOPLE, total: FIXED_PEOPLE.length } }),
+    );
+    await page.goto('/admin/users?role=administrator&status=active&sort=-email');
+    await expect(page.getByRole('button', { name: 'Role: Administrator' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Status: Active' })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: 'Email' })).toHaveAttribute(
+      'aria-sort',
+      'descending',
+    );
+    await picture(page, 'admin-users-filters');
+    await checkAccessibility(page);
+    await page.getByRole('button', { name: 'Type', exact: true }).click();
+    await expect(page.getByRole('menuitemradio', { name: 'Any' })).toBeFocused();
+    await picture(page, 'admin-users-chooser');
+    await checkAccessibility(page);
+    await page.context().close();
+  });
+
+  test('AdminView: the tool row of the Audit log with a person and a time', async ({ browser }) => {
+    const page = await adminPage(browser);
+    const person = FIXED_PEOPLE[0]!;
+    await page.route(`**/api/v1/people/${person.id}`, (route) =>
+      route.fulfill({ json: { id: person.id, name: person.display_name, has_picture: false } }),
+    );
+    await page.goto(`/admin/audit?actor_id=${person.id}&since=2026-11-01T00:00:00.000Z`);
+    const row = page.locator('.tool-row-box');
+    await expect(row.getByRole('button', { name: 'Who: Anna Visser' })).toBeVisible();
+    await useFixedFont(page);
+    await expect(row).toHaveScreenshot('admin-audit-filters.png');
+    // The panel of a field opens with the focus in its first field.
+    await row.getByRole('button', { name: /^Time:/ }).click();
+    await expect(row.getByLabel('From')).toBeFocused();
+    await checkAccessibility(page);
+    await page.context().close();
+  });
+
+  test('AdminView: Spaces filtered on the server and sorted by a column', async ({ browser }) => {
+    const page = await adminPage(browser);
+    const spaces = ['Handbook', 'Projects', 'Old archive'].map((name, i) => ({
+      id: `00000000-0000-7000-8000-00000000020${i}`,
+      key: name.toUpperCase().replace(' ', ''),
+      name,
+      status: i === 2 ? 'archived' : 'active',
+    }));
+    const totals = spaces.map((s, i) => ({
+      id: s.id,
+      pages: 40 - i * 15,
+      bytes: (3 - i) << 20,
+      last_activity: null,
+      limit_mib: 0,
+    }));
+    await page.route('**/api/v1/admin/spaces?*', (route) =>
+      route.fulfill({ json: { spaces, totals, total: 12 } }),
+    );
+    await page.goto('/admin/spaces?quiet_months=6&sort=-pages');
+    await expect(page.getByText('3 of 12 spaces')).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: 'Pages' })).toHaveAttribute(
+      'aria-sort',
+      'descending',
+    );
+    await picture(page, 'admin-spaces-filters');
+    await checkAccessibility(page);
+    await page.context().close();
+  });
+
+  test('AdminView: Templates and Document control while empty, with the block that makes the first', async ({
+    browser,
+  }) => {
+    const page = await adminPage(browser);
+    await page.route('**/api/v1/admin/templates*', (route) =>
+      route.request().method() === 'GET' ? route.fulfill({ json: { templates: [] } }) : route.fallback(),
+    );
+    // The chooser of a space to save as a template is as wide as the longest name other tests made.
+    await page.route('**/api/v1/spaces', (route) =>
+      route.request().method() === 'GET' ? route.fulfill({ json: { spaces: [] } }) : route.fallback(),
+    );
+    await page.goto('/admin/templates');
+    await expect(page.getByText('No templates yet', { exact: true })).toBeVisible();
+    await picture(page, 'admin-templates-empty');
+    await checkAccessibility(page);
+    await page.route('**/api/v1/admin/workflow-templates', (route) =>
+      route.request().method() === 'GET' ? route.fulfill({ json: { templates: [] } }) : route.fallback(),
+    );
+    await page.goto('/admin/control');
+    await expect(page.getByText('No workflow templates yet', { exact: true })).toBeVisible();
+    await picture(page, 'admin-document-control-empty');
+    await checkAccessibility(page);
+    await page.context().close();
+  });
 });
 
 // Spec 094: what a person without access sees, as the space chose, and where it is chosen.
@@ -3787,6 +3897,25 @@ test.describe('the settings of a space as blueprint 03 arranges them', () => {
     const page = await pageOf(browser, KEEPER);
     await openEntry(page, '/content', 'Content');
     await picture(page, 'space-settings-full', [page.locator('table')]);
+    await page.context().close();
+  });
+
+  test('SpaceSettingsView: People with a kind chosen, and Content with its tool row', async ({ browser }) => {
+    const page = await pageOf(browser, KEEPER);
+    await openEntry(page, '/settings?section=people&kind=person', 'People');
+    await expect(page.getByRole('button', { name: 'Kind: People' })).toBeVisible();
+    await expect(page.getByText(LOOKER.name, { exact: true })).toBeVisible();
+    await picture(page, 'space-settings-people');
+    await checkAccessibility(page);
+    // Nothing in this space is restricted: the table keeps its heading row with one sentence.
+    await openEntry(page, '/content?label=tidy&restricted=1&sort=changed', 'Content');
+    await expect(page.getByText('No page fits these filters.')).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: 'Last change' })).toHaveAttribute(
+      'aria-sort',
+      'descending',
+    );
+    await picture(page, 'content-filters');
+    await checkAccessibility(page);
     await page.context().close();
   });
 });

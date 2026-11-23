@@ -272,8 +272,11 @@ test('/ offers the values of a guided template and links to the pages of its set
   const space = await newSpace(page, 'Template values');
   await page.goto(`/spaces/${space.key}/templates`);
   const name = unique('Project');
-  await page.getByLabel('New template name').fill(name);
+  // A space without templates offers the first through its empty block, which asks for the name (spec 100).
   await page.getByRole('button', { name: 'New template' }).click();
+  const naming = page.getByRole('dialog', { name: 'New template' });
+  await naming.getByLabel('New template name').fill(name);
+  await naming.getByRole('button', { name: 'Create' }).click();
   const pages = page.getByRole('region', { name: 'Pages this template makes' });
   await pages.getByLabel('Name of the page').fill('Risks');
   await pages.getByRole('button', { name: 'Add a page' }).click();

@@ -79,7 +79,7 @@ On 2026-11-14 the product owner decided that, for the arrangement of a screen, a
 
 - Tables of the app have a quiet heading row with a line under it, rows set apart by space without lines between them, a line after the last row, a hover tint and one sort mark; rows are compact in the administration and up to two lines for tokens and sessions. Replaces "a line under each row" (Settings and lists). NAV-157, ADM-107, ACC-085, SPC-154. Built for every table in a `TableBox` in spec 081.
 - Several rows of one item form a group under one spanning cell, and a two-level list shows its levels by weight. Same rule. SPC-155.
-- A long list has one row of tools above it: search first, a button per filter that shows its value in words, more filters, and the screen's own action at the end; a filter applies at once. Replaces "Long lists filter with dropdowns above them" (Settings and lists). ADM-103.
+- A long list has one row of tools above it: search first, a button per filter that shows its value in words, more filters, and the screen's own action at the end; a filter applies at once. Replaces "Long lists filter with dropdowns above them" (Settings and lists). ADM-103. Built in spec 100 (`ToolRow`) for every long list of the administration and the settings of a space; the sort mark is `SortHeading`.
 - Lists of people have a checkbox column, the picture and name with a second line, the role chosen in the row with a button that explains it and how the holder got it, and More at the end; the list of users shows status and last login. Replaces "Lists of people show a picture, the name, how they got in and the role" (Settings and lists). SPC-118, ADM-131.
 - The roles screen is three headed sections, with no search, sort, filter or heading row. Replaces "Tables of the app show rows, not boxes" for that screen. ACC-152.
 - Every list and report shows an icon of the item's kind before its title, or the page's emoji. Replaces "A page in a list" with `PageMark` (Components). NAV-156.
@@ -236,7 +236,8 @@ Use these. Reuse beats a new variant.
 | Sections of Your account | The tabs of `AccountBar` in `components/account-frame.tsx`, from `views/account-sections.ts`; each is a real address |
 | Numbers on a summary | `.tiles` |
 | A colleague in the same document | `TogetherPeople`, and a cursor with a name in words, from `renderCaret` |
-| A table people sort | `SortTable` in `components/sort-table.tsx`, which keeps `aria-sort` right |
+| A table people sort | `SortTable` in `components/sort-table.tsx` for a list sorted in the browser; a list the server sorts uses `SortHeading` (`components/sort-heading.tsx`) with its sort in the address (`components/list-address.ts`). Either way the sorted heading has accent words, one arrow and `aria-sort` |
+| The tools above a long list | `ToolRow` in `components/tool-row.tsx`: search first, a button per filter (a menu of values, or a small panel with a field), More filters, Reset, the screen's own action at the end, and the count. Every value lives in the address and goes to the server; never a second row of filters |
 | Any other table of the app | `TableBox` in `components/table-box.tsx` around the `<table>`: a wide table scrolls there, and only then is the box a named Tab stop |
 | Who else is on a page | `PresencePeople`: pictures up to five, then a number, and a quiet status line |
 | A block that fills itself | `.dynamic`, with `.dynamic-head` only while editing. Empty is one muted sentence |
@@ -264,7 +265,7 @@ Use these. Reuse beats a new variant.
 - Settings of a space and of the instance use the **Settings** frame. The sidebar holds the sections in groups that fold, and **Jump to a setting** narrows them; the administration's own search finds its sections by name and the settings inside them. Nothing in the large area runs past the window: a wide table scrolls in its own `TableBox`, and the page itself never scrolls sideways. The settings of a space (spec 083) have four entries on their own (Automation while on, People, Content, Details) and five groups, General, Access, Pages and files, Look and Connections; a new entry goes into exactly one place in `views/space-sections.ts`, with the permissions that open it and its width, and every entry starts with `SettingsSection`.
 - The administration (spec 081) has three tool sections, Overview, Tools and People and access, and five settings groups, Instance, Security, Permissions, Look and Data. A new section goes into exactly one group, in `views/admin-sections.ts`, with its width: `column` for forms and short lists, `full` for wide lists. Every section starts with `SettingsSection`.
 - Tables of the app show rows, not boxes: a quiet heading row with a line under it, rows set apart by space, a line after the last row and a tint under the pointer, no cell borders. Row actions sit in the last column, whose heading only screen readers hear. Tables inside a page keep their own rules.
-- Lists of people show a picture, the name, how they got in and the role. Someone who may change a role picks it in the row. Long lists filter with dropdowns above them.
+- Lists of people show a picture, the name, how they got in and the role. Someone who may change a role picks it in the row. A long list has one `ToolRow` above it (spec 100): its search, filters and sort are in the address and are parameters of the list's route, so the server filters and a view can be shared.
 - A rule of the instance says where it acts: in every space, or only in the chosen spaces, shown as chips.
 ## The page tree
 

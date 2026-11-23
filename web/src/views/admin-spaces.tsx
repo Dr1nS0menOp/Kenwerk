@@ -10,7 +10,11 @@ import { ConfirmButton, Dialog, ErrorNote, Field, formatSize, Loading } from '..
 import { TableBox, TableEmpty } from '../components/table-box';
 import { useDates } from '../dates';
 import { StorageLimitDialog } from './admin-storage';
-import { matchesSpaceFilter, NO_SPACE_FILTER, QUIET_MONTHS, type SpaceFilter } from './admin-space-filter';
+import { FilterNumber, ToolRow, type ToolFilter } from '../components/tool-row';
+import { choiceFilter } from '../components/tool-row-model';
+import { SortHeading } from '../components/sort-heading';
+import { BOTH_WAYS, nextSort, queryOf, sortStateOf, useListAddress } from '../components/list-address';
+import { IconClock, IconFolder, IconPage, IconStatus } from '../components/icons';
 
 interface SpaceTotal {
   id: string;
@@ -22,6 +26,13 @@ interface SpaceTotal {
 
 const MEBIBYTE = 1 << 20;
 const SPACE_COLUMNS = 7;
+/** The parameters of GET /admin/spaces that the screen sends (spec 100). */
+const SPACE_PARAMS = ['q', 'status', 'quiet_months', 'min_pages', 'min_mib', 'sort'];
+const SPACE_SORT_DEFAULT = 'name';
+const SPACE_STATUSES = ['active', 'archived'];
+/** Months without any change that make a space quiet. */
+const QUIET_MONTHS = [1, 3, 6, 12];
+const FILTER_ICON = 16;
 const TRASH_COLUMNS = 3;
 
 function RecoverDialog({ space, onClose }: { space: Space; onClose: () => void }) {
@@ -58,89 +69,92 @@ function RecoverDialog({ space, onClose }: { space: Space; onClose: () => void }
   );
 }
 
-function SpaceFilters({ filter, onChange }: { filter: SpaceFilter; onChange: (next: SpaceFilter) => void }) {
+/** The filters of Spaces (spec 100): status and quiet in the row, the sizes behind More filters. */
+function useSpaceFilters(): ToolFilter[] {
   const { t } = useTranslation();
-  const count = (raw: string) => Math.max(0, Number.parseInt(raw, 10) || 0);
-  return (
-    <div className="row">
-      <input
-        type="search"
-        value={filter.text}
-        onChange={(e) => onChange({ ...filter, text: e.target.value })}
-        aria-label={t('admin.spaceFind')}
-        placeholder={t('admin.spaceFind')}
-      />
-      <input
-        type="number"
-        min={0}
-        value={filter.minPages || ''}
-        onChange={(e) => onChange({ ...filter, minPages: count(e.target.value) })}
-        aria-label={t('admin.spaceMinPages')}
-        placeholder={t('admin.spaceMinPages')}
-      />
-      <input
-        type="number"
-        min={0}
-        value={filter.minMiB || ''}
-        onChange={(e) => onChange({ ...filter, minMiB: count(e.target.value) })}
-        aria-label={t('admin.spaceMinMiB')}
-        placeholder={t('admin.spaceMinMiB')}
-      />
-      <select
-        aria-label={t('admin.spaceQuiet')}
-        value={filter.quietMonths}
-        onChange={(e) => onChange({ ...filter, quietMonths: Number(e.target.value) })}
-      >
-        {QUIET_MONTHS.map((m) => (
-          <option key={m} value={m}>
-            {m === 0 ? `${t('admin.spaceQuiet')}: ${t('admin.any')}` : t('admin.spaceQuietFor', { count: m })}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
+  const { params } = useListAddress();
+  return [
+    choiceFilter({
+      param: 'status',
+      label: t('common.status'),
+      icon: <IconStatus size={FILTER_ICON} />,
+      place: 'row',
+      values: SPACE_STATUSES,
+      name: (s) => t(`toolRow.spaceStatus_${s}`),
+    }),
+    choiceFilter({
+      param: 'quiet_months',
+      label: t('admin.spaceQuiet'),
+      icon: <IconClock size={FILTER_ICON} />,
+      place: 'row',
+      values: QUIET_MONTHS,
+      name: (m) => t('toolRow.months', { count: m }),
+    }),
+    {
+      kind: 'field',
+      params: ['min_pages'],
+      label: t('admin.spaceMinPages'),
+      icon: <IconPage size={FILTER_ICON} />,
+      place: 'more',
+      valueText: params.get('min_pages') ?? '',
+      field: <FilterNumber param="min_pages" label={t('admin.spaceMinPages')} />,
+    },
+    {
+      kind: 'field',
+      params: ['min_mib'],
+      label: t('admin.spaceMinMiB'),
+      icon: <IconFolder size={FILTER_ICON} />,
+      place: 'more',
+      valueText: params.get('min_mib') ?? '',
+      field: <FilterNumber param="min_mib" label={t('admin.spaceMinMiB')} />,
+    },
+  ];
 }
 
 export function SpacesTab() {
   const { t } = useTranslation();
   const dates = useDates();
+  const { params, set } = useListAddress();
+  const filters = useSpaceFilters();
+  // The server filters and sorts the list; the screen sends what the address holds (spec 100, D9).
+  const query = queryOf(params, SPACE_PARAMS);
   const q = useQuery({
-    queryKey: ['admin-spaces'],
-    queryFn: () => api.get<{ spaces: Space[]; totals: SpaceTotal[] }>('/admin/spaces'),
+    queryKey: ['admin-spaces', query],
+    queryFn: () =>
+      api.get<{ spaces: Space[]; totals: SpaceTotal[]; total: number }>(`/admin/spaces?${query}`),
   });
   const [recovering, setRecovering] = useState<Space | null>(null);
   const [limiting, setLimiting] = useState<Space | null>(null);
-  const [filter, setFilter] = useState<SpaceFilter>(NO_SPACE_FILTER);
-  const now = new Date();
   const totalOf = (id: string) => q.data?.totals.find((row) => row.id === id);
-  const shown = (q.data?.spaces ?? []).filter((s) => {
-    const total = totalOf(s.id);
-    return matchesSpaceFilter(
-      {
-        name: s.name,
-        key: s.key,
-        pages: total?.pages ?? 0,
-        bytes: total?.bytes ?? 0,
-        lastActivity: total?.last_activity ?? null,
-      },
-      filter,
-      now,
-    );
-  });
+  const shown = q.data?.spaces ?? [];
+  const sort = params.get('sort') ?? '';
+  const heading = (column: string, label: string) => (
+    <SortHeading
+      label={label}
+      state={sortStateOf(sort, column, SPACE_SORT_DEFAULT, BOTH_WAYS)}
+      onSort={() => set('sort', nextSort(sort, column, SPACE_SORT_DEFAULT, BOTH_WAYS))}
+    />
+  );
   return (
     <>
       <ErrorNote error={q.error} />
-      <SpaceFilters filter={filter} onChange={setFilter} />
+      <ToolRow
+        label={t('toolRow.findSpaces')}
+        search={{ label: t('admin.spaceFind'), placeholder: t('admin.spaceFind') }}
+        filters={filters}
+        sortParam="sort"
+        count={q.data ? t('toolRow.countSpaces', { count: shown.length, total: q.data.total }) : undefined}
+      />
       <TableBox>
         <table>
           <thead>
             <tr>
-              <th>{t('common.name')}</th>
-              <th>{t('space.key')}</th>
+              {heading('name', t('common.name'))}
+              {heading('key', t('space.key'))}
               <th>{t('common.status')}</th>
-              <th>{t('admin.spacePages')}</th>
-              <th>{t('admin.spaceStorage')}</th>
-              <th>{t('admin.spaceActivity')}</th>
+              {heading('pages', t('admin.spacePages'))}
+              {heading('storage', t('admin.spaceStorage'))}
+              {heading('activity', t('admin.spaceActivity'))}
               <th>
                 <span className="visually-hidden">{t('common.actions')}</span>
               </th>

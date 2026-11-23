@@ -15,7 +15,7 @@ import {
   type Space,
   type UserDetail,
 } from '../api';
-import { Link, navigate, useLocation } from '../router';
+import { Link, navigate } from '../router';
 import { PersonName } from '../components/person';
 import { SubjectPicker } from '../components/picker';
 import { Dialog, ErrorNote, Field, Loading } from '../components/ui';
@@ -59,6 +59,27 @@ import { ControlTab } from './admin-control';
 import { MailServerPart } from './admin-mail';
 import { HelperServicesParts } from './admin-connections';
 import { TableBox, TableEmpty } from '../components/table-box';
+import {
+  FilterDate,
+  FilterPerson,
+  FilterText,
+  ToolRow,
+  usePersonWords,
+  type ToolFilter,
+} from '../components/tool-row';
+import { choiceFilter } from '../components/tool-row-model';
+import { SortHeading } from '../components/sort-heading';
+import { BOTH_WAYS, nextSort, queryOf, sortStateOf, useListAddress } from '../components/list-address';
+import {
+  IconClock,
+  IconFolder,
+  IconKey,
+  IconLock,
+  IconPage,
+  IconPeople,
+  IconPerson,
+  IconStatus,
+} from '../components/icons';
 import { pageTitle } from '../page-name';
 import {
   ADMIN_GROUPS,
@@ -69,14 +90,17 @@ import {
   type AdminSection,
 } from './admin-sections';
 
-const USER_FILTERS = ['type', 'status', 'source', 'role', 'space_id', 'group_id', 'idle_days'] as const;
+/** The parameters of GET /admin/users that the screen sends, as the address holds them (spec 100). */
+const USER_PARAMS = ['q', 'type', 'status', 'source', 'role', 'space_id', 'group_id', 'idle_days', 'sort'];
+const USER_SORT_DEFAULT = 'name';
 /** The global permissions the server can filter people on. */
 const USER_ROLES = ['administrator', 'system_administrator', 'create_space', 'invite_people'];
 const USER_TYPES = ['member', 'guest'];
 const USER_STATUSES = ['active', 'disabled'];
 const USER_SOURCES = ['local', 'oidc', 'scim'];
 const IDLE_DAYS = [30, 90, 365];
-const AUDIT_FILTERS = [
+/** The parameters of GET /admin/audit-events that the screen sends; its export takes the same. */
+const AUDIT_PARAMS = [
   'actor_id',
   'action',
   'object_type',
@@ -85,11 +109,13 @@ const AUDIT_FILTERS = [
   'result',
   'since',
   'until',
-] as const;
+];
+const AUDIT_RESULTS = ['success', 'denied', 'failure'];
+const AUDIT_PAGE = 100;
+const FILTER_ICON = 16;
 const SYSTEM_POLL_MS = 10_000;
 const USER_COLUMNS = 7;
 const AUDIT_COLUMNS = 6;
-const DATE_LENGTH = 10;
 const MAIL_SWITCHES = ['mail_enabled', 'mail_excerpts', 'reactions_enabled', 'group_mentions'] as const;
 
 function GlobalPermissions({ current, onChange }: { current: string[]; onChange: (next: string[]) => void }) {
@@ -348,55 +374,8 @@ function NewUserDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
-/** Filters that live in the address, so a view can be shared and survives a reload. */
-function useAddressFilters<K extends string>(path: string, keys: readonly K[]) {
-  const { searchParams } = useLocation();
-  const values = Object.fromEntries(keys.map((k) => [k, searchParams.get(k) ?? ''])) as Record<K, string>;
-  const set = (key: K, value: string) => {
-    const next = new URLSearchParams();
-    for (const k of keys) {
-      const v = k === key ? value : values[k];
-      if (v) next.set(k, v);
-    }
-    const query = next.toString();
-    navigate(query ? `${path}?${query}` : path, true);
-  };
-  return { values, set };
-}
-
-function FilterSelect({
-  label,
-  value,
-  options,
-  name,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  options: (string | number)[];
-  name: (option: string | number) => string;
-  onChange: (next: string) => void;
-}) {
-  const { t } = useTranslation();
-  return (
-    <select aria-label={label} value={value} onChange={(e) => onChange(e.target.value)}>
-      <option value="">{`${label}: ${t('admin.any')}`}</option>
-      {options.map((o) => (
-        <option key={o} value={o}>
-          {name(o)}
-        </option>
-      ))}
-    </select>
-  );
-}
-
-function UserFilters({
-  values,
-  set,
-}: {
-  values: Record<(typeof USER_FILTERS)[number], string>;
-  set: (key: (typeof USER_FILTERS)[number], value: string) => void;
-}) {
+/** The filters of Users (spec 100): type, role and group in the row, the rest behind More filters. */
+function useUserFilters(): ToolFilter[] {
   const { t } = useTranslation();
   const groups = useQuery({
     queryKey: ['admin-groups'],
@@ -406,59 +385,64 @@ function UserFilters({
     queryKey: ['admin-spaces'],
     queryFn: () => api.get<{ spaces: Space[] }>('/admin/spaces'),
   });
-  return (
-    <div className="row filters">
-      <FilterSelect
-        label={t('common.type')}
-        value={values.type}
-        options={USER_TYPES}
-        name={(o) => t(`admin.${o}`)}
-        onChange={(v) => set('type', v)}
-      />
-      <FilterSelect
-        label={t('common.status')}
-        value={values.status}
-        options={USER_STATUSES}
-        name={(o) => t(`admin.${o}`)}
-        onChange={(v) => set('status', v)}
-      />
-      <FilterSelect
-        label={t('admin.source')}
-        value={values.source}
-        options={USER_SOURCES}
-        name={(o) => t(`admin.source_${o}`)}
-        onChange={(v) => set('source', v)}
-      />
-      <FilterSelect
-        label={t('admin.role')}
-        value={values.role}
-        options={USER_ROLES}
-        name={(o) => t(`permissions.global_${o}`)}
-        onChange={(v) => set('role', v)}
-      />
-      <FilterSelect
-        label={t('admin.space')}
-        value={values.space_id}
-        options={spaces.data?.spaces.map((s) => s.id) ?? []}
-        name={(o) => spaces.data?.spaces.find((s) => s.id === o)?.name ?? ''}
-        onChange={(v) => set('space_id', v)}
-      />
-      <FilterSelect
-        label={t('admin.groups')}
-        value={values.group_id}
-        options={groups.data?.groups.map((g) => g.id) ?? []}
-        name={(o) => groups.data?.groups.find((g) => g.id === o)?.name ?? ''}
-        onChange={(v) => set('group_id', v)}
-      />
-      <FilterSelect
-        label={t('admin.lastLogin')}
-        value={values.idle_days}
-        options={IDLE_DAYS}
-        name={(o) => t('admin.idleDays', { count: Number(o) })}
-        onChange={(v) => set('idle_days', v)}
-      />
-    </div>
-  );
+  return [
+    choiceFilter({
+      param: 'type',
+      label: t('common.type'),
+      icon: <IconPerson size={FILTER_ICON} />,
+      place: 'row',
+      values: USER_TYPES,
+      name: (o) => t(`admin.${o}`),
+    }),
+    choiceFilter({
+      param: 'role',
+      label: t('admin.role'),
+      icon: <IconKey size={FILTER_ICON} />,
+      place: 'row',
+      values: USER_ROLES,
+      name: (o) => t(`permissions.global_${o}`),
+    }),
+    {
+      kind: 'choice',
+      param: 'group_id',
+      label: t('admin.group'),
+      icon: <IconPeople size={FILTER_ICON} />,
+      place: 'row',
+      options: groups.data?.groups.map((g) => ({ value: g.id, label: g.name })) ?? [],
+    },
+    choiceFilter({
+      param: 'status',
+      label: t('common.status'),
+      icon: <IconStatus size={FILTER_ICON} />,
+      place: 'more',
+      values: USER_STATUSES,
+      name: (o) => t(`admin.${o}`),
+    }),
+    {
+      kind: 'choice',
+      param: 'space_id',
+      label: t('admin.space'),
+      icon: <IconFolder size={FILTER_ICON} />,
+      place: 'more',
+      options: spaces.data?.spaces.map((s) => ({ value: s.id, label: s.name })) ?? [],
+    },
+    choiceFilter({
+      param: 'idle_days',
+      label: t('admin.lastLogin'),
+      icon: <IconClock size={FILTER_ICON} />,
+      place: 'more',
+      values: IDLE_DAYS,
+      name: (o) => t('admin.idleDays', { count: o }),
+    }),
+    choiceFilter({
+      param: 'source',
+      label: t('admin.howTheyLogIn'),
+      icon: <IconLock size={FILTER_ICON} />,
+      place: 'more',
+      values: USER_SOURCES,
+      name: (o) => t(`admin.source_${o}`),
+    }),
+  ];
 }
 
 function UserTable({
@@ -474,6 +458,15 @@ function UserTable({
 }) {
   const { t } = useTranslation();
   const dates = useDates();
+  const { params, set } = useListAddress();
+  const sort = params.get('sort') ?? '';
+  const heading = (column: string, label: string) => (
+    <SortHeading
+      label={label}
+      state={sortStateOf(sort, column, USER_SORT_DEFAULT, BOTH_WAYS)}
+      onSort={() => set('sort', nextSort(sort, column, USER_SORT_DEFAULT, BOTH_WAYS))}
+    />
+  );
   return (
     <TableBox>
       <table>
@@ -482,12 +475,12 @@ function UserTable({
             <th>
               <span className="visually-hidden">{t('admin.select')}</span>
             </th>
-            <th>{t('common.name')}</th>
-            <th>{t('common.email')}</th>
+            {heading('name', t('common.name'))}
+            {heading('email', t('common.email'))}
             <th>{t('common.type')}</th>
             <th>{t('admin.source')}</th>
             <th>{t('common.status')}</th>
-            <th>{t('admin.lastLogin')}</th>
+            {heading('last_login', t('admin.lastLogin'))}
           </tr>
         </thead>
         <tbody>
@@ -531,16 +524,15 @@ function UserTable({
 function UsersTab() {
   const { t } = useTranslation();
   const client = useQueryClient();
-  const { values, set } = useAddressFilters('/admin/users', USER_FILTERS);
-  const [text, setText] = useState('');
+  const { params } = useListAddress();
+  const filters = useUserFilters();
   const [adding, setAdding] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
-  const query = new URLSearchParams({ q: text });
-  for (const key of USER_FILTERS) if (values[key]) query.set(key, values[key]);
+  const query = queryOf(params, USER_PARAMS);
   const q = useQuery({
-    queryKey: ['admin-users', query.toString()],
-    queryFn: () => api.get<{ users: UserDetail[]; total: number }>(`/admin/users?${query.toString()}`),
+    queryKey: ['admin-users', query],
+    queryFn: () => api.get<{ users: UserDetail[]; total: number }>(`/admin/users?${query}`),
   });
   const selected = q.data?.users.find((u) => u.id === open);
   const toggle = (id: string) =>
@@ -552,16 +544,13 @@ function UsersTab() {
           {t('admin.newUser')}
         </button>
       </SectionActions>
-      <div className="row">
-        <input
-          type="search"
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          aria-label={t('common.search')}
-          placeholder={t('common.search')}
-        />
-      </div>
-      <UserFilters values={values} set={set} />
+      <ToolRow
+        label={t('toolRow.findPeople')}
+        search={{ label: t('toolRow.searchPeople'), placeholder: t('toolRow.searchPeople') }}
+        filters={filters}
+        sortParam="sort"
+        count={q.data ? t('toolRow.countPeople', { count: q.data.total }) : undefined}
+      />
       <ErrorNote error={q.error} />
       {picked.length > 0 && (
         <BulkBar
@@ -840,16 +829,94 @@ function PageNoteFacts({ id }: { id: string }) {
   );
 }
 
+/** The filters of the Audit log (spec 100): person and time in the row, the rest behind More filters. */
+function useAuditFilters(params: URLSearchParams): ToolFilter[] {
+  const { t } = useTranslation();
+  const dates = useDates();
+  const actor = usePersonWords(params.get('actor_id') ?? '');
+  const spaces = useQuery({
+    queryKey: ['admin-spaces'],
+    queryFn: () => api.get<{ spaces: Space[] }>('/admin/spaces'),
+  });
+  const since = params.get('since') ?? '';
+  const until = params.get('until') ?? '';
+  const time = [
+    since && t('toolRow.from', { day: dates.day(since) }),
+    until && t('toolRow.until', { day: dates.day(until) }),
+  ]
+    .filter(Boolean)
+    .join(' ');
+  return [
+    {
+      kind: 'field',
+      params: ['actor_id'],
+      label: t('admin.actor'),
+      icon: <IconPerson size={FILTER_ICON} />,
+      place: 'row',
+      valueText: actor,
+      field: <FilterPerson param="actor_id" label={t('admin.filterActor')} />,
+    },
+    {
+      kind: 'field',
+      params: ['since', 'until'],
+      label: t('toolRow.time'),
+      icon: <IconClock size={FILTER_ICON} />,
+      place: 'row',
+      valueText: time,
+      field: (
+        <>
+          <FilterDate param="since" label={t('admin.since')} as="moment" />
+          <FilterDate param="until" label={t('admin.until')} as="moment" />
+        </>
+      ),
+    },
+    {
+      kind: 'field',
+      params: ['object_type'],
+      label: t('admin.object'),
+      icon: <IconPage size={FILTER_ICON} />,
+      place: 'more',
+      valueText: params.get('object_type') ?? '',
+      field: <FilterText param="object_type" label={t('admin.filterObject')} />,
+    },
+    {
+      kind: 'field',
+      params: ['object_id'],
+      label: t('admin.objectId'),
+      icon: <IconKey size={FILTER_ICON} />,
+      place: 'more',
+      valueText: params.get('object_id') ?? '',
+      field: <FilterText param="object_id" label={t('admin.filterObjectId')} />,
+    },
+    {
+      kind: 'choice',
+      param: 'space_id',
+      label: t('admin.space'),
+      icon: <IconFolder size={FILTER_ICON} />,
+      place: 'more',
+      options: spaces.data?.spaces.map((s) => ({ value: s.id, label: s.name })) ?? [],
+    },
+    choiceFilter({
+      param: 'result',
+      label: t('admin.result'),
+      icon: <IconStatus size={FILTER_ICON} />,
+      place: 'more',
+      values: AUDIT_RESULTS,
+      name: (r) => t(`toolRow.result_${r}`),
+    }),
+  ];
+}
+
 function AuditTab() {
   const { t } = useTranslation();
   const dates = useDates();
-  const { values, set } = useAddressFilters('/admin/audit', AUDIT_FILTERS);
+  const { params } = useListAddress();
+  const filters = useAuditFilters(params);
   const [open, setOpen] = useState<AuditEvent | null>(null);
-  const query = new URLSearchParams({ limit: '100' });
-  for (const key of AUDIT_FILTERS) if (values[key]) query.set(key, values[key]);
+  const query = queryOf(params, AUDIT_PARAMS);
   const q = useQuery({
-    queryKey: ['audit', query.toString()],
-    queryFn: () => api.get<{ events: AuditEvent[] }>(`/admin/audit-events?${query.toString()}`),
+    queryKey: ['audit', query],
+    queryFn: () => api.get<{ events: AuditEvent[] }>(`/admin/audit-events?limit=${AUDIT_PAGE}&${query}`),
   });
   const verify = useMutation({
     mutationFn: () =>
@@ -859,65 +926,24 @@ function AuditTab() {
   });
   return (
     <>
-      <div className="row">
-        <input
-          value={values.action}
-          onChange={(e) => set('action', e.target.value)}
-          aria-label={t('admin.filterAction')}
-          placeholder={t('admin.filterAction')}
-        />
-        <input
-          value={values.object_type}
-          onChange={(e) => set('object_type', e.target.value)}
-          aria-label={t('admin.filterObject')}
-          placeholder={t('admin.filterObject')}
-        />
-        <input
-          value={values.object_id}
-          onChange={(e) => set('object_id', e.target.value)}
-          aria-label={t('admin.filterObjectId')}
-          placeholder={t('admin.filterObjectId')}
-        />
-        <input
-          value={values.actor_id}
-          onChange={(e) => set('actor_id', e.target.value)}
-          aria-label={t('admin.filterActor')}
-          placeholder={t('admin.filterActor')}
-        />
-        <input
-          value={values.space_id}
-          onChange={(e) => set('space_id', e.target.value)}
-          aria-label={t('admin.filterSpace')}
-          placeholder={t('admin.filterSpace')}
-        />
-        <FilterSelect
-          label={t('admin.result')}
-          value={values.result}
-          options={['success', 'denied', 'failure']}
-          name={String}
-          onChange={(v) => set('result', v)}
-        />
-        <Field label={t('admin.since')}>
-          <input
-            type="date"
-            value={values.since.slice(0, DATE_LENGTH)}
-            onChange={(e) => set('since', e.target.value ? new Date(e.target.value).toISOString() : '')}
-          />
-        </Field>
-        <Field label={t('admin.until')}>
-          <input
-            type="date"
-            value={values.until.slice(0, DATE_LENGTH)}
-            onChange={(e) => set('until', e.target.value ? new Date(e.target.value).toISOString() : '')}
-          />
-        </Field>
-        <a className="button" href="/api/v1/admin/audit-events/export">
+      <SectionActions>
+        {/* The export holds the rows of the view: the same filters go to it (spec 100, D13). */}
+        <a className="button" href={`/api/v1/admin/audit-events/export${query ? `?${query}` : ''}`}>
           {t('admin.exportCsv')}
         </a>
         <button type="button" onClick={() => verify.mutate()}>
           {t('admin.verify')}
         </button>
-      </div>
+      </SectionActions>
+      <ToolRow
+        label={t('toolRow.findEvents')}
+        search={{
+          label: t('toolRow.searchAction'),
+          placeholder: t('toolRow.searchActionHint'),
+          param: 'action',
+        }}
+        filters={filters}
+      />
       <ErrorNote error={q.error ?? verify.error} />
       {verify.data && (
         <Notice kind={verify.data.ok ? 'info' : 'error'}>
@@ -931,7 +957,7 @@ function AuditTab() {
         <table>
           <thead>
             <tr>
-              <th>{t('admin.when')}</th>
+              <SortHeading label={t('admin.when')} state="descending" />
               <th>{t('admin.actor')}</th>
               <th>{t('admin.action')}</th>
               <th>{t('admin.object')}</th>

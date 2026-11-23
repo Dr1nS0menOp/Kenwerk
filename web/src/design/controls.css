@@ -1073,6 +1073,33 @@ th {
   font-weight: var(--weight-strong);
 }
 
+/* A heading that sorts is its own words as a button, in the heading's look (NAV-157). */
+.sort-heading {
+  min-block-size: 0;
+  padding: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+}
+
+.sort-heading:hover {
+  background: none;
+  color: var(--color-ink);
+  text-decoration: underline;
+}
+
+/* The sorted column: accent words and one arrow right after them (NAV-157, ADM-110). */
+th.sorted,
+th.sorted .sort-heading {
+  color: var(--color-accent);
+}
+
+.sort-arrow {
+  display: inline-flex;
+  margin-inline-start: var(--space-1);
+  vertical-align: middle;
+}
+
 td.row {
   display: table-cell;
 }

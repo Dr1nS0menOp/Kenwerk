@@ -1,6 +1,6 @@
 # 081: The administration, as blueprint 03 arranges it
 
-Status: built in wave SC4 (2026-11-20), steps 0 to 9 and 11; step 10 (tool rows, ADM-103) moved to a wave of its own (D25)
+Status: built in wave SC4 (2026-11-20), steps 0 to 9 and 11; step 10 (tool rows, ADM-103) moved to a wave of its own (D25) and was built in wave TR1 (spec 100)
 Phase: the screens of blueprint 03, fourth item of the order in `docs/handoff/2026-11-15-screens-study.md` (wave SC4), after the study of 2026-11-14 (ADR-045)
 
 ## Where `main` moved since this plan (2026-11-20)

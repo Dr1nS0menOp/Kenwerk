@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import { useMemo, useState, type ReactNode } from 'react';
 import { TableBox } from './table-box';
+import { SortHeading } from './sort-heading';
+import type { SortState } from './list-address';
 
 export interface SortColumn<Row> {
   key: string;
@@ -40,7 +42,7 @@ export function SortTable<Row>({
     const column = columns.find((c) => c.key === sorted?.key);
     return column && sorted ? sortRows(rows, column.value, sorted.ascending) : rows;
   }, [columns, rows, sorted]);
-  const stateOf = (key: string) => {
+  const stateOf = (key: string): SortState => {
     if (sorted?.key !== key) return 'none';
     return sorted.ascending ? 'ascending' : 'descending';
   };
@@ -51,17 +53,14 @@ export function SortTable<Row>({
         <thead>
           <tr>
             {columns.map((c) => (
-              <th key={c.key} scope="col" aria-sort={stateOf(c.key)}>
-                <button
-                  type="button"
-                  className="ghost"
-                  onClick={() =>
-                    setSorted({ key: c.key, ascending: sorted?.key === c.key ? !sorted.ascending : true })
-                  }
-                >
-                  {c.label}
-                </button>
-              </th>
+              <SortHeading
+                key={c.key}
+                label={c.label}
+                state={stateOf(c.key)}
+                onSort={() =>
+                  setSorted({ key: c.key, ascending: sorted?.key === c.key ? !sorted.ascending : true })
+                }
+              />
             ))}
           </tr>
         </thead>

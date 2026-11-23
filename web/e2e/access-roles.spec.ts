@@ -97,6 +97,8 @@ test('someone holds several roles, and each opens to show what it gives', async 
   const name = unique('helper');
   const id = await createNamedUser(browser, `${name}@example.com`, name);
   await page.goto(`/spaces/${space.key}/settings?section=people`);
+  // The way of adding holders opens from Add people at the end of the row of tools (spec 100, D11).
+  await page.getByRole('button', { name: 'Add people' }).click();
   await page.getByPlaceholder('Give a role to').fill(name);
   await page.getByRole('option', { name: new RegExp(`${name}@example.com`) }).click();
   await page.getByLabel(`Role to give ${name}`).selectOption({ label: 'Viewer' });
@@ -105,6 +107,8 @@ test('someone holds several roles, and each opens to show what it gives', async 
   await expect(row.locator('summary')).toHaveText(['Viewer']);
 
   // Giving access again adds a role and keeps the one held.
+  // The way of adding holders opens from Add people at the end of the row of tools (spec 100, D11).
+  await page.getByRole('button', { name: 'Add people' }).click();
   await page.getByPlaceholder('Give a role to').fill(name);
   await page.getByRole('option', { name: new RegExp(`${name}@example.com`) }).click();
   await page.getByLabel(`Role to give ${name}`).selectOption({ label: 'Editor' });

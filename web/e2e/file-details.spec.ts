@@ -191,12 +191,18 @@ test('the Files screen filters by type and label, and deletes many at once', asy
     .getByRole('link', { name: /\.(txt|pdf)$/ });
   await expect(links).toHaveCount(3);
 
-  await page.getByLabel('Filter by type').selectOption('pdf');
+  // A filter is a button of the tool row with a menu of its values (spec 100).
+  const choose = async (filter: RegExp, value: string) => {
+    await page.getByRole('button', { name: filter }).click();
+    await page.getByRole('menuitemradio', { name: value, exact: true }).click();
+  };
+  await choose(/^Filter by type/, 'PDF');
   await expect(links).toHaveCount(1);
-  await page.getByLabel('Filter by type').selectOption('');
-  await page.getByLabel('Filter by label').selectOption('minutes');
+  await expect(page).toHaveURL(/kind=pdf/);
+  await choose(/^Filter by type/, 'Any');
+  await choose(/^Filter by label/, 'minutes');
   await expect(links).toHaveCount(1);
-  await page.getByLabel('Filter by label').selectOption('');
+  await choose(/^Filter by label/, 'Any');
   await expect(links).toHaveCount(3);
   await checkAccessibility(page);
 

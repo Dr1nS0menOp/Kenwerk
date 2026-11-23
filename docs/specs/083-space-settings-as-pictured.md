@@ -1,6 +1,6 @@
 # 083: The settings of a space, as blueprint 03 arranges them
 
-Status: built in wave SC5 on top of SC1 (spec 078) and SC4 (spec 081), steps 0 to 6 and 9; step 7 (the row of tools of People) and step 8 (column order and sort marks of the tables) moved to the wave of the tool rows (D33, D34). "As built" at the end says what differs from the plan
+Status: built in wave SC5 on top of SC1 (spec 078) and SC4 (spec 081), steps 0 to 6 and 9; step 7 (the row of tools of People) and step 8 (column order and sort marks of the tables) moved to the wave of the tool rows (D33, D34), built in wave TR1 (spec 100). "As built" at the end says what differs from the plan
 Phase: the screens of blueprint 03, fourth item of the order in `docs/handoff/2026-11-15-screens-study.md`, second part (wave SC5), after the study of 2026-11-14 (ADR-045)
 
 ## Problem

@@ -1019,6 +1019,11 @@ func (s *Server) handleRecoverPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleAdminSpaces(w http.ResponseWriter, r *http.Request) {
+	query, err := parseAdminSpaceQuery(r.URL.Query())
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
+		return
+	}
 	list, err := s.deps.Spaces.ListAll(r.Context())
 	if err != nil {
 		s.fail(w, r, err)
@@ -1029,7 +1034,8 @@ func (s *Server) handleAdminSpaces(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"spaces": list, "totals": totals})
+	kept, keptTotals := filterAdminSpaces(list, totals, query, time.Now())
+	writeJSON(w, http.StatusOK, map[string]any{"spaces": kept, "totals": keptTotals, "total": len(list)})
 }
 
 func (s *Server) handleAdminTrashedSpaces(w http.ResponseWriter, r *http.Request) {

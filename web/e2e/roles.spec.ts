@@ -28,6 +28,8 @@ test('a role is made, given in a space, and changed after a preview', async ({ p
   // Give it to a person in the space, from the space's settings.
   await page.goto(`/spaces/${space.key}/settings?section=roles`);
   await expect(page.getByRole('heading', { name: 'People', level: 1 })).toBeVisible();
+  // The way of adding holders opens from Add people at the end of the row of tools (spec 100, D11).
+  await page.getByRole('button', { name: 'Add people' }).click();
   await page.getByPlaceholder('Give a role to').fill(person);
   await page.getByRole('option', { name: new RegExp(email) }).click();
   await page.getByLabel(`Role to give ${person}`).selectOption({ label: roleName });

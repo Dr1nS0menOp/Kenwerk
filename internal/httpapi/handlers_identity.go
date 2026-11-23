@@ -471,9 +471,15 @@ func (s *Server) handleUsers(w http.ResponseWriter, r *http.Request) {
 		badBody(w)
 		return
 	}
+	order, err := parseListSort(q.Get("sort"), identity.UserSorts...)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
+		return
+	}
 	list, total, err := s.deps.Identity.ListUsers(r.Context(), identity.UserFilter{Text: q.Get("q"), Type: q.Get("type"),
 		Status: q.Get("status"), Source: q.Get("source"), GroupID: group, IdleDays: queryInt(r, "idle_days"),
-		Role: role, SpaceID: space, Limit: queryInt(r, "limit"), Offset: queryInt(r, "offset")})
+		Role: role, SpaceID: space, Sort: order.Column, Reverse: order.Reverse,
+		Limit: queryInt(r, "limit"), Offset: queryInt(r, "offset")})
 	if err != nil {
 		s.fail(w, r, err)
 		return

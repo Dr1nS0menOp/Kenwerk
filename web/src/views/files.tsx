@@ -11,6 +11,10 @@ import { Frame, spaceByKeyQuery } from '../components/frame';
 import { ConfirmButton, ErrorNote, formatSize, Loading } from '../components/ui';
 import { useDates } from '../dates';
 import { pageTitle } from '../page-name';
+import { ToolRow, type ToolFilter } from '../components/tool-row';
+import { choiceFilter } from '../components/tool-row-model';
+import { queryOf, useListAddress } from '../components/list-address';
+import { IconPage, IconPerson, IconStatus } from '../components/icons';
 
 const FILES_PAGE_SIZE = 50;
 const FILE_KINDS = ['image', 'media', 'pdf', 'text', 'office', 'other'] as const;
@@ -37,11 +41,9 @@ interface FileChoices {
   uploaders: { id: string; name: string }[];
 }
 
-interface FileFilters {
-  kind: string;
-  label: string;
-  uploader: string;
-}
+/** The parameters of GET /spaces/{id}/files that the list sends, as the address holds them (spec 100). */
+const FILE_PARAMS = ['q', 'kind', 'label', 'uploader'];
+const FILTER_ICON = 16;
 
 function FileTable({
   files,
@@ -132,61 +134,39 @@ export function SpaceUsage({ space }: { space: Space }) {
 }
 
 /** The choices come from the server, so they hold nothing from a page this person cannot see. */
-function FilterRow({
-  space,
-  filters,
-  onChange,
-}: {
-  space: Space;
-  filters: FileFilters;
-  onChange: (next: FileFilters) => void;
-}) {
+function useFileFilters(space: Space): { filters: ToolFilter[]; error: unknown } {
   const { t } = useTranslation();
   const choices = useQuery({
     queryKey: ['file-choices', space.id],
     queryFn: () => api.get<FileChoices>(`/spaces/${space.id}/files/filters`),
   });
-  return (
-    <>
-      <ErrorNote error={choices.error} />
-      <select
-        aria-label={t('files.filterKind')}
-        value={filters.kind}
-        onChange={(e) => onChange({ ...filters, kind: e.target.value })}
-      >
-        <option value="">{t('files.anyKind')}</option>
-        {FILE_KINDS.map((kind) => (
-          <option key={kind} value={kind}>
-            {t(`files.kind_${kind}`)}
-          </option>
-        ))}
-      </select>
-      <select
-        aria-label={t('files.filterLabel')}
-        value={filters.label}
-        onChange={(e) => onChange({ ...filters, label: e.target.value })}
-      >
-        <option value="">{t('files.anyLabel')}</option>
-        {choices.data?.labels.map((label) => (
-          <option key={label} value={label}>
-            {label}
-          </option>
-        ))}
-      </select>
-      <select
-        aria-label={t('files.filterPerson')}
-        value={filters.uploader}
-        onChange={(e) => onChange({ ...filters, uploader: e.target.value })}
-      >
-        <option value="">{t('files.anyone')}</option>
-        {choices.data?.uploaders.map((person) => (
-          <option key={person.id} value={person.id}>
-            {person.name}
-          </option>
-        ))}
-      </select>
-    </>
-  );
+  const filters: ToolFilter[] = [
+    choiceFilter({
+      param: 'kind',
+      label: t('files.filterKind'),
+      icon: <IconPage size={FILTER_ICON} />,
+      place: 'row',
+      values: FILE_KINDS,
+      name: (kind) => t(`files.kind_${kind}`),
+    }),
+    choiceFilter({
+      param: 'label',
+      label: t('files.filterLabel'),
+      icon: <IconStatus size={FILTER_ICON} />,
+      place: 'row',
+      values: choices.data?.labels ?? [],
+      name: (label) => label,
+    }),
+    {
+      kind: 'choice',
+      param: 'uploader',
+      label: t('files.filterPerson'),
+      icon: <IconPerson size={FILTER_ICON} />,
+      place: 'row',
+      options: choices.data?.uploaders.map((p) => ({ value: p.id, label: p.name })) ?? [],
+    },
+  ];
+  return { filters, error: choices.error };
 }
 
 function BulkDelete({ space, picked, onDone }: { space: Space; picked: string[]; onDone: () => void }) {
@@ -224,10 +204,10 @@ function BulkDelete({ space, picked, onDone }: { space: Space; picked: string[];
 
 export function FileList({ space }: { space: Space }) {
   const { t } = useTranslation();
-  const [search, setSearch] = useState('');
-  const [filters, setFilters] = useState<FileFilters>({ kind: '', label: '', uploader: '' });
+  const { params } = useListAddress();
+  const { filters, error } = useFileFilters(space);
   const [picked, setPicked] = useState<string[]>([]);
-  const query = new URLSearchParams({ q: search, ...filters }).toString();
+  const query = queryOf(params, FILE_PARAMS);
   const q = useInfiniteQuery({
     queryKey: ['space-files', space.id, query],
     initialPageParam: 0,
@@ -242,16 +222,12 @@ export function FileList({ space }: { space: Space }) {
     setPicked((current) => (current.includes(id) ? current.filter((x) => x !== id) : [...current, id]));
   return (
     <>
-      <div className="file-filters">
-        <input
-          type="search"
-          aria-label={t('files.search')}
-          placeholder={t('files.search')}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <FilterRow space={space} filters={filters} onChange={setFilters} />
-      </div>
+      <ToolRow
+        label={t('files.find')}
+        search={{ label: t('files.search'), placeholder: t('files.search') }}
+        filters={filters}
+      />
+      <ErrorNote error={error} />
       {canDelete && <BulkDelete space={space} picked={picked} onDone={() => setPicked([])} />}
       {q.isPending && <Loading />}
       <ErrorNote error={q.error} />

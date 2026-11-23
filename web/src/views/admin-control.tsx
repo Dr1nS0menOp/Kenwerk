@@ -6,6 +6,8 @@ import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type WorkflowTemplate } from '../api';
 import { TableBox } from '../components/table-box';
+import { EmptyState } from '../components/empty-state';
+import { SectionActions } from '../components/settings-section';
 import { ConfirmButton, Dialog, ErrorNote, Loading } from '../components/ui';
 import { WorkflowEditor, type WorkflowDraft } from '../components/workflow-editor';
 import { startsQuery, useTranslatedExample } from './space-workflows';
@@ -78,17 +80,21 @@ export function ControlTab() {
     );
   }
   const list = q.data?.templates ?? [];
+  const newTemplate = (
+    <button type="button" className="primary" onClick={() => setChoosing(true)}>
+      {t('controlAdmin.new')}
+    </button>
+  );
   return (
     <section>
       <p className="muted">{t('controlAdmin.intro')}</p>
       <ErrorNote error={q.error ?? archive.error} />
-      <p>
-        <button type="button" className="primary" onClick={() => setChoosing(true)}>
-          {t('controlAdmin.new')}
-        </button>
-      </p>
+      {/* While there is none, the empty block holds the one button that makes the first (NAV-173). */}
+      {list.length > 0 && <SectionActions>{newTemplate}</SectionActions>}
       {list.length === 0 ? (
-        <p className="muted">{t('controlAdmin.none')}</p>
+        <EmptyState title={t('controlAdmin.emptyTitle')} action={newTemplate}>
+          {t('controlAdmin.none')}
+        </EmptyState>
       ) : (
         <TableBox>
           <table>

@@ -7,7 +7,12 @@ import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, NIL_ID, type GrantPreview, type Me, type Space, type Subject } from '../api';
-import { IconClose } from '../components/icons';
+import { IconClose, IconKey, IconMore, IconPeople } from '../components/icons';
+import { Menu, MenuDownload } from '../components/menu';
+import { SectionActions } from '../components/settings-section';
+import { ToolRow, type ToolFilter } from '../components/tool-row';
+import { choiceFilter } from '../components/tool-row-model';
+import { queryOf, useListAddress } from '../components/list-address';
 import { PersonPicture, personQuery } from '../components/person';
 import { SubjectPicker } from '../components/picker';
 import { Avatar, Dialog, ErrorNote, Field, Loading } from '../components/ui';
@@ -21,8 +26,15 @@ const NO_CHOICE = '';
 interface Assignment {
   subject: Subject;
   name: string;
+  /** For a person: member, guest or service (SPC-119). */
+  user_type?: 'member' | 'guest' | 'service';
   roles: { id: string; name: string }[];
 }
+
+/** The parameters of GET /spaces/{id}/role-assignments that People sends (spec 100). */
+const HOLDER_PARAMS = ['q', 'kind', 'role'];
+const HOLDER_KINDS = ['person', 'group', 'service', 'all_members', 'all_guests'];
+const FILTER_ICON = 16;
 
 interface RoleChange {
   subject: Subject;
@@ -52,8 +64,11 @@ function SubjectPicture({ subject, name }: { subject: Subject; name: string }) {
   return <Avatar name={name} />;
 }
 
-function SubjectKind({ subject }: { subject: Subject }) {
+/** The second line of a holder (SPC-119): what kind of holder they are, a service account or a guest included. */
+function SubjectKind({ subject, userType }: { subject: Subject; userType?: Assignment['user_type'] }) {
   const { t } = useTranslation();
+  if (userType === 'service') return <>{t('access.kind_service_one')}</>;
+  if (userType === 'guest') return <>{t('admin.guest')}</>;
   if (subject.type === 'user') return <>{t('roles.subject_user')}</>;
   if (subject.type === 'group') return <>{t('roles.subject_group')}</>;
   return <>{t('people.everyoneOfAKind')}</>;
@@ -266,7 +281,7 @@ function HolderRow({
       <span className="member-text">
         <span className="member-name">{name}</span>
         <span className="muted">
-          <SubjectKind subject={assignment.subject} />
+          <SubjectKind subject={assignment.subject} userType={assignment.user_type} />
         </span>
         <ul className="held-roles" aria-label={t('access.rolesOf', { name })}>
           {held.map((role) => (
@@ -373,28 +388,89 @@ function AddHolder({
   );
 }
 
-/** Who holds which role in a space, for whoever manages access there: on the Access screen and in the settings. */
+/**
+ * Add people (SPC-120, spec 100 D11): the way of adding holders, in a dialog. It reads the whole
+ * list, not the filtered one, so someone who already holds roles keeps them and gains this one.
+ */
+function AddPeopleDialog({
+  path,
+  roles,
+  onClose,
+  onChange,
+}: {
+  path: string;
+  roles: Role[];
+  onClose: () => void;
+  onChange: (next: RoleChange) => void;
+}) {
+  const { t } = useTranslation();
+  const all = useQuery({
+    queryKey: ['role-assignments', path, ''],
+    queryFn: () => api.get<{ assignments: Assignment[] }>(path),
+  });
+  return (
+    <Dialog title={t('access.addPeople')} onClose={onClose}>
+      <ErrorNote error={all.error} />
+      {all.data ? (
+        <AddHolder roles={roles} holders={all.data.assignments} onChange={onChange} />
+      ) : (
+        <Loading />
+      )}
+    </Dialog>
+  );
+}
+
+/** The filters of People (SPC-120, spec 100 D10): the kind of holder and the role, nothing chosen at first. */
+function holderFilters(t: (key: string) => string, roles: Role[]): ToolFilter[] {
+  return [
+    choiceFilter({
+      param: 'kind',
+      label: t('access.kindFilter'),
+      icon: <IconPeople size={FILTER_ICON} />,
+      place: 'row',
+      values: HOLDER_KINDS,
+      name: (kind) => t(`access.kind_${kind}`),
+    }),
+    {
+      kind: 'choice',
+      param: 'role',
+      label: t('access.roleFilter'),
+      icon: <IconKey size={FILTER_ICON} />,
+      place: 'row',
+      options: roles.map((r) => ({ value: r.id, label: r.name })),
+    },
+  ];
+}
+
+/** Who holds which role in a space, for whoever manages access there: the section People of the settings. */
 export function SpaceRolesPanel({ space }: { space: Space }) {
   const { t } = useTranslation();
+  const { params } = useListAddress();
+  // The server narrows the holders, inside the same rule as the whole list (spec 100, D9).
   const path = `/spaces/${space.id}/role-assignments`;
+  const query = queryOf(params, HOLDER_PARAMS);
   const assignments = useQuery({
-    queryKey: ['role-assignments', path],
-    queryFn: () => api.get<{ assignments: Assignment[] }>(path),
+    queryKey: ['role-assignments', path, query],
+    queryFn: () => api.get<{ assignments: Assignment[] }>(`${path}?${query}`),
   });
   const roles = useRoles('space');
   const me = useQuery({ queryKey: ['me'], queryFn: () => api.get<Me>('/me') });
   const isAdministrator = me.data?.global_permissions.includes('administrator') ?? false;
   const change = useRoleChange(space);
-  const [text, setText] = useState('');
+  const [adding, setAdding] = useState(false);
   const [naming, setNaming] = useState<Role | null>(null);
   const error = assignments.error ?? roles.error;
   if (error) return <ErrorNote error={error} />;
   if (!assignments.data || !roles.data) return <Loading />;
   const list = roles.data.roles;
-  const wanted = text.trim().toLowerCase();
-  const shown = assignments.data.assignments.filter((a) => subjectLabel(t, a).toLowerCase().includes(wanted));
+  const shown = assignments.data.assignments;
   return (
     <section>
+      <SectionActions>
+        <Menu label={t('common.more')} trigger={<IconMore size={FILTER_ICON} />}>
+          <MenuDownload href={`/api/v1/spaces/${space.id}/access.csv`}>{t('admin.exportCsv')}</MenuDownload>
+        </Menu>
+      </SectionActions>
       <p className="muted">{t('access.rolesHelp')}</p>
       <ErrorNote error={change.error} />
       {change.lastPreview && (
@@ -402,15 +478,18 @@ export function SpaceRolesPanel({ space }: { space: Space }) {
           <PreviewText preview={change.lastPreview} />
         </div>
       )}
-      <input
-        type="search"
-        className="list-filter"
-        value={text}
-        aria-label={t('access.search')}
-        placeholder={t('access.search')}
-        onChange={(e) => setText(e.target.value)}
+      <ToolRow
+        label={t('access.findHolders')}
+        search={{ label: t('access.search'), placeholder: t('access.search') }}
+        filters={holderFilters(t, list)}
+        action={
+          <button type="button" className="primary" onClick={() => setAdding(true)}>
+            {t('access.addPeople')}
+          </button>
+        }
+        count={t('access.countHolders', { count: shown.length })}
       />
-      {assignments.data.assignments.length === 0 && <p className="muted">{t('roles.nobody')}</p>}
+      {shown.length === 0 && <p className="muted">{query ? t('access.noneFit') : t('roles.nobody')}</p>}
       <ul className="member-list">
         {shown.map((a) => (
           <HolderRow
@@ -424,7 +503,17 @@ export function SpaceRolesPanel({ space }: { space: Space }) {
           />
         ))}
       </ul>
-      <AddHolder roles={list} holders={assignments.data.assignments} onChange={change.change} />
+      {adding && (
+        <AddPeopleDialog
+          path={path}
+          roles={list}
+          onClose={() => setAdding(false)}
+          onChange={(next) => {
+            setAdding(false);
+            change.change(next);
+          }}
+        />
+      )}
       {naming && <NameRoleDialog role={naming} onClose={() => setNaming(null)} />}
       {change.asking && (
         <Dialog title={t('access.confirmTitle')} onClose={change.cancel}>

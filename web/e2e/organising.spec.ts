@@ -123,8 +123,11 @@ test('writing a template with a field and instruction text', async ({ page }) =>
   const space = await newSpace(page, 'Writing templates');
   await page.goto(`/spaces/${space.key}/templates`);
   const name = unique('Template');
-  await page.getByLabel('New template name').fill(name);
+  // A space without templates offers the first through its empty block, which asks for the name (spec 100).
   await page.getByRole('button', { name: 'New template' }).click();
+  const naming = page.getByRole('dialog', { name: 'New template' });
+  await naming.getByLabel('New template name').fill(name);
+  await naming.getByRole('button', { name: 'Create' }).click();
   await expect(page.locator('.prose.editing')).toBeVisible();
   await page.locator('.prose.editing').click();
   await editorSettled(page);
@@ -167,8 +170,11 @@ test('a template that makes a set: the Pages list, then one action makes every p
   const space = await newSpace(page, 'Template sets');
   await page.goto(`/spaces/${space.key}/templates`);
   const name = unique('Onboarding');
-  await page.getByLabel('New template name').fill(name);
+  // A space without templates offers the first through its empty block, which asks for the name (spec 100).
   await page.getByRole('button', { name: 'New template' }).click();
+  const naming = page.getByRole('dialog', { name: 'New template' });
+  await naming.getByLabel('New template name').fill(name);
+  await naming.getByRole('button', { name: 'Create' }).click();
   const pages = page.getByRole('region', { name: 'Pages this template makes' });
   await expect(pages.getByRole('cell', { name: 'First page' })).toBeVisible();
   await pages.getByLabel('Name of the page').fill('Equipment');
@@ -463,7 +469,11 @@ test('the Content screen filters, shows a summary and reports', async ({ page })
   const id = await publishedPage(page, space.id, 'Tidy me', 'x', space.home_page_id);
   await page.request.post(`/api/v1/pages/${id}/labels`, { data: { label: 'tidy' } });
   await page.goto(`/spaces/${space.key}/content`);
-  await page.getByRole('form', { name: 'Filters' }).getByLabel('Labels').fill('tidy');
+  await page
+    .getByRole('group', { name: 'Filters', exact: true })
+    .getByRole('button', { name: 'Labels', exact: true })
+    .click();
+  await page.getByRole('group', { name: 'Labels', exact: true }).getByLabel('Labels').fill('tidy');
   await expect(page).toHaveURL(/label=tidy/);
   await expect(page.getByText('1 page', { exact: true })).toBeVisible();
   await page.getByRole('checkbox', { name: 'Tidy me' }).check();

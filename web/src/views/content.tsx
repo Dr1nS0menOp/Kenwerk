@@ -1,25 +1,53 @@
 // SPDX-License-Identifier: Apache-2.0
 // The Content screen: one table to keep a space tidy (spec 011, D12).
 import { pagePath } from '../addresses';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type BulkFailure, type ContentRow, type DirectoryEntry, type Job, type TreeNode } from '../api';
-import { Link, navigate, useLocation } from '../router';
+import { Link } from '../router';
 import { spaceByKeyQuery } from '../components/frame';
 import { SpaceToolFrame } from './space-settings-frame';
 import { SubjectPicker } from '../components/picker';
 import { StageMark } from '../components/page-marks';
 import { Dialog, ErrorNote, Field, Loading, RelativeTime } from '../components/ui';
-import { TableBox } from '../components/table-box';
+import { TableBox, TableEmpty } from '../components/table-box';
 import { pageTitle } from '../page-name';
+import { useDates } from '../dates';
+import {
+  FilterDate,
+  FilterPerson,
+  FilterText,
+  ToolRow,
+  usePersonWords,
+  type ToolFilter,
+} from '../components/tool-row';
+import { choiceFilter } from '../components/tool-row-model';
+import { SortHeading } from '../components/sort-heading';
+import { nextSort, sortStateOf, useListAddress, type SortRule } from '../components/list-address';
+import {
+  IconClock,
+  IconDate,
+  IconFilter,
+  IconPage,
+  IconPeople,
+  IconPerson,
+  IconStatus,
+} from '../components/icons';
 
 const FLAGS = ['owner_disabled', 'restricted', 'broken_links', 'orphaned', 'past_review', 'with_parents'];
 const ACTIONS = ['archive', 'delete', 'owner', 'stage', 'label_add', 'label_remove', 'move'] as const;
 type Action = (typeof ACTIONS)[number];
-const MONTHS = ['', '1', '3', '6', '12'];
-const SORTS = ['title', 'changed', 'created', 'owner'];
+const MONTHS = [1, 3, 6, 12];
 const ROWS = 50;
+const FILTER_ICON = 16;
+const CONTENT_COLUMNS = 7;
+/** Without a sort the list goes by title; each other column sorts the one way that makes sense (D7). */
+const CONTENT_SORT_DEFAULT = 'title';
+const FROM_A: SortRule = { kind: 'one', direction: 'ascending' };
+const NEWEST_FIRST: SortRule = { kind: 'one', direction: 'descending' };
+/** A flag is set with 1, the value the route takes. */
+const FLAG_ON = '1';
 
 interface Plan {
   pages: number;
@@ -39,17 +67,102 @@ export function selectWithChildren(rows: ContentRow[], picked: string[], id: str
   return [...new Set([...picked, id, ...children])];
 }
 
-function useFilters() {
-  const { pathname, searchParams } = useLocation();
-  const set = (key: string, value: string) => {
-    const next = new URLSearchParams(searchParams);
-    if (value) next.set(key, value);
-    else next.delete(key);
-    next.delete('offset');
-    const query = next.toString();
-    navigate(query ? `${pathname}?${query}` : pathname, true);
-  };
-  return { params: searchParams, set };
+/** The words of a range of days, such as "from 1 Nov until 30 Nov". */
+function useDayRange(params: URLSearchParams, from: string, until: string): string {
+  const { t } = useTranslation();
+  const dates = useDates();
+  const first = params.get(from) ?? '';
+  const last = params.get(until) ?? '';
+  return [
+    first && t('toolRow.from', { day: dates.day(first) }),
+    last && t('toolRow.until', { day: dates.day(last) }),
+  ]
+    .filter(Boolean)
+    .join(' ');
+}
+
+/** The filters of Content (spec 100): status, label and owner in the row, the rest behind More filters. */
+function useContentFilters(params: URLSearchParams): ToolFilter[] {
+  const { t } = useTranslation();
+  const owner = usePersonWords(params.get('owner_id') ?? '');
+  const contributor = usePersonWords(params.get('contributor_id') ?? '');
+  const changed = useDayRange(params, 'changed_from', 'changed_until');
+  const created = useDayRange(params, 'created_from', 'created_until');
+  const text = (param: string, label: string, icon: ReactNode): ToolFilter => ({
+    kind: 'field',
+    params: [param],
+    label,
+    icon,
+    place: 'row',
+    valueText: params.get(param) ?? '',
+    field: <FilterText param={param} label={label} />,
+  });
+  const days = ({
+    from,
+    until,
+    label,
+    words,
+  }: {
+    from: string;
+    until: string;
+    label: string;
+    words: string;
+  }): ToolFilter => ({
+    kind: 'field',
+    params: [from, until],
+    label,
+    icon: <IconDate size={FILTER_ICON} />,
+    place: 'more',
+    valueText: words,
+    field: (
+      <>
+        <FilterDate param={from} label={t(`content.${from}`)} as="day" />
+        <FilterDate param={until} label={t(`content.${until}`)} as="day" />
+      </>
+    ),
+  });
+  return [
+    text('stage', t('organise.status'), <IconStatus size={FILTER_ICON} />),
+    text('label', t('organise.labels'), <IconPage size={FILTER_ICON} />),
+    {
+      kind: 'field',
+      params: ['owner_id'],
+      label: t('content.owner'),
+      icon: <IconPerson size={FILTER_ICON} />,
+      place: 'row',
+      valueText: owner,
+      field: <FilterPerson param="owner_id" label={t('content.owner')} />,
+    },
+    choiceFilter({
+      param: 'inactive_months',
+      label: t('content.inactive'),
+      icon: <IconClock size={FILTER_ICON} />,
+      place: 'more',
+      values: MONTHS,
+      name: (m) => t('content.months', { count: m }),
+    }),
+    {
+      kind: 'field',
+      params: ['contributor_id'],
+      label: t('content.contributor'),
+      icon: <IconPeople size={FILTER_ICON} />,
+      place: 'more',
+      valueText: contributor,
+      field: <FilterPerson param="contributor_id" label={t('content.contributor')} />,
+    },
+    days({ from: 'changed_from', until: 'changed_until', label: t('toolRow.changed'), words: changed }),
+    days({ from: 'created_from', until: 'created_until', label: t('toolRow.created'), words: created }),
+    ...FLAGS.map((flag) =>
+      choiceFilter({
+        param: flag,
+        label: t(`content.flag_${flag}`),
+        icon: <IconFilter size={FILTER_ICON} />,
+        place: 'more',
+        values: [FLAG_ON],
+        name: () => t('toolRow.yes'),
+      }),
+    ),
+  ];
 }
 
 function ActionDialog({
@@ -179,7 +292,8 @@ export function ContentView({ spaceKey }: { spaceKey: string }) {
   const client = useQueryClient();
   const q = useQuery(spaceByKeyQuery(spaceKey));
   const space = q.data;
-  const { params, set } = useFilters();
+  const { params, set } = useListAddress();
+  const filters = useContentFilters(params);
   const offset = Number(params.get('offset') ?? 0);
   const [picked, setPicked] = useState<string[]>([]);
   const [action, setAction] = useState<Action | null>(null);
@@ -192,6 +306,14 @@ export function ContentView({ spaceKey }: { spaceKey: string }) {
   });
   const list = rows.data?.pages ?? [];
   const total = rows.data?.total ?? 0;
+  const sort = params.get('sort') ?? '';
+  const heading = (column: string, label: string, rule: SortRule) => (
+    <SortHeading
+      label={label}
+      state={sortStateOf(sort, column, CONTENT_SORT_DEFAULT, rule)}
+      onSort={() => set('sort', nextSort(sort, column, CONTENT_SORT_DEFAULT, rule))}
+    />
+  );
   if (q.error) {
     return (
       <main id="main" className="plain reading">
@@ -204,84 +326,15 @@ export function ContentView({ spaceKey }: { spaceKey: string }) {
     <SpaceToolFrame space={space} entry="content">
       <div className="wide-area">
         <h1>{t('content.title')}</h1>
-        <form
-          className="filters content-filters"
-          aria-label={t('content.filters')}
-          onSubmit={(e) => e.preventDefault()}
-        >
-          <label className="field">
-            <span>{t('organise.status')}</span>
-            <input value={params.get('stage') ?? ''} onChange={(e) => set('stage', e.target.value)} />
-          </label>
-          <label className="field">
-            <span>{t('organise.labels')}</span>
-            <input value={params.get('label') ?? ''} onChange={(e) => set('label', e.target.value)} />
-          </label>
-          <label className="field">
-            <span>{t('content.inactive')}</span>
-            <select
-              value={params.get('inactive_months') ?? ''}
-              onChange={(e) => set('inactive_months', e.target.value)}
-            >
-              {MONTHS.map((m) => (
-                <option key={m} value={m}>
-                  {m ? t('content.months', { count: Number(m) }) : t('content.any')}
-                </option>
-              ))}
-            </select>
-          </label>
-          {(['changed_from', 'changed_until', 'created_from', 'created_until'] as const).map((key) => (
-            <label key={key} className="field">
-              <span>{t(`content.${key}`)}</span>
-              <input type="date" value={params.get(key) ?? ''} onChange={(e) => set(key, e.target.value)} />
-            </label>
-          ))}
-          <label className="field">
-            <span>{t('directory.sort')}</span>
-            <select value={params.get('sort') ?? 'title'} onChange={(e) => set('sort', e.target.value)}>
-              {SORTS.map((s) => (
-                <option key={s} value={s}>
-                  {t(`content.sort_${s}`)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <SubjectPicker
-            label={t('content.owner')}
-            usersOnly
-            onPick={(person) => set('owner_id', person.id)}
-          />
-          {params.get('owner_id') && (
-            <button type="button" className="ghost" onClick={() => set('owner_id', '')}>
-              {t('content.anyOwner')}
-            </button>
-          )}
-          <SubjectPicker
-            label={t('content.contributor')}
-            usersOnly
-            onPick={(person) => set('contributor_id', person.id)}
-          />
-          {params.get('contributor_id') && (
-            <button type="button" className="ghost" onClick={() => set('contributor_id', '')}>
-              {t('content.anyContributor')}
-            </button>
-          )}
-          {FLAGS.map((flag) => (
-            <label key={flag} className="check">
-              <input
-                type="checkbox"
-                checked={params.get(flag) === '1'}
-                onChange={(e) => set(flag, e.target.checked ? '1' : '')}
-              />
-              {t(`content.flag_${flag}`)}
-            </label>
-          ))}
-        </form>
+        <ToolRow
+          label={t('content.filters')}
+          search={{ label: t('content.search'), placeholder: t('content.search') }}
+          filters={filters}
+          sortParam="sort"
+          count={rows.data ? t('content.count', { count: total }) : undefined}
+        />
         <ErrorNote error={rows.error} />
         {rows.isPending && <Loading />}
-        <p role="status" className="muted">
-          {t('content.count', { count: total })}
-        </p>
         {picked.length > 0 && (
           <div className="row content-actions" role="group" aria-label={t('content.actions')}>
             <span>{t('content.selected', { count: picked.length })}</span>
@@ -292,7 +345,7 @@ export function ContentView({ spaceKey }: { spaceKey: string }) {
             ))}
           </div>
         )}
-        {list.length > 0 && (
+        {rows.data && (
           <TableBox>
             <table>
               <thead>
@@ -301,18 +354,23 @@ export function ContentView({ spaceKey }: { spaceKey: string }) {
                     <input
                       type="checkbox"
                       aria-label={t('content.selectAll')}
-                      checked={list.every((r) => picked.includes(r.id))}
+                      disabled={list.length === 0}
+                      checked={list.length > 0 && list.every((r) => picked.includes(r.id))}
                       onChange={(e) => setPicked(e.target.checked ? list.map((r) => r.id) : [])}
                     />
                   </th>
-                  <th>{t('page.title')}</th>
-                  <th>{t('content.owner')}</th>
+                  {heading(CONTENT_SORT_DEFAULT, t('page.title'), FROM_A)}
+                  {heading('owner', t('content.owner'), FROM_A)}
                   <th>{t('organise.status')}</th>
                   <th>{t('organise.labels')}</th>
-                  <th>{t('directory.lastChange')}</th>
+                  {heading('created', t('toolRow.created'), NEWEST_FIRST)}
+                  {heading('changed', t('directory.lastChange'), NEWEST_FIRST)}
                 </tr>
               </thead>
               <tbody>
+                {list.length === 0 && (
+                  <TableEmpty columns={CONTENT_COLUMNS}>{t('content.noneFit')}</TableEmpty>
+                )}
                 {list.map((r) => (
                   <tr key={r.id} className={picked.includes(r.id) ? 'picked' : undefined}>
                     <td>
@@ -334,6 +392,9 @@ export function ContentView({ spaceKey }: { spaceKey: string }) {
                       <StageMark text={r.stage_text} color={r.stage_color} />
                     </td>
                     <td>{r.labels.join(', ')}</td>
+                    <td>
+                      <RelativeTime value={r.created_at} />
+                    </td>
                     <td>
                       <RelativeTime value={r.updated_at} />
                     </td>

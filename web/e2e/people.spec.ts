@@ -532,8 +532,8 @@ test('users filter through the address, and a bulk action says how many first', 
   const email = `${unique('bulk')}@example.com`;
   await createUser(browser, email, 'guest');
   await page.goto('/admin/users?type=guest');
-  await expect(page.getByLabel('Type')).toHaveValue('guest');
-  await page.getByRole('searchbox', { name: 'Search' }).fill(email);
+  await expect(page.getByRole('button', { name: 'Type: Guest' })).toBeVisible();
+  await page.getByRole('searchbox', { name: 'Search by name or e-mail' }).fill(email);
   const name = email.split('@')[0] ?? '';
   await page.getByRole('checkbox', { name: `Select ${name}` }).check();
   await checkAccessibility(page);
@@ -550,7 +550,7 @@ test('anonymising needs a reason, and leaves a neutral name on the work', async 
   const id = await createUser(browser, email);
   await page.goto('/admin/users');
   const name = email.split('@')[0] ?? '';
-  await page.getByRole('searchbox', { name: 'Search' }).fill(email);
+  await page.getByRole('searchbox', { name: 'Search by name or e-mail' }).fill(email);
   await page.getByRole('button', { name, exact: true }).click();
   await page.getByRole('button', { name: 'Anonymise' }).click();
   const dialog = page.getByRole('dialog', { name: 'Anonymise' });
@@ -572,7 +572,7 @@ test('an administrator sends a reset link, and the person chooses the password',
   await createUser(browser, email);
   await page.goto('/admin/users');
   const name = email.split('@')[0] ?? '';
-  await page.getByRole('searchbox', { name: 'Search' }).fill(email);
+  await page.getByRole('searchbox', { name: 'Search by name or e-mail' }).fill(email);
   await page.getByRole('button', { name, exact: true }).click();
   // No field for a password: the administrator never chooses one.
   await expect(page.getByRole('dialog').getByLabel('New password')).toHaveCount(0);
