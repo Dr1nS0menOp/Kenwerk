@@ -246,7 +246,7 @@ func holds(t Test, f Facts, steps *int) bool {
 	}
 	switch t.Subject {
 	case SubjectSpace:
-		return t.Op == OpOneOf && f.SpaceID != "" && listed(t.Values, f.SpaceID, steps)
+		return spaceHolds(t, f, steps)
 	case SubjectGroups:
 		// A group that is gone decides nothing, so its test is false either way (TPL-402).
 		if t.Value == "" || slices.Contains(f.MissingGroups, t.Value) {
@@ -264,6 +264,11 @@ func holds(t Test, f Facts, steps *int) bool {
 		return answerHolds(t, f.Answers[t.Field].Kind, f.read[t.Field], f.Today, steps)
 	}
 	return false
+}
+
+// spaceHolds tests the space the pages are made in: "is one of" is the only test of a space.
+func spaceHolds(t Test, f Facts, steps *int) bool {
+	return t.Op == OpOneOf && f.SpaceID != "" && listed(t.Values, f.SpaceID, steps)
 }
 
 // listed says whether value is in list, counting a step per comparison.
@@ -304,6 +309,13 @@ func answerHolds(t Test, kind Kind, a readAnswer, today string, steps *int) bool
 			return false
 		}
 	}
+	return valueHolds(t, kind, a, today, steps)
+}
+
+// valueHolds tests an answer that is not empty, for an operator that compares it with the
+// value of the test.
+func valueHolds(t Test, kind Kind, a readAnswer, today string, steps *int) bool {
+	value := a.value
 	switch t.Op {
 	case OpIs, OpIsNot:
 		same := sameAnswer(kind, a, t, today)
@@ -324,18 +336,23 @@ func answerHolds(t Test, kind Kind, a readAnswer, today string, steps *int) bool
 		_, found := a.items[t.Value]
 		return found == (t.Op == OpIncludes)
 	case OpIncludesAll:
-		if a.tooMany || len(t.Values) == 0 {
-			return false
-		}
-		for _, want := range t.Values {
-			*steps++
-			if _, found := a.items[want]; !found {
-				return false
-			}
-		}
-		return true
+		return includesAll(a, t.Values, steps)
 	}
 	return false
+}
+
+// includesAll says whether the answer holds every one of the wanted choices.
+func includesAll(a readAnswer, wanted []string, steps *int) bool {
+	if a.tooMany || len(wanted) == 0 {
+		return false
+	}
+	for _, want := range wanted {
+		*steps++
+		if _, found := a.items[want]; !found {
+			return false
+		}
+	}
+	return true
 }
 
 // sameAnswer compares an answer with the value of "is": words ignoring case, a day with its
@@ -532,22 +549,44 @@ func CheckShape(c Condition) *Problem {
 		return &Problem{Code: "too_many_tests", Test: MaxTests}
 	}
 	for i, t := range c.Tests {
-		if t.Subject != SubjectField && t.Subject != SubjectSpace && t.Subject != SubjectGroups {
-			return &Problem{Code: "bad_subject", Test: i}
-		}
-		if !knownOp(t.Op) {
-			return &Problem{Code: "bad_op", Test: i}
-		}
-		if len(t.Values) > MaxValues || utf8.RuneCountInString(t.Field) > MaxValueRunes {
-			return &Problem{Code: "bad_value", Test: i}
-		}
-		for _, v := range append([]string{t.Value}, t.Values...) {
-			if !utf8.ValidString(v) || strings.ContainsAny(v, "\r\n") || utf8.RuneCountInString(v) > MaxValueRunes {
-				return &Problem{Code: "bad_value", Test: i}
-			}
+		if code := shapeProblem(t); code != "" {
+			return &Problem{Code: code, Test: i}
 		}
 	}
 	return nil
+}
+
+// shapeProblem is the code of what no template could make valid in one test, or "".
+func shapeProblem(t Test) string {
+	if t.Subject != SubjectField && t.Subject != SubjectSpace && t.Subject != SubjectGroups {
+		return "bad_subject"
+	}
+	if !knownOp(t.Op) {
+		return "bad_op"
+	}
+	if !valuesFit(t) {
+		return "bad_value"
+	}
+	return ""
+}
+
+// valuesFit says whether the values of a test are few enough, and each one line of at most
+// MaxValueRunes.
+func valuesFit(t Test) bool {
+	if len(t.Values) > MaxValues || utf8.RuneCountInString(t.Field) > MaxValueRunes {
+		return false
+	}
+	for _, v := range append([]string{t.Value}, t.Values...) {
+		if !isLine(v) {
+			return false
+		}
+	}
+	return true
+}
+
+// isLine says whether a value is valid text on one line of at most MaxValueRunes.
+func isLine(v string) bool {
+	return utf8.ValidString(v) && !strings.ContainsAny(v, "\r\n") && utf8.RuneCountInString(v) <= MaxValueRunes
 }
 
 // knownOp says whether any kind has the operator.
@@ -597,19 +636,31 @@ func checkValue(t Test, f Field) string {
 		}
 		return ""
 	case OpOneOf, OpIncludesAll:
-		if t.Value != "" || t.Today || len(t.Values) == 0 || len(t.Values) > MaxValues {
+		return checkValues(t, f)
+	}
+	return checkSingle(t, f)
+}
+
+// checkValues holds the list of a test that compares with several values: each one once,
+// and each one fit for the kind of the subject.
+func checkValues(t Test, f Field) string {
+	if t.Value != "" || t.Today || len(t.Values) == 0 || len(t.Values) > MaxValues {
+		return "bad_value"
+	}
+	for i, v := range t.Values {
+		if slices.Contains(t.Values[:i], v) {
 			return "bad_value"
 		}
-		for i, v := range t.Values {
-			if slices.Contains(t.Values[:i], v) {
-				return "bad_value"
-			}
-			if code := checkOne(v, f); code != "" {
-				return code
-			}
+		if code := checkOne(v, f); code != "" {
+			return code
 		}
-		return ""
 	}
+	return ""
+}
+
+// checkSingle holds the one value of a test that compares with a single value: a day or
+// today for a date, a value fit for the kind of the subject otherwise.
+func checkSingle(t Test, f Field) string {
 	if len(t.Values) > 0 {
 		return "bad_value"
 	}
@@ -627,9 +678,14 @@ func checkValue(t Test, f Field) string {
 
 // checkOne holds one value to the kind of its subject.
 func checkOne(v string, f Field) string {
-	if v == "" || !utf8.ValidString(v) || strings.ContainsAny(v, "\r\n") || utf8.RuneCountInString(v) > MaxValueRunes {
+	if v == "" || !isLine(v) {
 		return "bad_value"
 	}
+	return kindProblem(v, f)
+}
+
+// kindProblem holds a value to the kind of its subject: a number, an option, a label or an id.
+func kindProblem(v string, f Field) string {
 	switch f.Kind {
 	case KindNumber:
 		if _, ok := ParseNumber(v); !ok {
