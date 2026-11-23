@@ -1,245 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
-// Your account: who you are to others, your tokens and your data.
+// Your account: your tokens (whose screen wave MC2 rebuilds) and your data.
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api, type Me, type MemberGroup, type Profile, type Space, type Token } from '../api';
+import { api, type Space, type Token } from '../api';
 import { useDates } from '../dates';
-import { Link, useLocation } from '../router';
-import { CropDialog } from '../components/crop-dialog';
-import { IconLock } from '../components/icons';
-import { PersonPicture } from '../components/person';
+import { AccountSectionHead } from '../components/account-frame';
 import { useCopy } from '../components/toast';
-import { ConfirmButton, Dialog, ErrorNote, Field, FilePicker, Loading } from '../components/ui';
-import type { Crop } from '../crop';
+import { ConfirmButton, Dialog, ErrorNote, Field } from '../components/ui';
 import { TableBox } from '../components/table-box';
 
-const SECTIONS = [
-  ['/me', 'sectionProfile'],
-  ['/me/preferences', 'sectionPreferences'],
-  ['/me/security', 'sectionSecurity'],
-  ['/me/tokens', 'sectionTokens'],
-  ['/me/data', 'sectionData'],
-] as const;
-const PROFILE_FIELDS = ['job_title', 'department', 'location'] as const;
-const VISIBILITY = ['everyone', 'members', 'me'] as const;
 const DAY_MS = 86_400_000;
 const DEFAULT_TOKEN_DAYS = 90;
 const MAX_TOKEN_DAYS = 365;
-const LOCK_ICON_SIZE = 16;
-const PICTURE_TYPES = 'image/png,image/jpeg,image/gif';
 
-/** The sections of Your account. */
-export function AccountNav() {
-  const { t } = useTranslation();
-  const { pathname } = useLocation();
-  return (
-    <nav className="tabs account-tabs" aria-label={t('account.sections')}>
-      {SECTIONS.map(([href, label]) => (
-        <Link key={href} href={href} aria-current={pathname === href ? 'page' : undefined}>
-          {t(`account.${label}`)}
-        </Link>
-      ))}
-    </nav>
-  );
-}
-
-function PictureSection({ profile }: { profile: Profile }) {
-  const { t } = useTranslation();
-  const client = useQueryClient();
-  const [file, setFile] = useState<File | null>(null);
-  const refresh = async () => {
-    await client.invalidateQueries({ queryKey: ['profile', profile.id] });
-    await client.invalidateQueries({ queryKey: ['person', profile.id] });
-  };
-  const save = useMutation({
-    mutationFn: (crop: Crop) => {
-      if (!file) throw new Error(t('app.error'));
-      return api.replace(`/me/picture?x=${crop.x}&y=${crop.y}&size=${crop.size}`, file);
-    },
-    onSuccess: async () => {
-      setFile(null);
-      await refresh();
-    },
-  });
-  const remove = useMutation({ mutationFn: () => api.del('/me/picture'), onSuccess: refresh });
-  return (
-    <section>
-      <h2>{t('account.picture')}</h2>
-      <div className="person-head">
-        <PersonPicture person={profile} size="large" />
-        <div className="row">
-          <FilePicker label={t('account.pictureUpload')} accept={PICTURE_TYPES} onPick={setFile} />
-          {profile.has_picture && (
-            <button type="button" onClick={() => remove.mutate()}>
-              {t('common.remove')}
-            </button>
-          )}
-        </div>
-      </div>
-      <p className="muted">{t('account.pictureHelp')}</p>
-      <ErrorNote error={save.error ?? remove.error} />
-      {file && (
-        <CropDialog
-          file={file}
-          busy={save.isPending}
-          onSave={(crop) => save.mutate(crop)}
-          onClose={() => setFile(null)}
-        />
-      )}
-    </section>
-  );
-}
-
-function VisibilitySelect({
-  field,
-  value,
-  onChange,
-}: {
-  field: string;
-  value: string;
-  onChange: (next: string) => void;
-}) {
-  const { t } = useTranslation();
-  return (
-    <select
-      aria-label={t('account.whoSees', { field: t(`people.field_${field}`) })}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-    >
-      {VISIBILITY.map((v) => (
-        <option key={v} value={v}>
-          {t(`account.visible_${v}`)}
-        </option>
-      ))}
-    </select>
-  );
-}
-
-function ProfileForm({ profile }: { profile: Profile }) {
-  const { t } = useTranslation();
-  const client = useQueryClient();
-  const [form, setForm] = useState({
-    job_title: profile.job_title,
-    department: profile.department,
-    location: profile.location,
-    about: profile.about,
-  });
-  const [visibility, setVisibility] = useState(profile.visibility ?? {});
-  const locked = profile.locked_fields ?? [];
-  const save = useMutation({
-    mutationFn: () => api.put('/me/profile', { ...form, visibility }),
-    onSuccess: async () => {
-      await client.invalidateQueries({ queryKey: ['profile', profile.id] });
-      await client.invalidateQueries({ queryKey: ['person', profile.id] });
-    },
-  });
-  const see = (field: string) => (next: string) => setVisibility({ ...visibility, [field]: next });
-  return (
-    <form
-      onSubmit={(e: FormEvent) => {
-        e.preventDefault();
-        save.mutate();
-      }}
-    >
-      <ErrorNote error={save.error} />
-      {save.isSuccess && (
-        <p role="status" className="note">
-          {t('admin.saved')}
-        </p>
-      )}
-      {PROFILE_FIELDS.map((field) => (
-        <div className="profile-field" key={field}>
-          <Field label={t(`people.field_${field}`)}>
-            <input
-              value={form[field]}
-              disabled={locked.includes(field)}
-              onChange={(e) => setForm({ ...form, [field]: e.target.value })}
-            />
-          </Field>
-          <VisibilitySelect field={field} value={visibility[field] ?? 'everyone'} onChange={see(field)} />
-          {locked.includes(field) && (
-            <small className="muted">
-              <IconLock size={LOCK_ICON_SIZE} /> {t('account.lockedByProvider')}
-            </small>
-          )}
-        </div>
-      ))}
-      <div className="profile-field">
-        <Field label={t('people.field_about')}>
-          <textarea
-            rows={3}
-            value={form.about}
-            onChange={(e) => setForm({ ...form, about: e.target.value })}
-          />
-        </Field>
-        <VisibilitySelect field="about" value={visibility.about ?? 'everyone'} onChange={see('about')} />
-      </div>
-      <div className="profile-field">
-        <Field label={t('common.email')}>
-          <input value={profile.email} disabled />
-        </Field>
-        <VisibilitySelect field="email" value={visibility.email ?? 'members'} onChange={see('email')} />
-      </div>
-      <button type="submit" className="primary" disabled={save.isPending}>
-        {t('common.save')}
-      </button>
-    </form>
-  );
-}
-
-function OwnGroups() {
-  const { t } = useTranslation();
-  const q = useQuery({
-    queryKey: ['my-groups'],
-    queryFn: () => api.get<{ groups: MemberGroup[] }>('/me/groups'),
-  });
-  if ((q.data?.groups.length ?? 0) === 0) return <ErrorNote error={q.error} />;
-  return (
-    <section>
-      <h2>{t('account.groups')}</h2>
-      <ul className="plain-list">
-        {q.data?.groups.map((g) => (
-          <li key={g.id}>
-            {g.owner ? <Link href={`/groups/${g.id}`}>{g.name}</Link> : g.name}{' '}
-            {g.owner && <span className="lozenge">{t('account.groupOwner')}</span>}
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-export function ProfileView({ me }: { me: Me }) {
-  const { t } = useTranslation();
-  const q = useQuery({
-    queryKey: ['profile', me.user.id],
-    queryFn: () => api.get<Profile>(`/people/${me.user.id}`),
-  });
-  return (
-    <>
-      <h1>{t('profile.title')}</h1>
-      <AccountNav />
-      <p>
-        {me.user.display_name} <span className="muted">{me.user.email}</span>
-      </p>
-      {q.isPending && <Loading />}
-      <ErrorNote error={q.error} />
-      {q.data && (
-        <>
-          <PictureSection profile={q.data} />
-          <section>
-            <h2>{t('account.aboutYou')}</h2>
-            <ProfileForm profile={q.data} />
-          </section>
-        </>
-      )}
-      <OwnGroups />
-    </>
-  );
-}
-
-/** The scopes a new token may hold (spec 096), in the order the server lists them. */
 const TOKEN_SCOPES = [
   'content:read',
   'content:write',
@@ -423,8 +197,6 @@ export function TokensView() {
   });
   return (
     <>
-      <h1>{t('profile.title')}</h1>
-      <AccountNav />
       <p className="muted">{t('account.tokensHelp')}</p>
       <ErrorNote error={q.error ?? revoke.error} />
       {q.data?.tokens.length === 0 && <p className="muted">{t('account.tokensNone')}</p>}
@@ -500,18 +272,16 @@ function saveAsFile(name: string, content: unknown) {
   URL.revokeObjectURL(url);
 }
 
+/** Privacy (ACC-109): what the instance holds about the person, to take along. */
 export function PersonalDataView() {
   const { t } = useTranslation();
   const download = useMutation({
     mutationFn: () => api.post<unknown>('/me/export'),
     onSuccess: (data) => saveAsFile('my-kenwerk-data.json', data),
   });
-  const removal = useMutation({ mutationFn: () => api.post('/me/removal-request') });
   return (
-    <>
-      <h1>{t('profile.title')}</h1>
-      <AccountNav />
-      <section>
+    <AccountSectionHead id="privacy">
+      <section className="account-part">
         <h2>{t('account.download')}</h2>
         <p className="muted">{t('account.downloadHelp')}</p>
         <ErrorNote error={download.error} />
@@ -519,22 +289,6 @@ export function PersonalDataView() {
           {t('account.download')}
         </button>
       </section>
-      <section>
-        <h2>{t('account.removal')}</h2>
-        <p className="muted">{t('account.removalHelp')}</p>
-        <ErrorNote error={removal.error} />
-        {removal.isSuccess ? (
-          <p role="status" className="note">
-            {t('account.removalSent')}
-          </p>
-        ) : (
-          <ConfirmButton
-            label={t('account.removal')}
-            message={t('account.removalConfirm')}
-            onConfirm={() => removal.mutate()}
-          />
-        )}
-      </section>
-    </>
+    </AccountSectionHead>
   );
 }

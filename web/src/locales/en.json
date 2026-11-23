@@ -2201,7 +2201,6 @@
   },
   "profile": {
     "title": "Your account",
-    "details": "Details",
     "changePassword": "Change password",
     "currentPassword": "Current password",
     "newPassword": "New password",
@@ -2221,11 +2220,7 @@
     "passkeyName": "Name for this passkey",
     "passkeyAdd": "Add a passkey",
     "passkeyNone": "No passkeys yet.",
-    "sessions": "Sessions",
-    "thisSession": "This session",
-    "revoke": "Log out",
-    "lastSeen": "Last seen",
-    "noPassword": "This account logs in through your identity provider."
+    "thisSession": "This session"
   },
   "admin": {
     "space": "Space",
@@ -2529,12 +2524,59 @@
   },
   "account": {
     "sections": "Sections of your account",
-    "sectionProfile": "Profile",
-    "sectionPreferences": "Preferences",
-    "sectionSecurity": "Security",
-    "sectionTokens": "Tokens",
-    "sectionData": "Your data",
     "aboutYou": "About you",
+    "contact": "Contact",
+    "whoSeesNow": "Who sees {{field}}: {{audience}}",
+    "whoSeesCaption": "Who sees it",
+    "add_job_title": "Add your job title",
+    "add_department": "Add your department",
+    "add_location": "Add where you work",
+    "add_about": "Tell others a little about yourself",
+    "localTime": "Local time",
+    "localTimeIn": "{{time}} ({{zone}})",
+    "notSet": "Not set.",
+    "setTimeZone": "Set your time zone in Preferences",
+    "lockedNotice": "Your identity provider fills in some of these fields. They are changed there.",
+    "emailAddress": "Your address",
+    "emailIs": "The address of your account is",
+    "signIn_provider": "You sign in through your identity provider.",
+    "signIn_passwordTotp": "You sign in with a password and an authenticator app.",
+    "signIn_passwordPasskeys": "You sign in with a password or a passkey.",
+    "signIn_password": "You sign in with a password only.",
+    "signIn_passkeys": "You sign in with a passkey.",
+    "emailAtProvider": "This address comes from your identity provider. It is changed there.",
+    "emailFixed": "This is the address you log in with. It cannot be changed here.",
+    "emailFromUs": "Mail you get",
+    "emailFromUsHelp": "Which mail you get, and how often, is set in Notifications.",
+    "toNotifications": "Go to Notifications",
+    "password": "Password",
+    "passwordAtProvider": "Your identity provider handles your password and your second factor. They are changed there.",
+    "noPassword": "This account has no password. It signs in with a passkey.",
+    "twoStep": "Two-step verification",
+    "twoStepIntro": "A code from an app on your phone, asked for after your password.",
+    "passkeysIntro": "A passkey signs you in with the lock of your device, without a password.",
+    "secondFactorTitle": "Add a second factor",
+    "tokensPart": "Personal API tokens",
+    "tokensPartIntro": "Tokens let scripts and assistants act as you.",
+    "manageTokens": "Manage tokens",
+    "devicesPart": "Recent devices",
+    "devicesPartIntro": "Where you are signed in now, and your recent logins.",
+    "seeSessions": "See sessions",
+    "runningSessions": "Running sessions",
+    "endAllOthers": "End all other sessions",
+    "endAllOthersConfirm": "Every other device is logged out at once. This session stays.",
+    "endSession": "End session",
+    "lastActive": "Last active",
+    "activeNow": "Now",
+    "program": "Program",
+    "programUnknown": "Unknown program",
+    "device_computer": "Computer",
+    "device_phone": "Phone",
+    "device_tablet": "Tablet",
+    "device_unknown": "Unknown device",
+    "sessionsNone": "No sessions.",
+    "loginsNone": "No logins yet.",
+    "removalPart": "Remove your account",
     "picture": "Picture",
     "pictureUpload": "Upload a picture",
     "pictureHelp": "PNG, JPEG or GIF, up to 5 MiB. Location data in a photo is removed.",
@@ -2599,7 +2641,7 @@
     "download": "Download my data",
     "downloadHelp": "Your profile, preferences, groups, sessions, logins and the titles of your pages, as one file.",
     "removal": "Ask for removal",
-    "removalHelp": "Administrators get your request, and can anonymise your account.",
+    "removalHelp": "An administrator removes accounts. This asks them to remove yours, and they can anonymise it.",
     "removalConfirm": "Send this request to the administrators?",
     "removalSent": "Your request has been sent.",
     "endOtherSessionsHelp": "If this was about someone else getting in, log out on your other devices as well.",
@@ -5213,6 +5255,44 @@
     "step_sender": "The server refused the sender",
     "step_recipient": "The server refused the recipient",
     "step_message": "The server refused the message"
+  },
+  "accountSections": {
+    "profile": {
+      "name": "Profile and visibility",
+      "intro": "What others see of you, and who may see each part."
+    },
+    "email": {
+      "name": "E-mail",
+      "intro": "The address of your account, and how you sign in."
+    },
+    "security": {
+      "name": "Security",
+      "intro": "How you sign in, and what may act as you."
+    },
+    "privacy": {
+      "name": "Privacy",
+      "intro": "What this instance holds about you, to take with you."
+    },
+    "preferences": {
+      "name": "Preferences",
+      "intro": "How the screens behave for you. Each choice applies at once."
+    },
+    "notifications": {
+      "name": "Notifications",
+      "intro": "What you are told about, where, and when."
+    },
+    "watches": {
+      "name": "Watches",
+      "intro": "The pages and spaces you watch. You are told about their changes."
+    },
+    "tokens": {
+      "name": "Tokens",
+      "intro": "A token acts as you, so keep each one as safely as a password."
+    },
+    "sessions": {
+      "name": "Sessions",
+      "intro": "Where you are signed in, and your recent logins. After losing a device, end its session here and change your password."
+    }
   },
   "adminSections": {
     "summary": {

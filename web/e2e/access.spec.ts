@@ -150,7 +150,7 @@ test('an authenticator app protects the login', async ({ page, browser }) => {
   await page.goto('/me/security');
   await checkAccessibility(page);
 
-  const section = page.getByRole('heading', { name: 'Authenticator app' }).locator('..');
+  const section = page.getByRole('heading', { name: 'Two-step verification' }).locator('..');
   await section.getByLabel('Current password').fill('correct horse battery staple');
   await section.getByRole('button', { name: 'Set up' }).click();
   const secret = (await page.getByTestId('totp-secret').textContent()) ?? '';

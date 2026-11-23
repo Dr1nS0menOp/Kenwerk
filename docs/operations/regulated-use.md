@@ -39,7 +39,7 @@ Kenwerk is not "Part 11 compliant" on its own. Compliance belongs to a validated
 
 ## Who may sign
 
-1. Set up an authenticator app or a passkey under **Your account**. A password alone never signs.
+1. Set up an authenticator app or a passkey under **Your account**, **Security**. A password alone never signs.
 2. An administrator opens the person under **Administration, Users**, confirms who they are, chooses how, and enables signing. An administrator cannot enable their own signing.
 3. A space adds its own meanings of signatures beside the four every space has (reviewed, approved, released, verified), in the workflow settings of the space. A meaning is never removed or changed.
 4. A step of a workflow requires a signature by naming a meaning. On an author's step, its author signs; on the step after an approved review, every reviewer who approves signs. A signed approval cannot be changed into a request for changes.

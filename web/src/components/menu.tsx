@@ -73,7 +73,7 @@ function isRightToLeft(element: Element): boolean {
   return getComputedStyle(element).direction === 'rtl';
 }
 /** The bars that stay in place while the page, and any menu in it, slides under them. */
-export const FIXED_BARS = '.top, .edit-bar, .toolbar, .find-bar';
+export const FIXED_BARS = '.top, .account-bar, .edit-bar, .toolbar, .find-bar';
 
 /** Where the free screen starts above a button. */
 function freeScreenTop(anchor: DOMRect) {

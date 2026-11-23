@@ -533,10 +533,12 @@ type SessionInfo struct {
 	Current    bool      `json:"current"`
 }
 
-// Sessions lists a user's own sessions.
+// Sessions lists a user's own sessions that still work: those past the absolute or the idle
+// limit, which the cleaning job has not removed yet, are left out (spec 084, D11).
 func (s *Service) Sessions(ctx context.Context, userID, current uuid.UUID) ([]SessionInfo, error) {
 	rows, err := s.pool.Query(ctx, `SELECT id, created_at, last_seen_at, ip, user_agent FROM sessions
-		WHERE user_id = $1 ORDER BY last_seen_at DESC`, userID)
+		WHERE user_id = $1 AND expires_at > $2 AND last_seen_at > $2 - make_interval(secs => $3)
+		ORDER BY last_seen_at DESC`, userID, s.now(), s.idleLimit(ctx).Seconds())
 	if err != nil {
 		return nil, err
 	}

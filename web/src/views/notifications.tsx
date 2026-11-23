@@ -6,7 +6,10 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { api, type Notification, type NotificationSettings, type Space, type WatchEntry } from '../api';
 import { Link } from '../router';
 import { NOTIFICATION_TABS, NotificationItem, type NotificationTab } from '../components/notifications';
+import { AccountSectionHead } from '../components/account-frame';
+import { differs, SaveReset } from '../components/save-reset';
 import { Tabs } from '../components/tabs';
+import { useSaved } from '../components/toast';
 import { ErrorNote, Field, Loading, RelativeTime } from '../components/ui';
 import { pageTitle } from '../page-name';
 import { useCapabilities } from '../capabilities';
@@ -147,28 +150,25 @@ export function NotificationSettingsView() {
     queryKey: ['notification-settings'],
     queryFn: () => api.get<NotificationSettings>('/me/notification-settings'),
   });
+  const saved = useSaved();
   const [form, setForm] = useState<NotificationSettings | null>(null);
-  const [saved, setSaved] = useState(false);
   useEffect(() => {
     if (q.data) setForm(q.data);
   }, [q.data]);
   const save = useMutation({
     mutationFn: (next: NotificationSettings) => api.put('/me/notification-settings', next),
     onSuccess: async () => {
-      setSaved(true);
+      saved();
       await client.invalidateQueries({ queryKey: ['notification-settings'] });
     },
   });
   if (q.error) return <ErrorNote error={q.error} />;
-  if (!form) return <Loading />;
-  const set = (change: Partial<NotificationSettings>) => {
-    setSaved(false);
-    setForm({ ...form, ...change });
-  };
+  if (!form || !q.data) return <Loading />;
+  const stored = q.data;
+  const set = (change: Partial<NotificationSettings>) => setForm({ ...form, ...change });
   const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   return (
-    <>
-      <h1>{t('notifications.settings')}</h1>
+    <AccountSectionHead id="notifications">
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -176,11 +176,6 @@ export function NotificationSettingsView() {
         }}
       >
         <ErrorNote error={save.error} />
-        {saved && (
-          <p role="status" className="note">
-            {t('admin.saved')}
-          </p>
-        )}
         <h2>{t('notifications.perType')}</h2>
         {types.map((name) => (
           <Field key={name} label={t(`notifications.channel_${name}`)}>
@@ -270,11 +265,9 @@ export function NotificationSettingsView() {
             <option value="newest">{t('notifications.newest')}</option>
           </select>
         </Field>
-        <button type="submit" className="primary" disabled={save.isPending}>
-          {t('common.save')}
-        </button>
+        <SaveReset changed={differs(stored, form)} busy={save.isPending} onReset={() => setForm(stored)} />
       </form>
-    </>
+    </AccountSectionHead>
   );
 }
 
@@ -288,7 +281,8 @@ function stopPath(entry: WatchEntry): string {
   return `/pages/${entry.id}/watch?scope=${entry.type}`;
 }
 
-export function WatchingView() {
+/** What the person watches, with a filter and Stop watching; in both frames that show it (D4). */
+export function WatchList() {
   const { t } = useTranslation();
   const client = useQueryClient();
   const [filter, setFilter] = useState('');
@@ -304,7 +298,6 @@ export function WatchingView() {
     q.data?.watches.filter((w) => w.title.toLowerCase().includes(filter.trim().toLowerCase())) ?? [];
   return (
     <>
-      <h1>{t('watching.title')}</h1>
       <input
         type="search"
         className="list-filter"
@@ -329,6 +322,16 @@ export function WatchingView() {
           </li>
         ))}
       </ul>
+    </>
+  );
+}
+
+export function WatchingView() {
+  const { t } = useTranslation();
+  return (
+    <>
+      <h1>{t('watching.title')}</h1>
+      <WatchList />
     </>
   );
 }

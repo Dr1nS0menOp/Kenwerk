@@ -13,8 +13,9 @@ import { Link, match, navigate, useLocation } from './router';
 import { applyTheme } from './preferences';
 import { NewDatabaseDialog, NewPageDialog, NewPostDialog, NewSpaceDialog } from './components/create';
 import { useCanonicalSpaceAddress, useCreateTarget } from './components/current-space';
+import { AccountBar, BrandMark } from './components/account-frame';
 import { SpaceShell } from './components/frame';
-import { IconChevronDown, IconPlus, Logo } from './components/icons';
+import { IconChevronDown, IconPlus } from './components/icons';
 import { Menu, MenuItem } from './components/menu';
 import { TemplateGallery } from './components/template-gallery';
 import { NotificationBell } from './components/notifications';
@@ -26,8 +27,9 @@ import { ToastProvider } from './components/toast';
 import { SidebarProvider, SidebarSlot } from './components/sidebar-state';
 import { AccountMenu, HelpMenu, SettingsButton } from './components/topbar';
 import { ErrorNote, Loading } from './components/ui';
-import { PersonalDataView, ProfileView, TokensView } from './views/account';
 import { ForgotView, InvitationView, ResetView, SignupView } from './views/account-links';
+import { accountSectionAt } from './views/account-sections';
+import { AccountView, SecondFactorAccount } from './views/account-view';
 import { AdminView } from './views/admin';
 import { ContentView } from './views/content';
 import { DirectoryView } from './views/directory';
@@ -37,7 +39,7 @@ import { DraftsView, FavouritesView, RecentView } from './views/lists';
 import { LoginView } from './views/login';
 import { SetupView } from './views/setup';
 import { ArchiveView, BlogView, LabelsView, LabelView, MissingPage } from './views/organise';
-import { NotificationSettingsView, NotificationsView, WatchingView } from './views/notifications';
+import { NotificationsView, WatchingView } from './views/notifications';
 import { EditView } from './views/edit';
 import { ExportView } from './views/exchange';
 import { CompareView, HistoryView } from './views/history';
@@ -46,8 +48,6 @@ import { ReleaseView } from './views/releases';
 import { SpaceOverviewView } from './views/overview';
 import { PageView } from './views/page';
 import { PeopleView, PersonView } from './views/people';
-import { PreferencesView } from './views/preferences';
-import { SecurityView } from './views/profile';
 import { SearchView } from './views/search';
 import { SitesView } from './views/sites';
 import { SpaceHome, TrashView } from './views/space';
@@ -129,12 +129,48 @@ function CreateButton({ me, onCreate }: { me: Me; onCreate: (what: Creating) => 
   );
 }
 
+/** The top bar of every screen outside Your account (NAV-090). */
+function TopBar({
+  me,
+  onCreate,
+  onLogout,
+}: {
+  me: Me;
+  onCreate: (what: Creating) => void;
+  onLogout: () => void;
+}) {
+  const { t } = useTranslation();
+  const name = useQuery(appearanceQuery).data?.name;
+  return (
+    // Three groups: the sidebar button and the name; search with Create; the round buttons.
+    <header className="top">
+      <div className="top-start">
+        <SidebarSlot />
+        <Link href="/" className="brand">
+          <BrandMark /> {name || t('app.name')}
+        </Link>
+      </div>
+      <div className="top-middle">
+        <QuickSearch />
+        <CreateButton me={me} onCreate={onCreate} />
+      </div>
+      <div className="top-end">
+        <NotificationBell />
+        <HelpMenu />
+        <SettingsButton me={me} />
+        <AccountMenu me={me} onLogout={onLogout} />
+      </div>
+    </header>
+  );
+}
+
 function Shell({ me, children }: { me: Me; children: ReactNode }) {
   const { t } = useTranslation();
   const client = useQueryClient();
   const target = useCreateTarget();
   const [creating, setCreating] = useState<Creating>(null);
-  const appearance = useQuery(appearanceQuery).data;
+  // Your account has a bar of its own in place of the top bar (spec 084, ACC-102).
+  const account = accountSectionAt(useLocation().pathname);
   // Someone can leave without logging out, so the next person clears what they left.
   const person = me.user.id;
   useEffect(() => {
@@ -154,26 +190,11 @@ function Shell({ me, children }: { me: Me; children: ReactNode }) {
       <a className="skip" href="#main">
         {t('app.skip')}
       </a>
-      {/* Three groups: the sidebar button and the name; search with Create; the round buttons (NAV-090). */}
-      <header className="top">
-        <div className="top-start">
-          <SidebarSlot />
-          <Link href="/" className="brand">
-            {appearance?.logo ? <img src={appearance.logo} alt="" className="brand-logo" /> : <Logo />}{' '}
-            {appearance?.name || t('app.name')}
-          </Link>
-        </div>
-        <div className="top-middle">
-          <QuickSearch />
-          <CreateButton me={me} onCreate={setCreating} />
-        </div>
-        <div className="top-end">
-          <NotificationBell />
-          <HelpMenu />
-          <SettingsButton me={me} />
-          <AccountMenu me={me} onLogout={() => void logout()} />
-        </div>
-      </header>
+      {account ? (
+        <AccountBar me={me} current={account} onLogout={() => void logout()} />
+      ) : (
+        <TopBar me={me} onCreate={setCreating} onLogout={() => void logout()} />
+      )}
       <SiteNotes me={me} />
       {children}
       <IdleWarning minutes={me.idle_minutes} />
@@ -250,6 +271,8 @@ function Routes({ me }: { me: Me }) {
       </HomeFrame>
     );
   }
+  const account = accountSectionAt(pathname);
+  if (account) return <AccountView me={me} section={account} />;
   if ((m = match('/search', pathname))) {
     return (
       <Plain width="reading">
@@ -257,34 +280,7 @@ function Routes({ me }: { me: Me }) {
       </Plain>
     );
   }
-  if ((m = match('/me', pathname))) {
-    return (
-      <Plain width="reading">
-        <ProfileView me={me} />
-      </Plain>
-    );
-  }
-  if ((m = match('/me/security', pathname))) {
-    return (
-      <Plain width="reading">
-        <SecurityView me={me} />
-      </Plain>
-    );
-  }
-  if ((m = match('/me/tokens', pathname))) {
-    return (
-      <Plain width="reading">
-        <TokensView />
-      </Plain>
-    );
-  }
-  if ((m = match('/me/data', pathname))) {
-    return (
-      <Plain width="reading">
-        <PersonalDataView />
-      </Plain>
-    );
-  }
+
   if ((m = match('/people', pathname))) {
     return (
       <Plain width="reading">
@@ -306,13 +302,7 @@ function Routes({ me }: { me: Me }) {
       </Plain>
     );
   }
-  if ((m = match('/me/preferences', pathname))) {
-    return (
-      <Plain width="reading">
-        <PreferencesView />
-      </Plain>
-    );
-  }
+
   if ((m = match('/notifications', pathname))) {
     return (
       <Plain width="reading">
@@ -320,13 +310,7 @@ function Routes({ me }: { me: Me }) {
       </Plain>
     );
   }
-  if ((m = match('/me/notifications', pathname))) {
-    return (
-      <Plain width="reading">
-        <NotificationSettingsView />
-      </Plain>
-    );
-  }
+
   if ((m = match('/me/watching', pathname))) {
     return (
       <HomeFrame width="reading">
@@ -459,9 +443,7 @@ export function App() {
     <ToastProvider>
       <ReauthProvider>
         {me.data.needs_second_factor ? (
-          <Plain width="reading">
-            <SecurityView me={me.data} />
-          </Plain>
+          <SecondFactorAccount me={me.data} />
         ) : (
           <ShortcutsProvider enabled={me.data.preferences.shortcuts}>
             <PersonProvider value={me.data.user.id}>

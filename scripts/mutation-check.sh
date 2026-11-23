@@ -1343,7 +1343,7 @@ mutate "an unknown block reaches an export" internal/document/html.go \
   's.replace("w.b.WriteString(`<p class=\"unknown-block\">Block not shown: ` + esc(name) + `</p>`)", "orig, _ := n.Attrs[\"original\"].(string)\n\t\tw.b.WriteString(name + orig)")' ./internal/document/
 # Wave U (spec 030).
 mutate "the user list names spaces a guest cannot open" internal/identity/users.go \
-  's.replace("FROM perm_spaces(u.id, '"'"'space.view'"'"') ps JOIN spaces s ON s.id = ps.space_id", "FROM spaces s")' $app -run TestTheUserListNamesTheSpacesOfAGuestOnly
+  's.replace("FROM perm_spaces(u.id, '"'"'space.view'"'"', NULL) ps JOIN spaces s ON s.id = ps.space_id", "FROM spaces s")' $app -run TestTheUserListNamesTheSpacesOfAGuestOnly
 mutate "the content screen ignores the last day of a change" internal/pages/content.go \
   's.replace("p.updated_at < $20::timestamptz + interval '"'"'1 day'"'"'", "p.updated_at < $20::timestamptz")' $app -run TestContentFiltersByTheDayOfChangeAndOfCreation
 mutate "the reach of a person counts pages of others" internal/identity/lifecycle.go \
@@ -1446,7 +1446,7 @@ mutate "a rule of a space chooses spaces" internal/automation/service.go \
 mutate "a lookup looks outside the chosen spaces" internal/automation/run.go \
   's.replace("AND (cardinality($7::uuid[]) = 0 OR p.space_id = ANY($7))", "AND (cardinality($7::uuid[]) >= 0)")' $app -run TestAFindStepOfAnInstanceRuleLooksOnlyInItsSpaces
 mutate "the user list ignores the space" internal/identity/users.go \
-  's.replace("AND ($11::uuid IS NULL OR $11 IN (SELECT ps.space_id FROM perm_spaces(u.id, '"'"'space.view'"'"') ps))", "AND ($11::uuid IS NULL OR true)")' $app -run TestTheUserListFiltersByRoleAndBySpace
+  's.replace("AND ($11::uuid IS NULL OR $11 IN (SELECT ps.space_id FROM perm_spaces(u.id, '"'"'space.view'"'"', NULL) ps))", "AND ($11::uuid IS NULL OR true)")' $app -run TestTheUserListFiltersByRoleAndBySpace
 mutate "a guest is not marked" internal/permissions/access.go \
   's.replace("holders[i].Guest = holders[i].Subject.Type == SubjectUser && slices.Contains(guests, holders[i].Subject.ID)", "holders[i].Guest = len(guests) < 0")' $app -run TestWhoHasAccessShowsHowAndExportsSafely
 mutate "anyone makes a role" internal/permissions/roles.go \
@@ -3328,6 +3328,13 @@ mutate "a release keeps a draft id in a canonical address" internal/publishing/r
   's.replace("var pageHref = regexp.MustCompile(`^(?:/spaces/[^/?#]+)?/pages/", "var pageHref = regexp.MustCompile(`^/pages/")' ./internal/publishing/ -run '^TestCanonicalAddressesAndOldKeysOfTheDraftSpaceAreRewritten$'
 mutate "one key is one space's old key and another's current key" internal/db/migrations/0076_space_access_answer.sql \
   's.replace("RAISE EXCEPTION \x27this key is held by another space\x27 USING ERRCODE = \x27unique_violation\x27;", "NULL;")' $app -run '^TestOneKeyBelongsToOneSpaceInEitherTable$'
+# Spec 084, wave SC6: the list of one's own sessions shows only sessions that still work.
+mutate "the sessions list shows sessions past their absolute limit" internal/identity/users.go \
+  's.replace("WHERE user_id = $1 AND expires_at > $2 AND last_seen_at", "WHERE user_id = $1 AND last_seen_at")' ./internal/identity/ -run '^TestSessionsLeaveOutSessionsPastTheirLimits$'
+mutate "the sessions list shows sessions past their idle limit" internal/identity/users.go \
+  's.replace(" AND last_seen_at > $2 - make_interval(secs => $3)\n", " AND $3::float8 IS NOT NULL\n")' ./internal/identity/ -run '^TestSessionsLeaveOutSessionsPastTheirLimits$'
+mutate_web "the bar offers tabs while a second factor is required" src/views/account-sections.ts \
+  's.replace("return needsSecondFactor ? [] : accountTabs();", "return accountTabs();")' src/views/account-sections.test.ts
 finish_mutations
 if [ "$survived" -gt 0 ]; then
   echo "$survived mutation(s) were not caught"

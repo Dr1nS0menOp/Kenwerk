@@ -927,8 +927,8 @@ test.describe('the look of every kind of screen', () => {
   test('SecurityView: how you sign in', async ({ browser }) => {
     const page = await newReaderPage(browser, 'light');
     await page.goto('/me/security');
-    await expect(page.getByRole('heading', { name: 'Change password' })).toBeVisible();
-    await picture(page, 'security', [page.locator('table')]);
+    await expect(page.getByRole('button', { name: 'Change password' })).toBeVisible();
+    await picture(page, 'security');
     await page.context().close();
   });
 
@@ -947,8 +947,111 @@ test.describe('the look of every kind of screen', () => {
   test('PersonalDataView: your data', async ({ browser }) => {
     const page = await newReaderPage(browser, 'light');
     await page.goto('/me/data');
-    await expect(page.getByRole('heading', { name: 'Ask for removal' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Download my data' })).toBeVisible();
     await picture(page, 'personal-data');
+    await page.context().close();
+  });
+
+  // Your account in its own frame (spec 084).
+  test('AccountView: the bar in dark, and at 360 pixels with the tabs scrolled', async ({ browser }) => {
+    const page = await newReaderPage(browser, 'dark');
+    await page.goto('/me');
+    await expect(page.getByRole('heading', { name: 'About you' })).toBeVisible();
+    await picture(page, 'account-bar');
+    await page.context().close();
+    const narrow = await newReaderPage(browser, 'light');
+    await narrow.setViewportSize({ width: 360, height: 800 });
+    await narrow.goto('/me/notifications');
+    await expect(narrow.getByRole('heading', { name: 'Quiet hours' })).toBeVisible();
+    await picture(narrow, 'account-bar-narrow');
+    await narrow.context().close();
+  });
+
+  test('AccountView: a profile row being edited, and who sees a field', async ({ browser }) => {
+    const page = await newReaderPage(browser, 'light');
+    await page.goto('/me');
+    await page.getByRole('button', { name: /^Job title/ }).click();
+    await page.getByRole('textbox', { name: 'Job title' }).fill('Technical writer');
+    await picture(page, 'account-profile-editing');
+    await page.getByRole('textbox', { name: 'Job title' }).press('Escape');
+    await page.getByRole('button', { name: 'Who sees Location: Everyone who may see me' }).click();
+    await expect(page.getByRole('menuitemradio', { name: 'Only me' })).toBeVisible();
+    await picture(page, 'account-visibility');
+    await page.context().close();
+  });
+
+  test('AccountView: the fields an identity provider fills', async ({ browser }) => {
+    const page = await newReaderPage(browser, 'light');
+    await page.route('**/api/v1/people/*', async (route) => {
+      const res = await route.fetch();
+      const profile = (await res.json()) as Record<string, unknown>;
+      await route.fulfill({
+        response: res,
+        json: {
+          ...profile,
+          job_title: 'Engineer',
+          department: 'Platform',
+          locked_fields: ['job_title', 'department'],
+        },
+      });
+    });
+    await page.goto('/me');
+    await expect(page.getByText('Your identity provider fills in some of these fields.')).toBeVisible();
+    await picture(page, 'account-profile-locked');
+    await page.context().close();
+  });
+
+  test('EmailView: the address of a local account, and of an account of the provider', async ({
+    browser,
+  }) => {
+    const page = await newReaderPage(browser, 'light');
+    await page.goto('/me/email');
+    await expect(page.getByText('You sign in with a password only.')).toBeVisible();
+    await picture(page, 'account-email');
+    await page.route('**/api/v1/me/security', (route) =>
+      route.fulfill({ json: { has_password: false, totp_enabled: false, passkeys: 0, source: 'oidc' } }),
+    );
+    await page.reload();
+    await expect(page.getByText('You sign in through your identity provider.')).toBeVisible();
+    await picture(page, 'account-email-provider');
+    await page.goto('/me/security');
+    await expect(page.getByText('Your identity provider handles your password')).toBeVisible();
+    await picture(page, 'account-security-provider');
+    await page.context().close();
+  });
+
+  test('AccountView: while a second factor is required, Security alone and no tabs', async ({ browser }) => {
+    const page = await newReaderPage(browser, 'light');
+    await page.route('**/api/v1/me', async (route) => {
+      const res = await route.fetch();
+      const me = (await res.json()) as Record<string, unknown>;
+      await route.fulfill({ response: res, json: { ...me, needs_second_factor: true } });
+    });
+    await page.goto('/me/preferences');
+    await expect(page.getByText('Add a second factor')).toBeVisible();
+    await picture(page, 'account-second-factor');
+    await page.context().close();
+  });
+
+  test('SessionsView: two sessions, the recent logins, and ending the others', async ({ browser }) => {
+    const page = await newReaderPage(browser, 'light');
+    // Earlier pictures left sessions of their own; the picture shows this one and one more.
+    const ended = await page.request.post('/api/v1/me/sessions/end-others');
+    expect(ended.ok(), await ended.text()).toBeTruthy();
+    const other = await newReaderPage(browser, 'light');
+    await page.goto('/me/sessions');
+    await expect(page.getByRole('button', { name: 'End session' })).toHaveCount(1);
+    // When the other session was last active depends on how long the run took, and its words set
+    // the width of the column, so the words are fixed rather than masked.
+    await fixText(page.getByRole('table').first().locator('tbody td:nth-child(4)'), 'Now');
+    const times = [page.getByRole('table').last()];
+    await picture(page, 'account-sessions', times);
+    await page.getByRole('button', { name: 'End all other sessions' }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await picture(page, 'account-sessions-end-all', times);
+    await page.getByRole('dialog').getByRole('button', { name: 'End all other sessions' }).click();
+    await expect(page.getByRole('button', { name: 'End session' })).toHaveCount(0);
+    await other.context().close();
     await page.context().close();
   });
 
@@ -2136,6 +2239,20 @@ test.describe('the look of every kind of screen', () => {
       await page.goto('/me/notifications');
       await expect(page.getByRole('heading', { name: 'Quiet hours' })).toBeVisible();
       await picture(page, 'notification-settings');
+      await page.context().close();
+    });
+
+    test('AccountView: notifications with a change, and the watches', async ({ browser }) => {
+      const page = await newReaderPage(browser, 'light');
+      await page.goto('/me/notifications');
+      await page.locator('main select').first().selectOption('off');
+      await expect(page.getByRole('button', { name: 'Reset changes' })).toBeEnabled();
+      await picture(page, 'account-notifications-changed');
+      await page.getByRole('button', { name: 'Reset changes' }).click();
+      await page.goto('/me/watches');
+      await page.getByPlaceholder('Filter by name').fill('Team agreements');
+      await expect(page.getByRole('button', { name: 'Stop watching' })).toHaveCount(1);
+      await picture(page, 'account-watches', [page.locator('time')]);
       await page.context().close();
     });
 

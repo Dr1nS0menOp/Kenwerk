@@ -91,7 +91,7 @@ Kenwerk has measures against each of these, listed in the [threat model](threat-
 - **Think before sharing.** Whoever has a public link can read the page. Whatever people download or export is out of reach of Kenwerk.
 - **Be careful with attachments.** A file from a colleague can still be harmful. Open it as you would an attachment in an e-mail.
 - **Watch out for false messages.** A mail that asks you to log in may not come from Kenwerk. Check the address, and go to the site yourself.
-- **Protect your account.** Use a passkey, or an authenticator app. Log out on a shared computer. You get a mail when your password, second factor or a passkey changes: if that was not you, tell your administrator at once.
+- **Protect your account.** Use a passkey, or an authenticator app. Log out on a shared computer. You get a mail when your password, second factor or a passkey changes: if that was not you, tell your administrator at once. **Your account**, **Sessions**, lists where you are signed in: end any session you do not recognise, and after losing a device end its session and change your password.
 - **Report anything odd** to your administrator: a page you should not see, a login you do not recognise.
 
 ## Research

@@ -60,7 +60,9 @@ export function usePreferences() {
   });
   return {
     preferences,
-    update: (change: Partial<Preferences>) => save.mutate({ ...preferences, ...change }),
+    /** Stores a change; `onSaved` runs once the server kept it, for a screen that says so. */
+    update: (change: Partial<Preferences>, onSaved?: () => void) =>
+      save.mutate({ ...preferences, ...change }, { onSuccess: onSaved }),
     error: save.error,
   };
 }

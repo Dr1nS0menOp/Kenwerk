@@ -37,7 +37,7 @@ On 2026-11-14 the product owner decided that, for the arrangement of a screen, a
 ### The frames
 
 - The start screen is one centred column: what the person last worked on as cards, the choice of feed as a row of pill buttons, then the feed. The greeting, the grid of spaces and the side column leave it. Replaces the start screen as built (Home in the Personal frame), and `Tabs` for "Switching between lists" (Components) on this screen. NAV-102, NAV-103, NAV-106.
-- Your account has a bar of its own in place of the top bar, with its sections as text tabs, and one narrow centred column under it. Replaces the Plain frame and the top bar for "your account" (The frame of a screen), and `AccountNav` (Components). ACC-102, ACC-104.
+- Your account has a bar of its own in place of the top bar, with its sections as text tabs, and one narrow centred column under it. Replaces the Plain frame and the top bar for "your account" (The frame of a screen), and `AccountNav` (Components). ACC-102, ACC-104. Built in spec 084 (`AccountFrame`).
 
 ### The sidebar outside a space
 
@@ -189,7 +189,8 @@ Every screen is one of these. Do not invent another.
 
 | Frame | Used for | Built from |
 | --- | --- | --- |
-| **Plain** | Search, your account, people, labels | Top bar, `Plain` in `app.tsx` (wide, or `reading`) |
+| **Plain** | Search, people, labels | Top bar, `Plain` in `app.tsx` (wide, or `reading`) |
+| **Account** | Your account | `AccountBar` and `AccountMain` in `components/account-frame.tsx`, in place of the top bar: the logo and the words Your account, the sections as text tabs with their own addresses, help and the account menu; under it one centred column of reading width, with no sidebar, breadcrumbs, back link or save bar. Its sections are one list, `views/account-sections.ts`; Tokens and Sessions are screens below Security, which stays selected on them. While a second factor is required the bar has no tabs and no account menu |
 | **Space** | Everything inside a space | Top bar, `Frame` or `SpaceShell` in `components/frame.tsx`: sidebar and a centred `.column` |
 | **Settings** | The administration, and the settings of a space | Top bar, `SettingsFrame` in `components/settings-frame.tsx`: the sections in the sidebar in groups that fold, with a way to jump to one, and the large area that changes them. One section at a time, at its own address (`?section=` in a space, `/admin/<id>` in the administration). The administration adds a header row with a way back, tool sections with icons before the groups, and the jump field under a Settings heading; its sections and their places are one list, `views/admin-sections.ts`. A space has a head that stays (way back, badge and name, jump field), four pinned entries with icons, a divider and five groups; its entries are one list, `views/space-sections.ts`, and a screen of its own frames itself with `SpaceToolFrame`. The settings of a template keep the plain list |
 | **Personal** | The start screen, Recent, Favourites, Drafts, Tasks, Watching, all spaces | Top bar, `HomeFrame` in `components/home-frame.tsx`: the sidebar with the global part (`GlobalPart`) and the favourite spaces, beside a `.column` |
@@ -232,7 +233,7 @@ Use these. Reuse beats a new variant.
 | Something the whole instance says | `.site-note` under the top bar, a static region. Never a dialog that opens by itself |
 | A new password | `NewPasswordField`, with Show password. Paste always works |
 | Tabs inside a screen | `Tabs`, with arrow keys |
-| Sections of Your account | `AccountNav`, which holds real addresses |
+| Sections of Your account | The tabs of `AccountBar` in `components/account-frame.tsx`, from `views/account-sections.ts`; each is a real address |
 | Numbers on a summary | `.tiles` |
 | A colleague in the same document | `TogetherPeople`, and a cursor with a name in words, from `renderCaret` |
 | A table people sort | `SortTable` in `components/sort-table.tsx`, which keeps `aria-sort` right |

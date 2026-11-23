@@ -1533,22 +1533,6 @@ a.byline-part:hover {
   white-space: pre-line;
 }
 
-.account-tabs {
-  margin-block-end: var(--space-4);
-}
-
-.account-tabs a {
-  padding: var(--space-2) var(--space-3);
-  border-block-end: 2px solid transparent;
-  color: var(--color-muted);
-  text-decoration: none;
-}
-
-.account-tabs a[aria-current='page'] {
-  border-block-end-color: var(--color-accent);
-  color: var(--color-accent);
-}
-
 .people {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(var(--size-card), 1fr));
@@ -1639,18 +1623,6 @@ a.byline-part:hover {
 
 .facts dd {
   margin: 0;
-}
-
-.profile-field {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: end;
-  gap: var(--space-1) var(--space-3);
-  margin-block-end: var(--space-3-5);
-}
-
-.profile-field .field {
-  margin-block-end: 0;
 }
 
 .crop-canvas {
@@ -2409,4 +2381,297 @@ a.byline-part:hover {
 
 .customise-row.locked .customise-grip {
   cursor: default;
+}
+
+/* The bar of Your account (spec 084, ACC-102, ACC-103): the logo and its words, the tabs, then
+   help and the account menu, in place of the top bar. A tab's bar sits on the bar's lower edge. */
+.account-bar {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: var(--layer-bar);
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
+  grid-template-areas: 'start tabs end';
+  align-items: center;
+  gap: var(--space-4-5);
+  min-block-size: var(--size-topbar);
+  padding-inline: var(--space-5);
+  border-block-end: 1px solid var(--color-line);
+  background: var(--color-surface);
+}
+
+.account-bar-start,
+.account-bar-end {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2-5);
+}
+
+.account-bar-start {
+  grid-area: start;
+}
+
+.account-bar-end {
+  grid-area: end;
+  justify-content: flex-end;
+}
+
+.account-bar-title {
+  color: var(--color-strong);
+  font-size: var(--text-section);
+  font-weight: var(--weight-title);
+  white-space: nowrap;
+}
+
+/* On a narrow screen the row of tabs scrolls on its own; the page never scrolls sideways. */
+.account-tabs {
+  grid-area: tabs;
+  display: flex;
+  align-self: stretch;
+  min-inline-size: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.account-tabs a {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  padding-inline: var(--space-3);
+  border-block-end: 2px solid transparent;
+  color: var(--color-muted);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.account-tabs a:hover,
+.account-tabs a:focus-visible {
+  background: var(--color-subtle);
+  color: var(--color-ink);
+}
+
+.account-tabs a[aria-current='page'] {
+  border-block-end-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+@media (max-width: 50rem) {
+  .account-bar {
+    grid-template-columns: minmax(0, 1fr) max-content;
+    grid-template-areas:
+      'start end'
+      'tabs tabs';
+    row-gap: 0;
+    padding-block-start: var(--space-2);
+  }
+
+  .account-tabs {
+    min-block-size: var(--size-tool);
+    margin-inline: calc(-1 * var(--space-5));
+    padding-inline: var(--space-2);
+  }
+}
+
+/* One centred column of reading width under the bar; the page scrolls as a whole (ACC-104). */
+.account-main {
+  padding: var(--space-8) var(--space-5) var(--space-12);
+}
+
+/* A part of a section: a bold heading close to its content, larger gaps between parts. */
+.account-part {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.account-part > p {
+  margin: 0;
+}
+
+.part-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+/* The heading keeps the gap above a part; the button beside it lines up with the heading. */
+.part-head {
+  margin-block-start: var(--space-6);
+}
+
+.settings-area .part-head > h2 {
+  margin: 0;
+}
+
+.account-sign-in {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* The cards of the profile are a shade off the page, with no lines between rows (ACC-114). */
+.settings-card.shaded {
+  overflow: visible;
+  border: 0;
+  background: var(--color-subtle);
+}
+
+.settings-card.shaded .settings-card-row + .settings-card-row {
+  border-block-start: 0;
+}
+
+.profile-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.profile-card-head > span {
+  font-size: var(--text-small);
+}
+
+.profile-row {
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.profile-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-0-5);
+  min-inline-size: 0;
+  text-align: start;
+}
+
+/* A row at rest reads as text; it is a button so a click, Enter or Space opens it (ACC-116). */
+.profile-edit {
+  margin: calc(-1 * var(--space-1));
+  padding: var(--space-1);
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: var(--weight-regular);
+  cursor: text;
+}
+
+.profile-edit:hover {
+  background: var(--color-subtle-hover);
+}
+
+.profile-label {
+  color: var(--color-ink);
+  font-size: var(--text-small);
+  font-weight: var(--weight-strong);
+}
+
+.profile-value {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.profile-invite,
+.profile-locked {
+  color: var(--color-muted);
+}
+
+.profile-locked {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-small);
+}
+
+.profile-editing input,
+.profile-editing textarea {
+  inline-size: 100%;
+}
+
+.profile-picture {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3);
+}
+
+.profile-picture-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.profile-picture-actions > p {
+  margin: 0;
+}
+
+/* Who sees a field: borderless, the audience's icon, its name and an arrow (ACC-115). */
+.audience-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--color-muted);
+  font-size: var(--text-small);
+  font-weight: var(--weight-regular);
+  white-space: nowrap;
+}
+
+.audience-button:hover {
+  background: var(--color-subtle-hover);
+  color: var(--color-ink);
+}
+
+/* Airy rows of up to two lines, the second muted (ACC-085). */
+.table-box > table.airy > tbody > tr > * {
+  padding-block: var(--space-2-5);
+  vertical-align: top;
+}
+
+.two-lines {
+  display: flex;
+  flex-direction: column;
+}
+
+.device-cell {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+/* The session in use says so in words, on the tint of success (ACC-076). */
+.session-mark {
+  display: inline-block;
+  padding: var(--space-0-5) var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--color-ok-tint);
+  color: var(--color-ink);
+  font-size: var(--text-small);
+  font-weight: var(--weight-strong);
+  white-space: nowrap;
+}
+
+.switch-rows {
+  margin-block-start: var(--space-4);
+}
+
+.settings-card-row.with-help {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
+}
+
+.settings-card-row.with-help > p {
+  margin: 0;
+  font-size: var(--text-small);
 }

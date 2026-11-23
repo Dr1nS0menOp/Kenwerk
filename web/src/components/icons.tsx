@@ -266,6 +266,10 @@ export const IconMegaphone = line('M4 10v4h3l7 4V6l-7 4zM17 9a4 4 0 0 1 0 6M7 14
 /** Service accounts, which act with a token. */
 export const IconKey = line('M8 15a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 11h9M18 11v3M15 11v2');
 export const IconMail = line('M3 6h18v12H3zM3 7l9 6 9-6');
+/** A session made on a computer: a screen on a stand. */
+export const IconComputer = line('M3 5h18v11H3zM8 20h8M12 16v4');
+/** A session made on a phone or a tablet. */
+export const IconPhone = line('M7 3h10v18H7zM11 18h2');
 /** A list of entries, such as the events of the installation. */
 export const IconList = line('M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01');
 export const IconPerson = line('M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 20a8 8 0 0 1 16 0');

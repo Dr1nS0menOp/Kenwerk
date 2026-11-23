@@ -97,6 +97,50 @@ func TestSessionLifecycle(t *testing.T) {
 	_ = p
 }
 
+// loginAnn starts a session of the user of setup.
+func loginAnn(t *testing.T, svc *identity.Service) (string, identity.Principal) {
+	t.Helper()
+	token, p, err := svc.Login(context.Background(), "ann@example.com", "a long enough password", identity.RequestMeta{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return token, p
+}
+
+// listsOnly fails unless the sessions list of p's user holds p's session alone.
+func listsOnly(t *testing.T, svc *identity.Service, p identity.Principal, why string) {
+	t.Helper()
+	list, err := svc.Sessions(context.Background(), p.User.ID, p.SessionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 1 || list[0].ID != p.SessionID || !list[0].Current {
+		t.Fatalf("%s: want only %v, got %+v", why, p.SessionID, list)
+	}
+}
+
+// The list shows only sessions that still work, even before the cleaning job removes the others
+// (spec 084, D11). Each limit is checked while the other still holds.
+func TestSessionsLeaveOutSessionsPastTheirLimits(t *testing.T) {
+	svc, clk := setup(t)
+	loginAnn(t, svc)
+	// Past the idle limit of an hour, without a request in between, well within the absolute one.
+	clk.t = clk.t.Add(61 * time.Minute)
+	agedToken, aged := loginAnn(t, svc)
+	listsOnly(t, svc, aged, "an idle session is listed")
+	// Kept active for most of the absolute limit of eight hours...
+	for range 8 {
+		clk.t = clk.t.Add(55 * time.Minute)
+		if _, err := svc.AuthenticateSession(context.Background(), agedToken); err != nil {
+			t.Fatalf("active session: %v", err)
+		}
+	}
+	// ...then past it while still within the idle limit.
+	clk.t = clk.t.Add(45 * time.Minute)
+	_, fresh := loginAnn(t, svc)
+	listsOnly(t, svc, fresh, "a session past its absolute limit is listed")
+}
+
 func TestPasswordIsRehashedWhenParamsIncrease(t *testing.T) {
 	tdb := testutil.Database(t)
 	ctx := context.Background()

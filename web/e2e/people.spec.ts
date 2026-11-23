@@ -99,10 +99,14 @@ test('a person hides their address, and someone else no longer sees it', async (
   await login(page, email);
   await page.goto('/me');
   await checkAccessibility(page);
+  // A row is edited in place and saved when it is left (spec 084, ACC-116).
+  await page.getByRole('button', { name: /^Job title/ }).click();
   await page.getByRole('textbox', { name: 'Job title' }).fill('Writer');
-  await page.getByLabel('Who sees Email').selectOption('me');
-  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('textbox', { name: 'Job title' }).press('Tab');
   await expect(page.getByRole('status').filter({ hasText: 'Saved' })).toBeVisible();
+  await page.getByRole('button', { name: 'Who sees Email: Members only' }).click();
+  await page.getByRole('menuitemradio', { name: 'Only me' }).click();
+  await expect(page.getByRole('button', { name: 'Who sees Email: Only me' })).toBeVisible();
 
   const other = await browserAs(browser, ADMIN.email, ADMIN.password);
   await other.goto(`/people/${id}`);
@@ -133,9 +137,9 @@ test('a picture is cropped by keyboard, and shows on the profile', async ({ page
   await dialog.getByRole('button', { name: 'Zoom out' }).click();
   await dialog.getByRole('button', { name: 'Save' }).click();
   await expect(dialog).toHaveCount(0);
-  await expect(page.locator('.person-head img')).toBeVisible();
+  await expect(page.locator('.profile-picture img')).toBeVisible();
   await page.getByRole('button', { name: 'Remove' }).click();
-  await expect(page.locator('.person-head img')).toHaveCount(0);
+  await expect(page.locator('.profile-picture img')).toHaveCount(0);
 });
 
 test('a forgotten password answers the same for every address', async ({ page }) => {
@@ -212,7 +216,12 @@ test('a required second factor leaves only the account open', async ({ page, bro
     await as.getByLabel('Email').fill(email);
     await as.getByLabel('Password').fill(PASSWORD);
     await as.getByRole('button', { name: 'Log in', exact: true }).click();
-    await expect(as.getByRole('alert')).toContainText('asks for a second factor');
+    await expect(as.getByText('asks for a second factor')).toBeVisible();
+    // The bar of Your account shows no tabs, and every address shows Security (spec 084).
+    await expect(as.getByRole('navigation', { name: 'Sections of your account' })).toHaveCount(0);
+    await as.goto('/me/preferences');
+    await expect(as.getByRole('heading', { name: 'Security', level: 1 })).toBeVisible();
+    expect((await as.request.get('/api/v1/me/preferences')).status()).toBe(403);
     await expect(as.getByRole('link', { name: 'People' })).toHaveCount(0);
     expect((await as.request.get('/api/v1/spaces')).status()).toBe(403);
     await checkAccessibility(as);
@@ -338,6 +347,9 @@ test('a token for an assistant reaches every space unless spaces are chosen', as
   await expect(page.getByLabel('Administration, read only')).toBeDisabled();
   await expect(page.getByText('Choose at least one space.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'New token' })).toBeDisabled();
+  // The check scrolls the page, and a field can then sit under the sticky bar of Your account,
+  // where axe measures its box against the bar. Measure the screen as it rests.
+  await page.evaluate(() => window.scrollTo(0, 0));
   await checkAccessibility(page);
 
   await page.getByLabel('Every space you can see').check();
@@ -361,6 +373,8 @@ test('a person downloads their data and asks for removal', async ({ page, browse
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Download my data' }).click();
   expect((await download).suggestedFilename()).toBe('my-kenwerk-data.json');
+  // Asking for removal ends Preferences (spec 084, ACC-109).
+  await page.goto('/me/preferences');
   await page.getByRole('button', { name: 'Ask for removal' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Ask for removal' }).click();
   await expect(page.getByRole('status').filter({ hasText: 'has been sent' })).toBeVisible();
@@ -374,10 +388,10 @@ test('dates follow the time zone and format a person chose', async ({ page, brow
   await checkAccessibility(page);
   await page.getByLabel('Date format').selectOption('iso');
   await page.getByLabel('Time zone').selectOption('Asia/Tokyo');
-  await page.goto('/me/security');
+  await page.goto('/me/sessions');
   const stamp = page
     .getByRole('table')
-    .first()
+    .last()
     .getByText(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}/);
   await expect(stamp.first()).toBeVisible();
 });
@@ -686,7 +700,7 @@ test('turning off a factor offers to end the other sessions', async ({ page, bro
   expect(confirm.ok(), await confirm.text()).toBeTruthy();
 
   await page.goto('/me/security');
-  const section = page.getByRole('heading', { name: 'Authenticator app' }).locator('..');
+  const section = page.getByRole('heading', { name: 'Two-step verification' }).locator('..');
   await section.getByLabel('Current password').fill(PASSWORD);
   await section.getByRole('button', { name: 'Remove' }).click();
   await section.getByRole('button', { name: 'Log out everywhere else' }).click();
