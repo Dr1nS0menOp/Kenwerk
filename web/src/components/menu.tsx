@@ -56,6 +56,11 @@ export function submenuPlace(
   };
 }
 
+/** Whether an entry stands elsewhere on the screen than where its sub-menu was placed beside it. */
+export function entryMoved(placed: ScreenBox, now: ScreenBox): boolean {
+  return placed.top !== now.top || placed.left !== now.left;
+}
+
 /** The entries of one list, without those of a sub-menu inside it. */
 function itemsOf(list: Element | null): HTMLElement[] {
   if (!list) return [];
@@ -323,12 +328,14 @@ export function MenuSub({
   const entry = useRef<HTMLButtonElement>(null);
   const list = useRef<HTMLDivElement>(null);
   const leaving = useRef<number | undefined>(undefined);
+  const placedBeside = useRef<ScreenBox | null>(null);
 
   useLayoutEffect(() => {
     const box = list.current;
     if (!open || !box || !entry.current) return;
+    placedBeside.current = entry.current.getBoundingClientRect();
     const place = submenuPlace(
-      entry.current.getBoundingClientRect(),
+      placedBeside.current,
       { width: box.offsetWidth, height: box.offsetHeight },
       { width: window.innerWidth, height: window.innerHeight },
       isRightToLeft(entry.current),
@@ -350,6 +357,11 @@ export function MenuSub({
     const close = (e: Event) => {
       const menu = entry.current?.closest('.menu-list');
       if (e.target instanceof Node && menu?.contains(e.target)) return;
+      // A scroll reaches the page a frame after it happened, so one from before the list opened,
+      // such as bringing the entry into view, arrives later. Only a scroll that moved the entry
+      // leaves the list behind.
+      const placed = placedBeside.current;
+      if (placed && entry.current && !entryMoved(placed, entry.current.getBoundingClientRect())) return;
       setState('shut');
     };
     window.addEventListener('scroll', close, { capture: true, passive: true });

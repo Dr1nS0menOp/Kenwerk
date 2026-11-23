@@ -296,6 +296,20 @@ test('Theme in the account menu opens its choices on the screen by pointer, clic
   await expect(theme).toBeFocused();
 });
 
+// A scroll from before the choices opened reaches the page a frame later. It once shut them at
+// once, which a click that first scrolled its entry into view could trigger.
+test('Theme stays open after a scroll that does not move its entry', async ({ page }) => {
+  await page.setViewportSize(PHONE);
+  await freshMember(page);
+  await page.getByRole('button', { name: 'Account' }).click();
+  await page.getByRole('menuitem', { name: 'Theme' }).click();
+  await expectThemeChoicesShown(page);
+
+  await page.evaluate(() => document.dispatchEvent(new Event('scroll')));
+  await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => setTimeout(done, 50))));
+  await expectThemeChoicesShown(page);
+});
+
 test('an open menu of the sidebar lies over its edge, and the edge does not drag until it closes', async ({
   page,
 }) => {

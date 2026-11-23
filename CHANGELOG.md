@@ -3,6 +3,9 @@
 Plain-language notes per release. Every entry has an "Upgrade impact" line.
 
 ## Unreleased
+### Fixed: a sub-menu no longer shuts as soon as it opens (wave FX11)
+- A sub-menu, such as **Theme** in the account menu, shut when the page scrolled, also for a scroll that left its entry where it was. A scroll reaches the page a frame after it happens, so one from just before the sub-menu opened, such as bringing its entry into view, could shut it before it was seen. It now shuts only when a scroll moved its entry
+- Upgrade impact: none
 ### Fixed: four things the product owner saw on 2026-11-22 (wave FX7)
 - An open menu of the sidebar, such as the menu of the space or of a page in the tree, now lies over the edge that makes the sidebar wider. While any menu is open the edge neither lights up nor drags; a press on it only closes the menu
 - Tables in a page show a thin line between every two columns and every two rows, inside an outline that is twice as thick, in the reading view and in the editor. Outline and lines use a new colour, `--color-table-line`, which stands out 3:1 from the page in the light and the dark theme (WCAG 1.4.11)

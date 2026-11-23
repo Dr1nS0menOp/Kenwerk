@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from 'vitest';
 import type { Notification } from '../api';
-import { sidewaysShift, submenuPlace } from './menu';
+import { entryMoved, sidewaysShift, submenuPlace } from './menu';
 import { byDay, contentKind } from './notifications';
 import { accessOf, RESTRICTION_STATES, stateOf } from './restriction-state';
 
@@ -35,6 +35,15 @@ describe('where a sub-menu opens', () => {
 
   it('moves up rather than run past the bottom of the screen', () => {
     expect(submenuPlace(entry(900, 1140, 760), SUBMENU, WIDE, false).top).toBe(676);
+  });
+
+  it('stays after a scroll that left its entry in place, such as one from before it opened', () => {
+    expect(entryMoved(entry(700, 940), entry(700, 940))).toBe(false);
+  });
+
+  it('closes when a scroll moved its entry, down or sideways', () => {
+    expect(entryMoved(entry(700, 940), entry(700, 940, 60))).toBe(true);
+    expect(entryMoved(entry(700, 940), entry(699, 939))).toBe(true);
   });
 });
 
