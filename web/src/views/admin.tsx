@@ -533,6 +533,10 @@ function UsersTab() {
   const q = useQuery({
     queryKey: ['admin-users', query],
     queryFn: () => api.get<{ users: UserDetail[]; total: number }>(`/admin/users?${query}`),
+    // The search reaches the address after a pause, so a person can already be open when the
+    // list asks again: keeping the old rows until the new ones come keeps their dialog, and
+    // what is open in it, from closing and opening afresh.
+    placeholderData: (previous) => previous,
   });
   const selected = q.data?.users.find((u) => u.id === open);
   const toggle = (id: string) =>
