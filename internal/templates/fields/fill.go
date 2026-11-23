@@ -31,14 +31,7 @@ func Fill(s Spec, value string) document.Filling {
 		}
 		return inline(document.Node{Type: document.TypeDate, Attrs: map[string]any{"value": value}})
 	case KindYesNo:
-		switch {
-		case s.Show == ShowNone:
-			return document.Filling{}
-		case value == "yes":
-			return inline(text(wordYes))
-		default:
-			return inline(text(wordNo))
-		}
+		return fillYesNo(s, value)
 	case KindChoices:
 		return fillChoices(s, value)
 	case KindPerson, KindPeople:
@@ -53,6 +46,19 @@ func Fill(s Spec, value string) document.Filling {
 		return document.Filling{}
 	}
 	return inline(text(value))
+}
+
+// fillYesNo gives the word of a yes/no answer, or nothing when the field shows none. An
+// unanswered question is a no.
+func fillYesNo(s Spec, value string) document.Filling {
+	switch {
+	case s.Show == ShowNone:
+		return document.Filling{}
+	case value == "yes":
+		return inline(text(wordYes))
+	default:
+		return inline(text(wordNo))
+	}
 }
 
 func inline(nodes ...document.Node) document.Filling { return document.Filling{Inline: nodes} }

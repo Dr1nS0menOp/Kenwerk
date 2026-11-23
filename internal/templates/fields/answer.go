@@ -28,18 +28,39 @@ func Answer(s Spec, raw string, today string) (string, *Problem) {
 		}
 		return "", nil
 	}
+	return kindAnswer(s, value, today)
+}
+
+// kindAnswer checks an answer that is not empty against the kind of its field.
+func kindAnswer(s Spec, value string, today string) (string, *Problem) {
 	switch s.Kind {
 	case KindText:
 		return value, lengthProblem(s, value)
+	case KindNumber:
+		return value, numberProblem(s, value)
+	case KindDate:
+		return value, dateProblem(s, value, today)
+	case KindPeople:
+		return listAnswer(value, idProblem, s)
+	case KindChoices:
+		return listAnswer(value, s.optionProblem, s)
+	case KindLink:
+		return value, linkProblem(value)
+	case KindLabel:
+		return labelAnswer(value)
+	}
+	return pickedAnswer(s, value)
+}
+
+// pickedAnswer checks an answer that is picked from a set: an option, yes or no, or the id of
+// a page or a person. Any other kind is a line.
+func pickedAnswer(s Spec, value string) (string, *Problem) {
+	switch s.Kind {
 	case KindChoice:
 		if !slices.Contains(s.Options, value) {
 			return "", problem("not_an_option")
 		}
 		return value, nil
-	case KindNumber:
-		return value, numberProblem(s, value)
-	case KindDate:
-		return value, dateProblem(s, value, today)
 	case KindYesNo:
 		if value != "yes" && value != "no" {
 			return "", problem("not_yes_no")
@@ -50,33 +71,36 @@ func Answer(s Spec, raw string, today string) (string, *Problem) {
 			return "", problem("not_an_id")
 		}
 		return value, nil
-	case KindPeople:
-		return listAnswer(value, func(item string) *Problem {
-			if !IsID(item) {
-				return problem("not_an_id")
-			}
-			return nil
-		}, s)
-	case KindChoices:
-		return listAnswer(value, func(item string) *Problem {
-			if !slices.Contains(s.Options, item) {
-				return problem("not_an_option")
-			}
-			return nil
-		}, s)
-	case KindLink:
-		return value, linkProblem(value)
-	case KindLabel:
-		return labelAnswer(value)
 	default: // a line, and any kind an older text names
-		if strings.ContainsAny(value, "\r\n") {
-			return "", problem("one_line")
-		}
-		if p := lengthProblem(s, value); p != nil {
-			return "", p
-		}
-		return value, formatProblem(s.Format, value)
+		return lineAnswer(s, value)
 	}
+}
+
+// lineAnswer checks an answer of one line, of the length and format its field asks.
+func lineAnswer(s Spec, value string) (string, *Problem) {
+	if strings.ContainsAny(value, "\r\n") {
+		return "", problem("one_line")
+	}
+	if p := lengthProblem(s, value); p != nil {
+		return "", p
+	}
+	return value, formatProblem(s.Format, value)
+}
+
+// idProblem refuses an item of a list of people that is not an id.
+func idProblem(item string) *Problem {
+	if !IsID(item) {
+		return problem("not_an_id")
+	}
+	return nil
+}
+
+// optionProblem refuses an item of a list of choices that is not one of the options.
+func (s Spec) optionProblem(item string) *Problem {
+	if !slices.Contains(s.Options, item) {
+		return problem("not_an_option")
+	}
+	return nil
 }
 
 func runes(s string) int { return utf8.RuneCountInString(s) }
@@ -240,16 +264,24 @@ func listAnswer(value string, check func(string) *Problem, s Spec) (string, *Pro
 		}
 		items = append(items, item)
 	}
-	if s.Kind == KindPeople && len(items) > MaxPeople {
-		return "", problem("too_many_people", "max", strconv.Itoa(MaxPeople))
-	}
-	if s.MinChoices != nil && len(items) < *s.MinChoices {
-		return "", problem("too_few_choices", "min", strconv.Itoa(*s.MinChoices))
-	}
-	if s.MaxChoices != nil && len(items) > *s.MaxChoices {
-		return "", problem("too_many_choices", "max", strconv.Itoa(*s.MaxChoices))
+	if p := countProblem(s, len(items)); p != nil {
+		return "", p
 	}
 	return strings.Join(items, "\n"), nil
+}
+
+// countProblem holds the number of items of a list to what its field allows.
+func countProblem(s Spec, count int) *Problem {
+	if s.Kind == KindPeople && count > MaxPeople {
+		return problem("too_many_people", "max", strconv.Itoa(MaxPeople))
+	}
+	if s.MinChoices != nil && count < *s.MinChoices {
+		return problem("too_few_choices", "min", strconv.Itoa(*s.MinChoices))
+	}
+	if s.MaxChoices != nil && count > *s.MaxChoices {
+		return problem("too_many_choices", "max", strconv.Itoa(*s.MaxChoices))
+	}
+	return nil
 }
 
 // linkProblem allows a web address of http or https only, so a typed javascript: address

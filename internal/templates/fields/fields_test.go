@@ -18,18 +18,21 @@ import (
 
 const tableCreator = "01938f2e-7b3a-7cde-8f00-00000000c0de"
 
+// answerCase is an answer to a field, and what Answer must make of it.
+type answerCase struct {
+	Name    string            `json:"name"`
+	Field   json.RawMessage   `json:"field"`
+	Answer  string            `json:"answer"`
+	Today   string            `json:"today"`
+	Problem string            `json:"problem"`
+	Params  map[string]string `json:"params"`
+	Value   *string           `json:"value"`
+}
+
 type table struct {
-	Today   string `json:"today"`
-	Answers []struct {
-		Name    string            `json:"name"`
-		Field   json.RawMessage   `json:"field"`
-		Answer  string            `json:"answer"`
-		Today   string            `json:"today"`
-		Problem string            `json:"problem"`
-		Params  map[string]string `json:"params"`
-		Value   *string           `json:"value"`
-	} `json:"answers"`
-	Specs []struct {
+	Today   string       `json:"today"`
+	Answers []answerCase `json:"answers"`
+	Specs   []struct {
 		Name    string          `json:"name"`
 		Field   json.RawMessage `json:"field"`
 		Problem string          `json:"problem"`
@@ -123,26 +126,29 @@ func TestAnswersFollowTheSharedTable(t *testing.T) {
 		t.Fatalf("the table lost cases: %d", len(tb.Answers))
 	}
 	for _, c := range tb.Answers {
-		t.Run(c.Name, func(t *testing.T) {
-			today := tb.Today
-			if c.Today != "" {
-				today = c.Today
-			}
-			value, problem := Answer(specOf(t, c.Field), expand(c.Answer), today)
-			got := ""
-			if problem != nil {
-				got = problem.Code
-			}
-			if got != c.Problem {
-				t.Fatalf("problem %q, want %q (%+v)", got, c.Problem, problem)
-			}
-			if problem != nil && len(c.Params) > 0 && fmt.Sprint(problem.Params) != fmt.Sprint(c.Params) {
-				t.Fatalf("params %v, want %v", problem.Params, c.Params)
-			}
-			if c.Value != nil && value != *c.Value {
-				t.Fatalf("value %q, want %q", value, *c.Value)
-			}
-		})
+		t.Run(c.Name, func(t *testing.T) { checkAnswer(t, tb.Today, c) })
+	}
+}
+
+// checkAnswer runs one case of the table, on its own day or else on the table's.
+func checkAnswer(t *testing.T, today string, c answerCase) {
+	t.Helper()
+	if c.Today != "" {
+		today = c.Today
+	}
+	value, problem := Answer(specOf(t, c.Field), expand(c.Answer), today)
+	got := ""
+	if problem != nil {
+		got = problem.Code
+	}
+	if got != c.Problem {
+		t.Fatalf("problem %q, want %q (%+v)", got, c.Problem, problem)
+	}
+	if problem != nil && len(c.Params) > 0 && fmt.Sprint(problem.Params) != fmt.Sprint(c.Params) {
+		t.Fatalf("params %v, want %v", problem.Params, c.Params)
+	}
+	if c.Value != nil && value != *c.Value {
+		t.Fatalf("value %q, want %q", value, *c.Value)
 	}
 }
 
@@ -185,37 +191,48 @@ func TestEveryProblemHasAMessage(t *testing.T) {
 	}
 }
 
+// fillCase is an answer and the content it must put in a page, as JSON; blocks is "" when
+// the answer replaces no paragraph.
+type fillCase struct {
+	name   string
+	spec   Spec
+	value  string
+	inline string
+	blocks string
+}
+
+// The people a case of fillCases mentions.
+const (
+	personID = tableCreator
+	otherID  = "01938f2e-7b3a-7cde-8f00-0123456789ab"
+)
+
+// fillCases is what lands in a page for each kind (TPL-212).
+var fillCases = []fillCase{
+	{"a line is text", Spec{Kind: KindLine}, "Ada", `[{"type":"text","text":"Ada"}]`, ""},
+	{"a number is text as typed", Spec{Kind: KindNumber}, "3,5", `[{"type":"text","text":"3,5"}]`, ""},
+	{"a link is text", Spec{Kind: KindLink}, "https://example.org", `[{"type":"text","text":"https://example.org"}]`, ""},
+	{"text keeps its lines", Spec{Kind: KindText}, "a\nb\n\nc",
+		`[{"type":"text","text":"a"},{"type":"hardBreak"},{"type":"text","text":"b"},{"type":"hardBreak"},{"type":"hardBreak"},{"type":"text","text":"c"}]`,
+		`[{"type":"paragraph","content":[{"type":"text","text":"a"},{"type":"hardBreak"},{"type":"text","text":"b"}]},{"type":"paragraph","content":[{"type":"text","text":"c"}]}]`},
+	{"a date is a date mark", Spec{Kind: KindDate}, "2028-02-29", `[{"type":"date","attrs":{"value":"2028-02-29"}}]`, ""},
+	{"yes in words", Spec{Kind: KindYesNo}, "yes", `[{"type":"text","text":"Yes"}]`, ""},
+	{"no in words", Spec{Kind: KindYesNo}, "", `[{"type":"text","text":"No"}]`, ""},
+	{"yes/no showing nothing", Spec{Kind: KindYesNo, Show: ShowNone}, "yes", `[]`, ""},
+	{"choices joined with commas", Spec{Kind: KindChoices}, "A\nB", `[{"type":"text","text":"A, B"}]`, ""},
+	{"choices as a list", Spec{Kind: KindChoices, Show: ShowList}, "A\nB", `[{"type":"text","text":"A, B"}]`,
+		`[{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"A"}]}]},{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"B"}]}]}]}]`},
+	{"a person is a mention", Spec{Kind: KindPerson}, personID, `[{"type":"mention","attrs":{"id":"` + personID + `","kind":"user"}}]`, ""},
+	{"people are mentions with commas", Spec{Kind: KindPeople}, personID + "\n" + otherID,
+		`[{"type":"mention","attrs":{"id":"` + personID + `","kind":"user"}},{"type":"text","text":", "},{"type":"mention","attrs":{"id":"` + otherID + `","kind":"user"}}]`, ""},
+	{"a page is a page link", Spec{Kind: KindPage}, otherID, `[{"type":"pageLink","attrs":{"page_id":"` + otherID + `"}}]`, ""},
+	{"a label is text", Spec{Kind: KindLabel}, "team-alpha", `[{"type":"text","text":"team-alpha"}]`, ""},
+	{"an empty line leaves nothing", Spec{Kind: KindLine}, "", `[]`, ""},
+}
+
 // What lands in a page depends on the kind (TPL-212).
 func TestWhatLandsInThePageDependsOnTheKind(t *testing.T) {
-	person, other := tableCreator, "01938f2e-7b3a-7cde-8f00-0123456789ab"
-	cases := []struct {
-		name   string
-		spec   Spec
-		value  string
-		inline string
-		blocks string
-	}{
-		{"a line is text", Spec{Kind: KindLine}, "Ada", `[{"type":"text","text":"Ada"}]`, ""},
-		{"a number is text as typed", Spec{Kind: KindNumber}, "3,5", `[{"type":"text","text":"3,5"}]`, ""},
-		{"a link is text", Spec{Kind: KindLink}, "https://example.org", `[{"type":"text","text":"https://example.org"}]`, ""},
-		{"text keeps its lines", Spec{Kind: KindText}, "a\nb\n\nc",
-			`[{"type":"text","text":"a"},{"type":"hardBreak"},{"type":"text","text":"b"},{"type":"hardBreak"},{"type":"hardBreak"},{"type":"text","text":"c"}]`,
-			`[{"type":"paragraph","content":[{"type":"text","text":"a"},{"type":"hardBreak"},{"type":"text","text":"b"}]},{"type":"paragraph","content":[{"type":"text","text":"c"}]}]`},
-		{"a date is a date mark", Spec{Kind: KindDate}, "2028-02-29", `[{"type":"date","attrs":{"value":"2028-02-29"}}]`, ""},
-		{"yes in words", Spec{Kind: KindYesNo}, "yes", `[{"type":"text","text":"Yes"}]`, ""},
-		{"no in words", Spec{Kind: KindYesNo}, "", `[{"type":"text","text":"No"}]`, ""},
-		{"yes/no showing nothing", Spec{Kind: KindYesNo, Show: ShowNone}, "yes", `[]`, ""},
-		{"choices joined with commas", Spec{Kind: KindChoices}, "A\nB", `[{"type":"text","text":"A, B"}]`, ""},
-		{"choices as a list", Spec{Kind: KindChoices, Show: ShowList}, "A\nB", `[{"type":"text","text":"A, B"}]`,
-			`[{"type":"bulletList","content":[{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"A"}]}]},{"type":"listItem","content":[{"type":"paragraph","content":[{"type":"text","text":"B"}]}]}]}]`},
-		{"a person is a mention", Spec{Kind: KindPerson}, person, `[{"type":"mention","attrs":{"id":"` + person + `","kind":"user"}}]`, ""},
-		{"people are mentions with commas", Spec{Kind: KindPeople}, person + "\n" + other,
-			`[{"type":"mention","attrs":{"id":"` + person + `","kind":"user"}},{"type":"text","text":", "},{"type":"mention","attrs":{"id":"` + other + `","kind":"user"}}]`, ""},
-		{"a page is a page link", Spec{Kind: KindPage}, other, `[{"type":"pageLink","attrs":{"page_id":"` + other + `"}}]`, ""},
-		{"a label is text", Spec{Kind: KindLabel}, "team-alpha", `[{"type":"text","text":"team-alpha"}]`, ""},
-		{"an empty line leaves nothing", Spec{Kind: KindLine}, "", `[]`, ""},
-	}
-	for _, c := range cases {
+	for _, c := range fillCases {
 		t.Run(c.name, func(t *testing.T) {
 			f := Fill(c.spec, c.value)
 			inline, _ := json.Marshal(nonNil(f.Inline))

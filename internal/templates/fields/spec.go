@@ -185,6 +185,17 @@ func (s Spec) checkShow() *Problem {
 	return problem("bad_show")
 }
 
+// parts counts the ways a default is given: a value, a day or the creator. A valid one has one.
+func (d *Default) parts() int {
+	parts := 0
+	for _, set := range []bool{d.Value != "", d.Date != nil, d.Creator} {
+		if set {
+			parts++
+		}
+	}
+	return parts
+}
+
 // checkDefault refuses a default that is not an answer of its own kind, such as an option
 // that was removed (TPL-316).
 func (s Spec) checkDefault(today string) *Problem {
@@ -192,12 +203,7 @@ func (s Spec) checkDefault(today string) *Problem {
 	if d == nil {
 		return nil
 	}
-	parts := 0
-	for _, set := range []bool{d.Value != "", d.Date != nil, d.Creator} {
-		if set {
-			parts++
-		}
-	}
+	parts := d.parts()
 	wrongPart := (d.Creator && s.Kind != KindPerson && s.Kind != KindPeople) ||
 		(d.Date != nil) != (s.Kind == KindDate) || !d.Date.valid()
 	if parts != 1 || wrongPart {
