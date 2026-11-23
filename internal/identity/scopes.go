@@ -31,6 +31,10 @@ const (
 	// ScopeNone marks a route no credential ever reaches, such as one's own password or a
 	// signature (class N of spec 096). It is never held.
 	ScopeNone = "none"
+	// ScopeAny marks a route every credential reaches whatever it holds: only what a credential
+	// learns about itself, so a client offers no tool it cannot use (spec 096, wave MC3). It is
+	// never held or chosen.
+	ScopeAny = "any"
 )
 
 // The words of tokens made before spec 096. They stay valid as bundles of the scopes above.

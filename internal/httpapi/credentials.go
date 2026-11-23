@@ -84,7 +84,7 @@ func (s *Server) tokenMayGoOn(w http.ResponseWriter, r *http.Request, a Access, 
 		s.refuseRate(w, r, p, limit)
 		return false
 	}
-	if !slices.Contains(p.Scopes, a.scope) {
+	if a.scope != identity.ScopeAny && !slices.Contains(p.Scopes, a.scope) {
 		return s.refuseToken(w, r, p, a.scope, "token_scope", "This token does not have the scope "+a.scope+".")
 	}
 	if p.Spaces != nil && (spaceBoundless[r.Pattern] || identity.IsAdminScope(a.scope)) {

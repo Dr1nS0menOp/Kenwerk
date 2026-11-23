@@ -5145,6 +5145,25 @@
         "x-scope": "account:write"
       }
     },
+    "/api/v1/me/credential": {
+      "get": {
+        "operationId": "get /api/v1/me/credential",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Done. Most routes answer with JSON."
+          },
+          "default": {
+            "description": "An error, as {\"error\": {\"code\", \"message\"}}."
+          }
+        },
+        "tags": [
+          "me"
+        ],
+        "x-access": "authenticated scope:any",
+        "x-scope": "any"
+      }
+    },
     "/api/v1/me/export": {
       "post": {
         "operationId": "post /api/v1/me/export",

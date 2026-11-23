@@ -1,6 +1,6 @@
 # 096: Assistants through the Model Context Protocol
 
-Status: MC2 built (scopes per route, spaces on tokens, assistant tokens, `via`, limits); MC3 to MC6 planned
+Status: MC2 built (scopes per route, spaces on tokens, assistant tokens, `via`, limits); MC3 built (the catalogue and `kenwerk mcp` over stdio); MC4 to MC6 planned
 Phase: before 1.0, all of MC2 to MC6 (decided by the product owner on 2026-11-22); the roadmap places the MCP server (PLT-047) in phase 6 and OAuth (PLT-037) in phase 7
 
 ## Problem
@@ -459,6 +459,26 @@ What MC2 built, and how it differs in detail from the plan above.
 - **`via`** sits in `identity.RequestMeta`, which `metaFrom` fills from the principal, so every event a handler records through a `Caller` or `RecordAccessDenied` names the token without a change in any module; `token.used` names it too. For an old `write` token reaching a `content:share` or `spaces:manage` route, `via.old_write` is set.
 - **Limits.** Per person across all tokens 1,200 a minute; for a token for an assistant 120 changes and 20 of `content:delete`, `content:share` or `spaces:manage`. Ordinary tokens keep only the 600 a minute they had (D7: scripts keep working as before). A refusal is `429` with `Retry-After: 60`, audited as `token.rate_limited` at most once a minute per token.
 - **One migration,** `0078_credential_limits`, holds migrations 1 and 7 of "Data". The old signatures of the perm_* functions now ask the new ones with `NULL`, so both always agree.
+
+## Built in wave MC3
+
+What MC3 built, and how it differs in detail from the plan above.
+
+- **`internal/mcp`** holds the catalogue, the classification of routes for `call_api`, the marking of content, and the server built on the official MCP Go SDK (D13; MIT for its existing code and Apache-2.0 for new contributions, both allowed). **`kenwerk mcp`** serves it over stdio with `KENWERK_URL` and `KENWERK_TOKEN` or `KENWERK_TOKEN_FILE`, as `kenwerk client` does.
+- **43 tools:** 41 task tools, `describe_api` and `call_api`. Each declares the routes it calls and their scopes; a test over the real route table holds both, and that its annotations follow them: read-only when every route is a read, destructive when a route needs `content:delete`, `content:share` or `spaces:manage`. `call_api` is destructive and open-world, except in its read-only form. Names, descriptions and schemas are data in code.
+- **Every tool is requests of the public API** with the connection's token, through `mcp.Caller`. Over stdio that is HTTP to the server, so the server's router decides every call exactly as for any other client; `POST /mcp` (MC4) will give the same catalogue a caller that runs the inner request through the router in process.
+- **The never list and the approval class** live in `internal/mcp/reach.go`, matched with the router's own pattern rules. `call_api` refuses both before anything is sent, with a fixed reason; every route of `scope:none` must be on the never list, and every listed pattern must be a route (a test). Admin changes are refused by their path, as in the router.
+- **Content is marked**: every result with what people wrote is `{"notice", "content"}`, its text starting with the notice. Pages, versions and comments come as Markdown. Secret fields and anything shaped like a Kenwerk secret are replaced by `[hidden]`, as a second guard: no route a tool reaches answers with a secret.
+- **`GET /api/v1/me/credential`** (new, `scope:any`) tells a credential its scopes, spaces and whether it is for an assistant, so `kenwerk mcp` offers only the tools the token can use and `describe_api` lists only what it may reach. `scope:any` is refused at registration on any route not named in `selfRoutes` beside the router.
+
+### Decided on the product owner's behalf on 2026-11-23, may be overruled
+
+- **D21. `kenwerk mcp` refuses a token that is not made For an assistant.** Only such a token carries the stricter limits for assistants, and the approval rules of MC5 key on the mark; a person who connects an assistant with a script's token would lose both without noticing.
+- **D22. Every token reaches `GET /api/v1/me/credential`, through a new `scope:any`.** Without it a token that cannot read Your account could not learn its own scopes, and a read-only connection would be offered tools that change (AC-13). It tells nothing the credential does not hold already, reads nothing from the database, and `scope:any` cannot be put on another route without changing the router's list.
+- **D23. In MC3 `call_api` treats every connection as an assistant's,** and refuses the approval class for all of them. `kenwerk mcp` only takes tokens for an assistant anyway (D21).
+- **D24. The conversion between Markdown and documents runs in `kenwerk mcp`,** with `internal/document`, the same code the server uses for import and export; no new route, and the server still checks every document it stores.
+- **D25. `describe_api` reads the server's own `openapi.json`** rather than a table built into the binary, so it describes the release of the server it talks to. It needs `content:read`, which it names.
+- **D26. Form-mode confirmation before a delete or a move waits for MC5.** Revision 2026-07-28 moves elicitation into the tool result (`InputRequests`, answered by the client calling again), the same mechanism MC5 builds for approvals by URL; one mechanism for both is safer than two. Until then the destructive annotation lets a client ask the person, which the common clients do by default.
 
 ### Decided by the product owner on 2026-11-22
 

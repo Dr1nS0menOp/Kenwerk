@@ -155,6 +155,7 @@ var routeScopes = map[string]string{
 	"GET /api/v1/labels":                                        identity.ScopeContentRead,
 	"GET /api/v1/labels/{label}/pages":                          identity.ScopeContentRead,
 	"GET /api/v1/me":                                            identity.ScopeAccountRead,
+	"GET /api/v1/me/credential":                                 identity.ScopeAny,
 	"GET /api/v1/me/absence":                                    identity.ScopeAccountRead,
 	"GET /api/v1/me/favourites":                                 identity.ScopeAccountRead,
 	"GET /api/v1/me/following":                                  identity.ScopePeopleRead,

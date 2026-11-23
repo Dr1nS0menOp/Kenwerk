@@ -144,6 +144,7 @@ GET /api/v1/labels                                             authenticated sco
 GET /api/v1/labels/{label}/pages                               authenticated scope:content:read
 GET /api/v1/me                                                 authenticated scope:account:read
 GET /api/v1/me/absence                                         session-only authenticated scope:account:read
+GET /api/v1/me/credential                                      authenticated scope:any
 GET /api/v1/me/favourites                                      authenticated scope:account:read
 GET /api/v1/me/following                                       authenticated scope:people:read
 GET /api/v1/me/groups                                          authenticated scope:people:read

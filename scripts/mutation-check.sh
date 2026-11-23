@@ -2775,6 +2775,42 @@ mutate "an assistant deletes and shares without a limit" internal/httpapi/creden
   's.replace("case slices.Contains(riskyScopes, a.scope) && !s.credentialLimits.risky.allow(token):", "case false:")' ./internal/httpapi/ -run '^TestAnAssistantDeletesOrSharesAtMost20TimesAMinute$'
 mutate "a limited token is not told when to try again" internal/httpapi/credentials.go \
   's.replace("\tw.Header().Set(\"Retry-After\", strconv.Itoa(rateLimitedRetrySeconds))\n", "\t_ = strconv.Itoa(rateLimitedRetrySeconds)\n")' $app -run '^TestATokenPastItsLimitIsToldWhenToTryAgain$'
+# Spec 096, wave MC3: the tools for assistants do no more than the API lets their token do.
+mcp=./internal/mcp/
+mutate "scope:any is allowed on any route" internal/httpapi/router.go \
+  's.replace("if scope == identity.ScopeAny && !slices.Contains(selfRoutes, pattern) {", "if scope == identity.ScopeAny && !slices.Contains(selfRoutes, pattern) && false {")' ./internal/httpapi/ -run '^TestScopeAnyIsOnlyForWhatACredentialLearnsAboutItself$'
+mutate "a route of scope:any refuses tokens" internal/httpapi/credentials.go \
+  's.replace("if a.scope != identity.ScopeAny && !slices.Contains(p.Scopes, a.scope) {", "if !slices.Contains(p.Scopes, a.scope) {")' $app -run '^TestMyCredentialTellsATokenWhatItHoldsAndNoMore$'
+mutate "call_api sends a route of the never list or the approval class" internal/mcp/reach.go \
+  's.replace("if found, ok := h.(reachHandler); ok && pattern != \"\" {", "if found, ok := h.(reachHandler); ok && pattern == \"x\" {")' $mcp -run '^(TestCallAPINeverSendsWhatAnAssistantMayNotDo|TestEachRouteHasTheReachOfItsList)$'
+mutate "call_api changes the Administration" internal/mcp/reach.go \
+  's.replace("if strings.HasPrefix(path, adminPrefix) && method != http.MethodGet", "if false && method != http.MethodGet")' $mcp -run '^(TestCallAPINeverSendsWhatAnAssistantMayNotDo|TestEachRouteHasTheReachOfItsList)$'
+mutate "call_api sends what it should refuse" internal/mcp/catalogue_api.go \
+  's.replace("if reach := Classify(method, p); reach.Class != ClassCallAPI {", "if reach := Classify(method, p); false \x26\x26 reach.Class != ClassCallAPI {")' $mcp -run '^TestCallAPINeverSendsWhatAnAssistantMayNotDo$'
+mutate "call_api sends a path that is not clean" internal/mcp/catalogue_api.go \
+  's.replace("path.Clean(p) != p ||", "path.Clean(p) == \"\" \x26\x26")' $mcp -run '^TestCallAPINeverSendsWhatAnAssistantMayNotDo$'
+mutate "call_api of a read-only connection changes something" internal/mcp/catalogue_api.go \
+  's.replace("\treturn runCall(ctx, s, a, readMethods)\n", "\treturn runCall(ctx, s, a, callMethods)\n")' $mcp -run '^TestAReadOnlyConnectionIsOfferedOnlyReadTools$'
+mutate "a read-only connection is offered tools that change" internal/mcp/server.go \
+  's.replace("\treturn !slices.ContainsFunc(t.scopes, func(s string) bool { return !slices.Contains(scopes, s) })\n", "\treturn true\n")' $mcp -run '^TestAReadOnlyConnectionIsOfferedOnlyReadTools$'
+mutate "content is not marked as data" internal/mcp/results.go \
+  's.replace("\treturn ContentNotice + \"\\n\\n\" + string(raw), marked, nil\n", "\treturn string(raw), marked, nil\n")' $mcp -run '^(TestAPageComesAsMarkdownMarkedAsDataWrittenByPeople|TestEveryResultWithContentStartsWithTheNotice)$'
+mutate "a secret field reaches the result" internal/mcp/results.go \
+  's.replace("if slices.Contains(secretFields, strings.ToLower(key)) {", "if slices.Contains(secretFields, strings.ToLower(key)) \x26\x26 false {")' $mcp -run '^TestNoResultHoldsASecret$'
+mutate "a Kenwerk secret in text reaches the result" internal/mcp/results.go \
+  's.replace("\t\treturn kenwerkSecret.ReplaceAllString(t, hiddenValue)\n", "\t\treturn t\n")' $mcp -run '^TestNoResultHoldsASecret$'
+mutate "a tool that deletes does not say so" internal/mcp/tools.go \
+  's.replace("\tout.Destructive = !out.ReadOnly \x26\x26 slices.ContainsFunc(", "\tout.Destructive = false \x26\x26 slices.ContainsFunc(")' $mcp -run '^TestToolsThatDeleteOrReachOutsideSayTheyAreDestructive$'
+mutate "an id that is none goes into the address" internal/mcp/tools.go \
+  's.replace("\t\tif _, err := uuid.Parse(s); err != nil {", "\t\tif _, err := uuid.Parse(s); false \x26\x26 err != nil {")' $mcp -run '^TestArgumentsThatDoNotFitAreRefusedBeforeAnythingIsSent$'
+mutate "the arguments are not checked against the schema" internal/mcp/server.go \
+  's.replace("\tif err := schema.Validate(map[string]any(a)); err != nil {", "\tif err := schema.Validate(map[string]any(a)); false \x26\x26 err != nil {")' $mcp -run '^TestArgumentsThatDoNotFitAreRefusedBeforeAnythingIsSent$'
+mutate "update_page overwrites a newer version" internal/mcp/catalogue_pages.go \
+  's.replace("\"base_version\": a.number(\"base_version\")", "\"base_version\": page.CurrentVersion")' $mcp -run '^TestUpdatePageStartsFromTheVersionGiven$'
+mutate "the token follows a redirect" internal/mcp/caller.go \
+  's.replace("CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },", "CheckRedirect: nil,")' $mcp -run '^TestTheTokenNeverFollowsARedirect$'
+mutate "kenwerk mcp takes a token that is not for an assistant" cmd/kenwerk/mcp.go \
+  's.replace("if credential.Kind != \"token\" || !credential.Assistant {", "if credential.Kind != \"token\" {")' ./cmd/kenwerk/ -run '^TestKenwerkMCPRefusesATokenThatIsNotForAnAssistant$'
 # Spec 092: only the holder of a rule changes it, a test runs as its caller, and conditions need a page.
 mutate "someone who does not hold a rule changes it" internal/automation/service.go \
   's.replace("\tcase held:\n\t\treturn s.change(", "\tcase held || true:\n\t\treturn s.change(")' $app -run '^TestSomeoneWhoDoesNotHoldARuleCannotChangeWhatItDoes$'

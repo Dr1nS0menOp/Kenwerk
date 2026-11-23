@@ -5,6 +5,7 @@ package httpapi
 import (
 	"fmt"
 	"net/http"
+	"slices"
 	"sort"
 	"strings"
 
@@ -165,6 +166,11 @@ func withAdministrationRule(pattern string, a Access) Access {
 	return SessionOnly(a)
 }
 
+// selfRoutes are the only routes that may have scope:any, which every credential reaches: a
+// read of what the credential itself holds (spec 096, wave MC3). A line in the scope table alone
+// cannot open a route to every token.
+var selfRoutes = []string{"GET /api/v1/me/credential"}
+
 // withScope gives a route the scope its table names. A route a credential can reach that is not
 // in the table does not start, so no route can be added without deciding its scope; scope:none
 // is only for a route no token reaches anyway (spec 096).
@@ -178,6 +184,9 @@ func (r *Router) withScope(pattern string, a Access) Access {
 	}
 	if scope == identity.ScopeNone && !a.sessionOnly {
 		panic(fmt.Sprintf("httpapi: route %q has scope:none but tokens may reach it", pattern))
+	}
+	if scope == identity.ScopeAny && !slices.Contains(selfRoutes, pattern) {
+		panic(fmt.Sprintf("httpapi: route %q has scope:any but tells a credential more than itself", pattern))
 	}
 	a.scope = scope
 	return a

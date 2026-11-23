@@ -90,6 +90,8 @@ Commands:
                             release, configuration and keys, and print a report that
                             holds no secret; exits 1 when something needs a person now
   client <command>          use the API of a server with a token; see kenwerk client
+  mcp                       serve an assistant over the Model Context Protocol on standard
+                            input and output, with a token for an assistant; see kenwerk mcp help
   version                   print the version
 `
 
@@ -110,6 +112,8 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		return 0
 	case "client":
 		return cmdClient(ctx, args[1:], os.Getenv, stdout, stderr)
+	case "mcp":
+		return cmdMCP(ctx, args[1:], os.Getenv, os.Stdin, os.Stdout, stderr)
 	case "serve":
 		err = cmdServe(ctx)
 	case "migrate":

@@ -43,6 +43,16 @@ func TestScopeNoneIsOnlyForRoutesNoTokenReaches(t *testing.T) {
 		Handle("POST /api/v1/x", Authenticated(), http.NotFoundHandler())
 }
 
+func TestScopeAnyIsOnlyForWhatACredentialLearnsAboutItself(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Fatal("scope:any on a route that is not about the credential itself must not start")
+		}
+	}()
+	newRouter(passThrough, map[string]string{"GET /api/v1/me/tasks": identity.ScopeAny}).
+		Handle("GET /api/v1/me/tasks", Authenticated(), http.NotFoundHandler())
+}
+
 func limitsServer() *Server {
 	return &Server{tokenCalls: newLimiter(tokenCallsPerMinute, 60e9), credentialLimits: newCredentialLimits()}
 }

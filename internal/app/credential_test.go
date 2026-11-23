@@ -133,6 +133,10 @@ func (r gateRoute) expect(who, got string, pass bool) {
 
 func (r gateRoute) check(g gateTokens) {
 	r.e.t.Helper()
+	if r.scope == "any" {
+		r.everyTokenPasses(g)
+		return
+	}
 	if r.scope != "none" {
 		r.expect("exactly "+r.scope, r.answer(g.exact[r.scope]), true)
 		r.expect("every scope but "+r.scope, r.answer(g.allBut[r.scope]), false)
@@ -145,6 +149,22 @@ func (r gateRoute) check(g gateTokens) {
 	}
 	for word, token := range g.words {
 		r.expect("the old word "+word, r.answer(token), slices.Contains(oldWords[word], r.scope))
+	}
+}
+
+// everyTokenPasses checks a route of scope:any, which tells a credential about itself: every
+// token reaches it, whatever it holds, also one limited to a space.
+func (r gateRoute) everyTokenPasses(g gateTokens) {
+	r.e.t.Helper()
+	tokens := map[string]string{"a token limited to a space": g.limited}
+	for scope, token := range g.exact {
+		tokens["exactly "+scope] = token
+	}
+	for word, token := range g.words {
+		tokens["the old word "+word] = token
+	}
+	for who, token := range tokens {
+		r.expect(who, r.answer(token), true)
 	}
 }
 

@@ -31,7 +31,7 @@ A personal access token goes in `Authorization: Bearer kenwerk_...`. Make one un
 | `admin:read` | Reading routes under `/api/v1/admin/`, apart from the two below |
 | `admin:audit`, `admin:system`, `admin:write` | Named on their routes already; no token can hold them yet, as their routes are all `session-only` |
 
-Each route names the one scope it needs: `routes.txt` prints it as `scope:...`, and `openapi.json` as `x-scope`. `scope:none` is a route no token ever reaches, such as your password, your second factor, your tokens, a signature or a read confirmation.
+Each route names the one scope it needs: `routes.txt` prints it as `scope:...`, and `openapi.json` as `x-scope`. `scope:none` is a route no token ever reaches, such as your password, your second factor, your tokens, a signature or a read confirmation. `scope:any` is a route every token reaches whatever it holds; only `GET /api/v1/me/credential` has it, which tells a token its own scopes, spaces and whether it is for an assistant, and never its secret.
 
 **The old words.** Tokens made before spec 096 hold the words `read`, `write`, `export` and `admin`. They keep exactly what they reached:
 
@@ -69,6 +69,10 @@ An error is `{"error": {"code": "...", "message": "..."}}`. The code is stable, 
 ## Webhooks
 
 A webhook follows the Standard Webhooks format: the headers `webhook-id`, `webhook-timestamp` and `webhook-signature`, and an HMAC-SHA256 over `id.timestamp.body`. During a change of secret, the signature header holds two values. The id stays the same across attempts, so you can drop a double. The body holds ids, a type and a time, and a title only if the endpoint asked for it. Page text is never sent.
+
+## Assistants
+
+`kenwerk mcp` serves an assistant over the Model Context Protocol, with a token for an assistant; its tools are requests of this API with that token and nothing more. See [`docs/operations/mcp.md`](../operations/mcp.md).
 
 ## The command line tool
 
