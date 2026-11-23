@@ -318,11 +318,14 @@ func (s *Service) address(ctx context.Context, user uuid.UUID) (string, error) {
 	return email, nil
 }
 
-func (s *Service) testMail(to string) mail.Rendered {
-	name := s.options.InstanceName
+func (s *Service) testMail(ctx context.Context, to string) (mail.Rendered, error) {
+	name, err := s.settings.InstanceName(ctx)
+	if err != nil {
+		return mail.Rendered{}, err
+	}
 	body := fmt.Sprintf(testBody, name)
 	return mail.Rendered{Message: mail.Message{To: to, Subject: fmt.Sprintf(testSubject, name), Text: body,
-		HTML: template.HTMLEscapeString(body), Reason: "test"}}
+		HTML: template.HTMLEscapeString(body), Reason: "test"}}, nil
 }
 
 func subject(items []Item, instance string) string {
@@ -343,7 +346,7 @@ func (s *Service) Render(ctx context.Context, j mail.Job) (mail.Rendered, error)
 		return mail.Rendered{Drop: true}, nil
 	}
 	if j.Kind == mail.KindTest {
-		return s.testMail(to), nil
+		return s.testMail(ctx, to)
 	}
 	values, err := s.settings.Get(ctx)
 	if err != nil {
@@ -389,7 +392,11 @@ func (s *Service) compose(ctx context.Context, to string, j mail.Job, items []It
 	if err := mailPage.Execute(&html, view); err != nil {
 		return mail.Rendered{}, err
 	}
-	return mail.Rendered{Message: mail.Message{To: to, Subject: subject(items, s.options.InstanceName), Text: plainText(view), HTML: html.String(),
+	name, err := s.settings.InstanceName(ctx)
+	if err != nil {
+		return mail.Rendered{}, err
+	}
+	return mail.Rendered{Message: mail.Message{To: to, Subject: subject(items, name), Text: plainText(view), HTML: html.String(),
 		Reason: items[0].Reason, Unsubscribe: s.options.PublicOrigin + "/api/v1/mail/unsubscribe/" + token}}, nil
 }
 

@@ -62,10 +62,7 @@ var hostName = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-
 var serverSafeFields = settings.SafeFields{"host", "port", "tls", "from_address", "from_name", "reply_to"}
 
 // Sealer seals and opens the password; the keyring of the installation does it.
-type Sealer interface {
-	Seal(plaintext []byte, context string) ([]byte, error)
-	Open(sealed []byte, context string) ([]byte, error)
-}
+type Sealer = settings.Sealer
 
 // Server is the mail server as the administration shows it. It never holds the password,
 // only whether one is set.
@@ -81,10 +78,8 @@ type Server struct {
 }
 
 // Lock names the setting of the environment that holds the server, and where it is written.
-type Lock struct {
-	Setting string `json:"setting"`
-	Source  string `json:"source"`
-}
+// The other parts the environment may hold share it (spec 101).
+type Lock = settings.Lock
 
 // ServerView is the server in force, where it comes from, and what locks it.
 type ServerView struct {
@@ -95,20 +90,17 @@ type ServerView struct {
 }
 
 // PasswordAction says what a change does with the stored password.
-type PasswordAction string
+type PasswordAction = settings.SecretAction
 
 // The ways a change treats the password.
 const (
-	PasswordKeep   PasswordAction = "keep"
-	PasswordSet    PasswordAction = "set"
-	PasswordRemove PasswordAction = "remove"
+	PasswordKeep   = settings.SecretKeep
+	PasswordSet    = settings.SecretSet
+	PasswordRemove = settings.SecretRemove
 )
 
 // PasswordChange is the password part of a change: Value only with PasswordSet.
-type PasswordChange struct {
-	Action PasswordAction `json:"action"`
-	Value  string         `json:"value"`
-}
+type PasswordChange = settings.SecretChange
 
 // ServerChange is what a system administrator saves.
 type ServerChange struct {

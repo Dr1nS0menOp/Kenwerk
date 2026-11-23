@@ -110,8 +110,8 @@ func (s *Server) setSessionCookie(w http.ResponseWriter, token string) {
 
 func (s *Server) handleProviders(w http.ResponseWriter, _ *http.Request) {
 	out := map[string]any{"password": true, "passkey": true}
-	if s.deps.SSO != nil {
-		out["oidc"] = map[string]any{"name": s.deps.SSO.DisplayName()}
+	if p := s.deps.SSO.Provider(); p != nil {
+		out["oidc"] = map[string]any{"name": p.DisplayName()}
 	}
 	writeJSON(w, http.StatusOK, out)
 }
@@ -199,13 +199,14 @@ func (s *Server) handleLoginPasskeyFinish(w http.ResponseWriter, r *http.Request
 }
 
 func (s *Server) handleOIDCStart(w http.ResponseWriter, r *http.Request) {
-	if s.deps.SSO == nil {
+	provider := s.deps.SSO.Provider()
+	if provider == nil {
 		writeError(w, http.StatusNotFound, "not_found", "Not found.")
 		return
 	}
-	start := s.deps.SSO.Start
+	start := provider.Start
 	if r.URL.Query().Get("prompt") == "login" {
-		start = s.deps.SSO.StartFresh // step-up: the provider must ask again.
+		start = provider.StartFresh // step-up: the provider must ask again.
 	}
 	url, binding, err := start(r.Context())
 	if err != nil {
@@ -222,7 +223,8 @@ func (s *Server) handleOIDCStart(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
-	if s.deps.SSO == nil {
+	provider := s.deps.SSO.Provider()
+	if provider == nil {
 		writeError(w, http.StatusNotFound, "not_found", "Not found.")
 		return
 	}
@@ -235,13 +237,13 @@ func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{Name: s.flowCookie, Value: "", Path: "/api/v1/auth/oidc", MaxAge: -1, HttpOnly: true, Secure: s.deps.Config.SecureCookies()})
 	q := r.URL.Query()
 	if code := q.Get("error"); code != "" {
-		if err := s.deps.SSO.Refused(r.Context(), q.Get("state"), code, metaFrom(r)); err != nil {
+		if err := provider.Refused(r.Context(), q.Get("state"), code, metaFrom(r)); err != nil {
 			s.deps.Log.Error("oidc refusal could not be recorded", "error", err)
 		}
 		http.Redirect(w, r, "/login?error=oidc_failed", http.StatusFound)
 		return
 	}
-	res, err := s.deps.SSO.Complete(r.Context(), q.Get("state"), q.Get("code"), binding, metaFrom(r))
+	res, err := provider.Complete(r.Context(), q.Get("state"), q.Get("code"), binding, metaFrom(r))
 	if res.Signing {
 		s.finishProviderSigning(w, r, res.SigningReturn, err)
 		return

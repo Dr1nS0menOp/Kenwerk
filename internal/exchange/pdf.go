@@ -47,21 +47,7 @@ type PDFDesign struct {
 }
 
 // PDFAvailable says whether a helper process is connected.
-func (s *Service) PDFAvailable() bool { return s.pdfURL != "" }
-
-// SetPDFHelper points to the helper process. Tests use it to fit a fake one.
-func (s *Service) SetPDFHelper(url string) { s.pdfURL = url }
-
-// SetPDFPassword sets what the helper asks for. Tests use it with a fake helper.
-func (s *Service) SetPDFPassword(password string) { s.pdfPassword = password }
-
-// askHelper sends a request to the PDF helper, with its password when one is set.
-func (s *Service) askHelper(req *http.Request) (*http.Response, error) {
-	if s.pdfPassword != "" {
-		req.SetBasicAuth(helperUser, s.pdfPassword)
-	}
-	return http.DefaultClient.Do(req)
-}
+func (s *Service) PDFAvailable() bool { return s.inForce().PDFURL != "" }
 
 // PDFDesignOf reads the design of a space.
 func (s *Service) PDFDesignOf(ctx context.Context, c identity.Caller, spaceID uuid.UUID) (PDFDesign, error) {
@@ -168,7 +154,8 @@ func (w *exportWriter) pdfImage(ctx context.Context, item exportItem, id uuid.UU
 }
 
 func (w *exportWriter) pdf(parent context.Context) error {
-	if !w.s.PDFAvailable() {
+	helpers := w.s.inForce()
+	if helpers.PDFURL == "" {
 		return apperr.Invalid("PDF is not available on this instance.")
 	}
 	design, err := w.s.loadPDFDesign(parent, w.run.SpaceID)
@@ -186,12 +173,12 @@ func (w *exportWriter) pdf(parent context.Context) error {
 	}
 	ctx, cancel := context.WithTimeout(parent, pdfTimeout)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(w.s.pdfURL, "/")+pdfConvertPath, form)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, strings.TrimRight(helpers.PDFURL, "/")+pdfConvertPath, form)
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Content-Type", contentType)
-	resp, err := w.s.askHelper(req)
+	resp, err := helpers.askPDF(req)
 	if err != nil {
 		return apperr.Invalid("The PDF helper did not answer. Try again later, or ask an administrator.")
 	}

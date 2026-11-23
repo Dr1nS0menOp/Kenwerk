@@ -866,6 +866,55 @@ test.describe('the look of every kind of screen', () => {
     await picture(page, 'admin-mail-test-failed');
   });
 
+  /** The answer of the connections route while the environment sets the PDF helper (spec 101). */
+  const lockedHelpers = {
+    identity_provider: {
+      issuer: '',
+      client_id: '',
+      client_secret_set: false,
+      display_name: '',
+      auto_create: false,
+      allow_unverified_email: false,
+      groups_claim: '',
+      source: 'none',
+      locked: null,
+    },
+    pdf: {
+      url: 'http://pdf:3000',
+      password_set: true,
+      source: 'environment',
+      locked: { setting: 'KENWERK_PDF_URL', source: 'environment' },
+    },
+    office: { url: '', source: 'none', locked: null },
+    drawing: { url: 'https://draw.example.com', source: 'database', locked: null },
+    metrics: { token_set: true, source: 'database', locked: null },
+    updated_at: null,
+  };
+
+  test('ConnectionParts: the identity provider, the helper services, and a helper the environment sets', async ({
+    browser,
+  }) => {
+    // The first administrator is a system administrator, who sees the parts open, with their Save
+    // and Reset changes; a user of its own would show in the pictures of the people lists.
+    const page = await (await browser.newContext({ baseURL: 'http://localhost:8080' })).newPage();
+    await login(page, ADMIN.email, ADMIN.password);
+    await page.goto('/admin/login');
+    const provider = page.getByRole('heading', { name: 'Identity provider', level: 2 });
+    await provider.scrollIntoViewIfNeeded();
+    await expect(page.getByText('No client secret is set.')).toBeVisible();
+    await picture(page, 'admin-login-provider');
+    await page.goto('/admin/settings');
+    await page.getByRole('heading', { name: 'PDF helper', level: 2 }).scrollIntoViewIfNeeded();
+    await expect(page.getByText('No token is set.')).toBeVisible();
+    await picture(page, 'admin-general-helpers');
+    await page.route('**/api/v1/admin/connections', (route) => route.fulfill({ json: lockedHelpers }));
+    await page.reload();
+    await page.getByRole('heading', { name: 'PDF helper', level: 2 }).scrollIntoViewIfNeeded();
+    await expect(page.getByText('This is set by KENWERK_PDF_URL (environment).')).toBeVisible();
+    await picture(page, 'admin-connections-locked');
+    await page.context().close();
+  });
+
   test('HistoryView: version history', async ({ browser }) => {
     const page = await newReaderPage(browser, 'light');
     await page.goto(`/pages/${pageId}/history`);
@@ -3419,7 +3468,12 @@ test.describe('the administration as blueprint 03 arranges it', () => {
     await expect(page.getByText(/OIDC provider/)).toBeVisible();
     await picture(page, 'admin-login');
     await page.getByLabel('Second factor required for').selectOption('none');
-    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    // The identity provider below has a Save of its own (spec 101).
+    await page
+      .locator('form')
+      .filter({ has: page.getByLabel('Second factor required for') })
+      .getByRole('button', { name: 'Save', exact: true })
+      .click();
     await expect(page.getByLabel('Code from your authenticator app, or a recovery code')).toBeVisible();
     await picture(page, 'admin-login-confirm');
     await checkAccessibility(page);

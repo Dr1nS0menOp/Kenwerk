@@ -58,6 +58,8 @@ type Service struct {
 	store       storage.Store
 	maintenance maintenanceCache
 	appearance  appearanceCache
+	// name is the instance name of the configuration and what locks it; set once at start.
+	name instanceName
 }
 
 // NewService creates the service.

@@ -66,6 +66,7 @@ GET /api/v1/admin/automation                                   permission:admini
 GET /api/v1/admin/backups                                      session-only permission:administrator scope:admin:system
 GET /api/v1/admin/bundles/key                                  permission:administrator scope:admin:read
 GET /api/v1/admin/configuration                                session-only permission:administrator scope:admin:system
+GET /api/v1/admin/connections                                  permission:administrator scope:admin:read
 GET /api/v1/admin/event-failures                               session-only permission:administrator scope:admin:system
 GET /api/v1/admin/events                                       session-only permission:administrator scope:admin:system
 GET /api/v1/admin/experimental                                 permission:administrator scope:admin:read
@@ -78,6 +79,7 @@ GET /api/v1/admin/groups/{id}/members                          session-only perm
 GET /api/v1/admin/health                                       session-only permission:administrator scope:admin:system
 GET /api/v1/admin/insights                                     permission:administrator scope:admin:read
 GET /api/v1/admin/insights/search                              permission:administrator scope:admin:read
+GET /api/v1/admin/instance-name                                permission:administrator scope:admin:read
 GET /api/v1/admin/invitations                                  session-only permission:administrator scope:admin:read
 GET /api/v1/admin/jobs                                         session-only permission:administrator scope:admin:system
 GET /api/v1/admin/log-level                                    session-only permission:administrator scope:admin:system
@@ -530,6 +532,11 @@ PUT /api/v1/admin/analytics                                    session-only perm
 PUT /api/v1/admin/appearance/font                              session-only permission:administrator scope:admin:write
 PUT /api/v1/admin/appearance/logo                              session-only permission:administrator scope:admin:write
 PUT /api/v1/admin/automation                                   session-only permission:administrator scope:admin:write
+PUT /api/v1/admin/connections/drawing                          sensitive permission:system_administrator scope:admin:write
+PUT /api/v1/admin/connections/identity-provider                sensitive permission:system_administrator scope:admin:write
+PUT /api/v1/admin/connections/metrics                          sensitive permission:system_administrator scope:admin:write
+PUT /api/v1/admin/connections/office                           sensitive permission:system_administrator scope:admin:write
+PUT /api/v1/admin/connections/pdf                              sensitive permission:system_administrator scope:admin:write
 PUT /api/v1/admin/experimental                                 session-only permission:administrator scope:admin:write
 PUT /api/v1/admin/export-policy                                session-only permission:administrator scope:admin:write
 PUT /api/v1/admin/features                                     session-only permission:administrator scope:admin:write

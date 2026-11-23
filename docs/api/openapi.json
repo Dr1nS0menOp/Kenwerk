@@ -596,6 +596,120 @@
         "x-scope": "admin:system"
       }
     },
+    "/api/v1/admin/connections": {
+      "get": {
+        "operationId": "get /api/v1/admin/connections",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Done. Most routes answer with JSON."
+          },
+          "default": {
+            "description": "An error, as {\"error\": {\"code\", \"message\"}}."
+          }
+        },
+        "tags": [
+          "admin"
+        ],
+        "x-access": "permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
+      }
+    },
+    "/api/v1/admin/connections/drawing": {
+      "put": {
+        "operationId": "put /api/v1/admin/connections/drawing",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Done. Most routes answer with JSON."
+          },
+          "default": {
+            "description": "An error, as {\"error\": {\"code\", \"message\"}}."
+          }
+        },
+        "tags": [
+          "admin"
+        ],
+        "x-access": "sensitive permission:system_administrator scope:admin:write",
+        "x-scope": "admin:write"
+      }
+    },
+    "/api/v1/admin/connections/identity-provider": {
+      "put": {
+        "operationId": "put /api/v1/admin/connections/identity-provider",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Done. Most routes answer with JSON."
+          },
+          "default": {
+            "description": "An error, as {\"error\": {\"code\", \"message\"}}."
+          }
+        },
+        "tags": [
+          "admin"
+        ],
+        "x-access": "sensitive permission:system_administrator scope:admin:write",
+        "x-scope": "admin:write"
+      }
+    },
+    "/api/v1/admin/connections/metrics": {
+      "put": {
+        "operationId": "put /api/v1/admin/connections/metrics",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Done. Most routes answer with JSON."
+          },
+          "default": {
+            "description": "An error, as {\"error\": {\"code\", \"message\"}}."
+          }
+        },
+        "tags": [
+          "admin"
+        ],
+        "x-access": "sensitive permission:system_administrator scope:admin:write",
+        "x-scope": "admin:write"
+      }
+    },
+    "/api/v1/admin/connections/office": {
+      "put": {
+        "operationId": "put /api/v1/admin/connections/office",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Done. Most routes answer with JSON."
+          },
+          "default": {
+            "description": "An error, as {\"error\": {\"code\", \"message\"}}."
+          }
+        },
+        "tags": [
+          "admin"
+        ],
+        "x-access": "sensitive permission:system_administrator scope:admin:write",
+        "x-scope": "admin:write"
+      }
+    },
+    "/api/v1/admin/connections/pdf": {
+      "put": {
+        "operationId": "put /api/v1/admin/connections/pdf",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Done. Most routes answer with JSON."
+          },
+          "default": {
+            "description": "An error, as {\"error\": {\"code\", \"message\"}}."
+          }
+        },
+        "tags": [
+          "admin"
+        ],
+        "x-access": "sensitive permission:system_administrator scope:admin:write",
+        "x-scope": "admin:write"
+      }
+    },
     "/api/v1/admin/event-failures": {
       "get": {
         "operationId": "get /api/v1/admin/event-failures",
@@ -1121,6 +1235,25 @@
     "/api/v1/admin/insights/search": {
       "get": {
         "operationId": "get /api/v1/admin/insights/search",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Done. Most routes answer with JSON."
+          },
+          "default": {
+            "description": "An error, as {\"error\": {\"code\", \"message\"}}."
+          }
+        },
+        "tags": [
+          "admin"
+        ],
+        "x-access": "permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
+      }
+    },
+    "/api/v1/admin/instance-name": {
+      "get": {
+        "operationId": "get /api/v1/admin/instance-name",
         "parameters": [],
         "responses": {
           "200": {

@@ -146,8 +146,7 @@ func (s *Service) BeginTOTP(ctx context.Context, c Caller, email, password strin
 	} else if on {
 		return TOTPSetup{}, apperr.Conflict("totp_active", "An authenticator app is already set up.")
 	}
-	key, err := totp.Generate(totp.GenerateOpts{Issuer: s.issuer, AccountName: email, Period: totpPeriod,
-		Digits: otp.DigitsSix, Algorithm: otp.AlgorithmSHA1})
+	key, err := s.newTOTPKey(ctx, email)
 	if err != nil {
 		return TOTPSetup{}, err
 	}
@@ -171,6 +170,19 @@ func (s *Service) BeginTOTP(ctx context.Context, c Caller, email, password strin
 	}
 	return TOTPSetup{Secret: key.Secret(), URL: key.URL(),
 		QRCode: "data:image/png;base64," + base64.StdEncoding.EncodeToString(buf.Bytes())}, nil
+}
+
+// newTOTPKey makes the key of a new authenticator entry, named with the name in force.
+func (s *Service) newTOTPKey(ctx context.Context, email string) (*otp.Key, error) {
+	issuer := s.issuer
+	if s.issuerName != nil {
+		var err error
+		if issuer, err = s.issuerName(ctx); err != nil {
+			return nil, err
+		}
+	}
+	return totp.Generate(totp.GenerateOpts{Issuer: issuer, AccountName: email, Period: totpPeriod,
+		Digits: otp.DigitsSix, Algorithm: otp.AlgorithmSHA1})
 }
 
 // matchTOTP returns the time step the code belongs to, or 0 when it is wrong.

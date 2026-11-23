@@ -32,13 +32,14 @@ type HelperCheck struct {
 // /readyz: a wiki that cannot make a PDF is still a wiki.
 func (s *Service) CheckHelpers(ctx context.Context) []HelperCheck {
 	var out []HelperCheck
-	if s.pdfURL != "" {
-		out = append(out, probeWith(ctx, "pdf", strings.TrimRight(s.pdfURL, "/")+pdfHealthPath, s.askHelper))
+	h := s.inForce()
+	if h.PDFURL != "" {
+		out = append(out, probeWith(ctx, "pdf", strings.TrimRight(h.PDFURL, "/")+pdfHealthPath, h.askPDF))
 	}
 	switch {
-	case s.collaboraURL != "":
-		out = append(out, probeWith(ctx, "office", strings.TrimRight(s.collaboraURL, "/")+collaboraHealthPath, http.DefaultClient.Do))
-	case s.pdfURL != "":
+	case h.CollaboraURL != "":
+		out = append(out, probeWith(ctx, "office", strings.TrimRight(h.CollaboraURL, "/")+collaboraHealthPath, h.askOffice))
+	case h.PDFURL != "":
 		// Office files go through the LibreOffice of the PDF helper, so they share its state.
 		pdf := out[0]
 		out = append(out, HelperCheck{Name: "office", OK: pdf.OK, Detail: pdf.Detail})

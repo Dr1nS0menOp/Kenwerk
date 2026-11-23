@@ -318,6 +318,6 @@ func (a *App) SystemStatus(ctx context.Context) (any, error) {
 		"nodes": nodes, "migrations_applied": applied, "contract_pending": len(pending),
 		"outbox_unpublished": unpublished, "jobs_queued": queuedJobs, "jobs_failed_7d": failedJobs,
 		"storage_queue": storageQueue, "trash_items": trashItems,
-		"oidc_configured": a.sso != nil,
+		"oidc_configured": a.sso.Provider() != nil,
 	}, nil
 }

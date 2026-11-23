@@ -196,7 +196,7 @@ func (a *App) HealthFacts(ctx context.Context) (health.Facts, error) {
 		return a.healthCache.facts, nil
 	}
 	facts, err := ReadHealthFacts(ctx, HealthSource{Pool: a.pool, Store: a.store, Migrations: a.migrations,
-		MailConfigured: a.mail.Configured(), OIDCConfigured: a.sso != nil, ContractGrace: a.cfg.ContractGrace, Backups: a.backups}, now)
+		MailConfigured: a.mail.Configured(), OIDCConfigured: a.sso.Provider() != nil, ContractGrace: a.cfg.ContractGrace, Backups: a.backups}, now)
 	if err != nil {
 		return facts, err
 	}
@@ -208,7 +208,7 @@ func (a *App) HealthFacts(ctx context.Context) (health.Facts, error) {
 // by tests).
 func (a *App) ReadFreshHealthFacts(ctx context.Context) (health.Facts, error) {
 	return ReadHealthFacts(ctx, HealthSource{Pool: a.pool, Store: a.store, Migrations: a.migrations,
-		MailConfigured: a.mail.Configured(), OIDCConfigured: a.sso != nil, ContractGrace: a.cfg.ContractGrace, Backups: a.backups}, time.Now())
+		MailConfigured: a.mail.Configured(), OIDCConfigured: a.sso.Provider() != nil, ContractGrace: a.cfg.ContractGrace, Backups: a.backups}, time.Now())
 }
 
 // HealthChecks judges the facts of this installation, for the console.

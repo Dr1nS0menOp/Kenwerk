@@ -56,5 +56,9 @@ func (a *App) renderMail(ctx context.Context, j mail.Job) (mail.Rendered, error)
 	if err := json.Unmarshal(plain, &m); err != nil {
 		return mail.Rendered{}, fmt.Errorf("account mail: %w", err)
 	}
-	return mail.Rendered{Message: notify.AccountMessage(m, a.cfg.InstanceName)}, nil
+	name, err := a.settings.InstanceName(ctx)
+	if err != nil {
+		return mail.Rendered{}, err
+	}
+	return mail.Rendered{Message: notify.AccountMessage(m, name)}, nil
 }

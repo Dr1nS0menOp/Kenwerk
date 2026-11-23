@@ -21,28 +21,34 @@ const (
 	officeDocumentName     = "document"
 )
 
+// officeRoute is where an office file goes to become a PDF, and how it is sent there.
+type officeRoute struct {
+	address, field string
+	ask            func(*http.Request) (*http.Response, error)
+}
+
 // officeHelper is who turns an office file into a PDF: Collabora when an administrator
 // configured it (ADR-026), or else the LibreOffice of the PDF helper.
-func (s *Service) officeHelper() (address, field string, ok bool) {
-	if s.collaboraURL != "" {
-		return strings.TrimRight(s.collaboraURL, "/") + collaboraConvertPath, collaboraField, true
+func (h Helpers) officeHelper() (officeRoute, bool) {
+	if h.CollaboraURL != "" {
+		return officeRoute{strings.TrimRight(h.CollaboraURL, "/") + collaboraConvertPath, collaboraField, h.askOffice}, true
 	}
-	if s.pdfURL != "" {
-		return strings.TrimRight(s.pdfURL, "/") + libreOfficeConvertPath, libreOfficeField, true
+	if h.PDFURL != "" {
+		return officeRoute{strings.TrimRight(h.PDFURL, "/") + libreOfficeConvertPath, libreOfficeField, h.askPDF}, true
 	}
-	return "", "", false
+	return officeRoute{}, false
 }
 
 // OfficeAvailable says whether office files can open as a PDF.
 func (s *Service) OfficeAvailable() bool {
-	_, _, ok := s.officeHelper()
+	_, ok := s.inForce().officeHelper()
 	return ok
 }
 
 // OfficeToPDF sends a file to the helper and hands the PDF to write. The helper only gets
 // the extension, which it needs to read the file, and not the name someone gave it.
 func (s *Service) OfficeToPDF(parent context.Context, filename string, file io.Reader, write func(pdf io.Reader) error) error {
-	address, field, ok := s.officeHelper()
+	route, ok := s.inForce().officeHelper()
 	if !ok {
 		return apperr.Conflict("no_preview", "No helper is connected to open this file as a PDF.")
 	}
@@ -52,7 +58,7 @@ func (s *Service) OfficeToPDF(parent context.Context, filename string, file io.R
 	defer func() { _ = reader.Close() }()
 	form := multipart.NewWriter(writer)
 	go func() {
-		part, err := form.CreateFormFile(field, officeDocumentName+path.Ext(filename))
+		part, err := form.CreateFormFile(route.field, officeDocumentName+path.Ext(filename))
 		if err == nil {
 			_, err = io.Copy(part, file)
 		}
@@ -61,17 +67,12 @@ func (s *Service) OfficeToPDF(parent context.Context, filename string, file io.R
 		}
 		_ = writer.CloseWithError(err)
 	}()
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, address, reader)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, route.address, reader)
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Content-Type", form.FormDataContentType())
-	// Collabora checks the host of the caller instead (post_allow), so only the PDF helper gets the password.
-	do := http.DefaultClient.Do
-	if s.collaboraURL == "" {
-		do = s.askHelper
-	}
-	resp, err := do(req)
+	resp, err := route.ask(req)
 	if err != nil {
 		return apperr.Invalid("The PDF helper did not answer. Try again later, or ask an administrator.")
 	}

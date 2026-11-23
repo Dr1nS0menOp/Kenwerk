@@ -77,7 +77,12 @@ func (s *Server) handleMailTest(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	result, err := s.deps.Mail.SendTest(r.Context(), c, me.Email, s.deps.Config.InstanceName)
+	name, err := s.deps.Settings.InstanceName(r.Context())
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	result, err := s.deps.Mail.SendTest(r.Context(), c, me.Email, name)
 	if err != nil {
 		s.fail(w, r, err)
 		return

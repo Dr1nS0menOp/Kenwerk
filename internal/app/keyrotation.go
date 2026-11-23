@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/kenwerk/kenwerk/internal/audit"
+	"github.com/kenwerk/kenwerk/internal/connections"
 	"github.com/kenwerk/kenwerk/internal/identity"
 	"github.com/kenwerk/kenwerk/internal/keys"
 	"github.com/kenwerk/kenwerk/internal/mail"
@@ -66,6 +67,18 @@ var sealedColumns = []sealedColumn{
 		readPage: `SELECT id::text, password_sealed FROM mail_server
 			WHERE password_sealed IS NOT NULL AND id::text > $1 ORDER BY id::text LIMIT $2`,
 		reseal: `UPDATE mail_server SET password_sealed = $2 WHERE id::text = $1 AND password_sealed = $3`},
+	{table: "connections", column: "oidc_client_secret_sealed", id: "id", context: fixedContext(connections.ClientSecretContext),
+		readPage: `SELECT id::text, oidc_client_secret_sealed FROM connections
+			WHERE oidc_client_secret_sealed IS NOT NULL AND id::text > $1 ORDER BY id::text LIMIT $2`,
+		reseal: `UPDATE connections SET oidc_client_secret_sealed = $2 WHERE id::text = $1 AND oidc_client_secret_sealed = $3`},
+	{table: "connections", column: "pdf_password_sealed", id: "id", context: fixedContext(connections.PDFPasswordContext),
+		readPage: `SELECT id::text, pdf_password_sealed FROM connections
+			WHERE pdf_password_sealed IS NOT NULL AND id::text > $1 ORDER BY id::text LIMIT $2`,
+		reseal: `UPDATE connections SET pdf_password_sealed = $2 WHERE id::text = $1 AND pdf_password_sealed = $3`},
+	{table: "connections", column: "metrics_token_sealed", id: "id", context: fixedContext(connections.MetricsTokenContext),
+		readPage: `SELECT id::text, metrics_token_sealed FROM connections
+			WHERE metrics_token_sealed IS NOT NULL AND id::text > $1 ORDER BY id::text LIMIT $2`,
+		reseal: `UPDATE connections SET metrics_token_sealed = $2 WHERE id::text = $1 AND metrics_token_sealed = $3`},
 }
 
 // keyPageSize is how many rows a check or reseal reads at once, so memory stays flat.

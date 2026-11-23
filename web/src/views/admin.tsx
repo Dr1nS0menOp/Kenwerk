@@ -57,6 +57,7 @@ import { Notice } from '../components/notice';
 import { differs, SaveReset } from '../components/save-reset';
 import { ControlTab } from './admin-control';
 import { MailServerPart } from './admin-mail';
+import { HelperServicesParts } from './admin-connections';
 import { TableBox, TableEmpty } from '../components/table-box';
 import { pageTitle } from '../page-name';
 import {
@@ -1009,7 +1010,10 @@ const pickGeneral = (s: Settings): Settings => ({
   blocked_file_types: s.blocked_file_types,
 });
 
-/** General (the section `settings`): limits on the trash and on files, and the health of the disk. */
+/**
+ * General (the section `settings`): limits on the trash and on files, the health of the disk,
+ * and the helper services and the metrics token (spec 101).
+ */
 function SettingsTab({ me }: { me: Me }) {
   const { t } = useTranslation();
   const client = useQueryClient();
@@ -1070,6 +1074,7 @@ function SettingsTab({ me }: { me: Me }) {
       </form>
       <DiskThresholds isSystem={me.global_permissions.includes('system_administrator')} />
       <ExampleSpaceSection />
+      <HelperServicesParts isSystem={me.global_permissions.includes('system_administrator')} />
     </>
   );
 }

@@ -71,7 +71,7 @@ From `internal/config/config.go`: each is a variable `KENWERK_<NAME>`, a key of 
 | CSL-151 | `ROLE` | `all`, `api` or `worker` |
 | CSL-152 | `HTTP_ADDR` | Where the process listens |
 | CSL-153 | `PUBLIC_URL` | The address people type; cookies, origin checks, passkeys, OIDC redirect |
-| CSL-154 | `INSTANCE_NAME` | The installation's name; typed to confirm a restore |
+| CSL-154 | `INSTANCE_NAME` | The installation's name; typed to confirm a restore. When set, it is the one name and Look shows it read-only; without it Look's name is in force (spec 101) |
 | CSL-155 | `TRUSTED_PROXIES` | Whose `X-Forwarded-For` is believed |
 | CSL-156 | `DATABASE_URL` | The application role's address (secret part hidden) |
 | CSL-157 | `MIGRATE_DATABASE_URL` | The owner's address, where this process migrates |
@@ -92,15 +92,15 @@ From `internal/config/config.go`: each is a variable `KENWERK_<NAME>`, a key of 
 | CSL-172 | `OUTWARD_ALLOW_PRIVATE` | Whether outgoing calls may reach private addresses and plain http |
 | CSL-173 | `COLLAB_URL` | The service for editing together |
 | CSL-174 | `COLLAB_TOKEN` | Its shared token (secret) |
-| CSL-175 | `METRICS_TOKEN` | The token of `/metrics` (secret) |
-| CSL-176 | `PDF_URL` | The PDF helper |
+| CSL-175 | `METRICS_TOKEN` | The token of `/metrics` (secret). When set, General shows the token as set and read-only; without it a system administrator sets one there (spec 101) |
+| CSL-176 | `PDF_URL` | The PDF helper. When set, it holds the helper and its password, and General shows them read-only; without it a system administrator sets them there (spec 101) |
 | CSL-177 | `PDF_PASSWORD` | Its password (secret) |
-| CSL-178 | `COLLABORA_URL` | An office service |
-| CSL-179 | `DRAWING_URL` | The draw.io service |
+| CSL-178 | `COLLABORA_URL` | An office service. When set, General shows it read-only; without it a system administrator sets it there (spec 101) |
+| CSL-179 | `DRAWING_URL` | The draw.io service. When set, General shows it read-only; without it a system administrator sets it there (spec 101) |
 | CSL-180 | `PUBLISH_DIR` | Where public sites are written |
 | CSL-181 | `TRACING` | Send traces to a collector |
 | CSL-182 | `TRACING_SAMPLE` | Share of traces kept |
-| CSL-183 | `OIDC_ISSUER` | The identity provider |
+| CSL-183 | `OIDC_ISSUER` | The identity provider. When set, it holds the whole provider and Login shows it read-only; without it a system administrator sets the provider there (spec 101) |
 | CSL-184 | `OIDC_CLIENT_ID` | Its client |
 | CSL-185 | `OIDC_CLIENT_SECRET` | Its secret (secret) |
 | CSL-186 | `OIDC_DISPLAY_NAME` | The words on the login button |

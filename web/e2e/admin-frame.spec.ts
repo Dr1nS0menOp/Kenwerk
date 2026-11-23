@@ -260,16 +260,20 @@ test('weakening the login rule at its new address keeps the guard of spec 076', 
   >;
   try {
     await keeper.page.goto('/admin/login');
+    // The identity provider below has a Save and Reset changes of its own (spec 101).
+    const rules = keeper.page
+      .locator('form')
+      .filter({ has: keeper.page.getByLabel('Second factor required for') });
     await keeper.page.getByLabel('Second factor required for').selectOption('none');
-    await keeper.page.getByRole('button', { name: 'Save', exact: true }).click();
+    await rules.getByRole('button', { name: 'Save', exact: true }).click();
     const code = keeper.page.getByLabel('Code from your authenticator app, or a recovery code');
     await expect(code).toBeVisible();
     await checkAccessibility(keeper.page);
     // Reset changes takes the confirmation away with the change.
-    await keeper.page.getByRole('button', { name: 'Reset changes' }).click();
+    await rules.getByRole('button', { name: 'Reset changes' }).click();
     await expect(code).toHaveCount(0);
     await keeper.page.getByLabel('Second factor required for').selectOption('none');
-    await keeper.page.getByRole('button', { name: 'Save', exact: true }).click();
+    await rules.getByRole('button', { name: 'Save', exact: true }).click();
     await code.fill(keeper.codes[0] ?? '');
     await keeper.page.getByRole('button', { name: 'Confirm and save' }).click();
     await expect(keeper.page.getByRole('status').filter({ hasText: 'Saved.' })).toBeVisible();

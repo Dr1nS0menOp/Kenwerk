@@ -20,7 +20,7 @@ func sameSecret(given, want string) bool {
 // handleMetrics shows the numbers of this node to a scraper with the token. Without
 // a configured token the route does not exist (spec 021 D2).
 func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
-	configured := s.deps.Config.MetricsToken
+	configured := s.deps.Connections.InForce().MetricsToken
 	if configured == "" {
 		writeError(w, http.StatusNotFound, "not_found", "Not found.")
 		return

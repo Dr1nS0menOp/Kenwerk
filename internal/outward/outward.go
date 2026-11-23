@@ -102,10 +102,15 @@ func (o Options) Dialer(timeout time.Duration) *net.Dialer {
 	}}
 }
 
-func newClient(o Options) *http.Client {
-	dialer := o.Dialer(callTimeout)
+func newClient(o Options) *http.Client { return o.Client(callTimeout) }
+
+// Client calls only addresses these options allow, follows no redirect and uses no proxy, so
+// an address the server reaches is the one that was checked. The helpers and the identity
+// provider a system administrator sets use it too (spec 101, D4).
+func (o Options) Client(timeout time.Duration) *http.Client {
+	dialer := o.Dialer(timeout)
 	return &http.Client{
-		Timeout: callTimeout,
+		Timeout: timeout,
 		Transport: &http.Transport{
 			DialContext:       dialer.DialContext,
 			DisableKeepAlives: true,

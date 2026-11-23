@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -58,6 +59,10 @@ type Provider struct {
 	cfg      Config
 	pool     *pgxpool.Pool
 	identity *identity.Service
+	// client, when set, is the only way to reach the provider: discovery, keys and the code
+	// exchange. A provider set in the administration gets one of internal/outward (spec 101,
+	// D4); nil keeps the client of the environment's provider.
+	client *http.Client
 
 	// discoveryTimeout bounds one request to the provider; a field so tests can shorten it.
 	discoveryTimeout time.Duration
@@ -77,6 +82,9 @@ type Provider struct {
 // accepts a connection and then says nothing must not hold a login, or the logins behind it.
 const discoveryTimeout = 10 * time.Second
 
+// RequestTimeout is that longest request, for a client made elsewhere for a provider.
+const RequestTimeout = discoveryTimeout
+
 // failurePause is how long a failed discovery is remembered, so a provider that is down
 // is asked once in this time and not by every click on "Single sign-on".
 const failurePause = 30 * time.Second
@@ -85,6 +93,46 @@ const failurePause = 30 * time.Second
 // down cannot stop Kenwerk from starting.
 func New(cfg Config, pool *pgxpool.Pool, id *identity.Service) *Provider {
 	return &Provider{cfg: cfg, pool: pool, identity: id, discoveryTimeout: discoveryTimeout, now: time.Now}
+}
+
+// Switch holds the provider in force. The administration can set, change or remove it while
+// the process runs (spec 101), so the routes ask it for the provider at each request.
+type Switch struct {
+	pool     *pgxpool.Pool
+	identity *identity.Service
+	mu       sync.Mutex
+	current  atomic.Pointer[Provider]
+}
+
+// NewSwitch makes a switch with no provider in force.
+func NewSwitch(pool *pgxpool.Pool, id *identity.Service) *Switch {
+	return &Switch{pool: pool, identity: id}
+}
+
+// Provider is the provider in force, or nil when login through a provider is off. A nil
+// switch has none.
+func (s *Switch) Provider() *Provider {
+	if s == nil {
+		return nil
+	}
+	return s.current.Load()
+}
+
+// Use puts the provider of cfg in force; an empty issuer turns it off. The same configuration
+// keeps the provider in force with what it discovered, so a reread that changed nothing costs
+// no discovery. client is as for Provider.client.
+func (s *Switch) Use(cfg Config, client *http.Client) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	current := s.current.Load()
+	switch {
+	case cfg.Issuer == "":
+		s.current.Store(nil)
+	case current == nil || current.cfg != cfg:
+		p := New(cfg, s.pool, s.identity)
+		p.client = client
+		s.current.Store(p)
+	}
 }
 
 // DisplayName is what the login button says.
@@ -143,7 +191,10 @@ func (p *Provider) fetch(ctx context.Context) (*oidc.IDTokenVerifier, *oauth2.Co
 	// the client's timeout bounds every request made with it, discovery and key refresh alike.
 	// Discovery uses its own client, outside internal/outward, and follows redirects: the
 	// issuer is an address the operator configured, not one a person types (SEC-434).
-	client := &http.Client{Timeout: p.discoveryTimeout}
+	client := p.client
+	if client == nil {
+		client = &http.Client{Timeout: p.discoveryTimeout}
+	}
 	provider, err := oidc.NewProvider(oidc.ClientContext(context.WithoutCancel(ctx), client), p.cfg.Issuer)
 	if err != nil {
 		return nil, nil, fmt.Errorf("sso: discovery: %w", err)
@@ -326,7 +377,11 @@ func (p *Provider) verify(ctx context.Context, f flow, code, binding string) (cl
 	if err != nil {
 		return c, nil, "", err
 	}
-	tok, err := config.Exchange(ctx, code, oauth2.VerifierOption(f.Verifier))
+	exchangeCtx := ctx
+	if p.client != nil {
+		exchangeCtx = oidc.ClientContext(ctx, p.client)
+	}
+	tok, err := config.Exchange(exchangeCtx, code, oauth2.VerifierOption(f.Verifier))
 	if err != nil {
 		return c, nil, "exchange_failed", nil
 	}

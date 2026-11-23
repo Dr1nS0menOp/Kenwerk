@@ -45,7 +45,6 @@ const (
 
 // Options are what the module needs to write mail.
 type Options struct {
-	InstanceName string
 	PublicOrigin string
 	Keyring      *keys.Keyring
 }

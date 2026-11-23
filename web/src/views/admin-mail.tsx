@@ -4,18 +4,20 @@
 // says what the server answered.
 import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api';
 import { ErrorNote, Field, Loading } from '../components/ui';
 import { Notice } from '../components/notice';
 import { differs, SaveReset } from '../components/save-reset';
 import { ConfirmFields, type Confirmation } from '../components/confirm-change';
+import { SecretField, type SecretChange, type SecretWords } from '../components/secret-field';
 
 type Encryption = 'starttls' | 'implicit' | 'none';
 const ENCRYPTIONS: Encryption[] = ['starttls', 'implicit', 'none'];
 
 /** What a change does with the stored password; only `set` carries a value. */
-type PasswordChange = { action: 'keep' } | { action: 'remove' } | { action: 'set'; value: string };
+type PasswordChange = SecretChange;
 
 interface ServerFields {
   host: string;
@@ -57,56 +59,18 @@ const fieldsOf = (v: MailServerView): ServerForm => ({
   password: { action: 'keep' },
 });
 
-/** The choice beside the password: keep what is stored, set a new one, or remove it. */
-function PasswordField({
-  isSet,
-  value,
-  disabled,
-  onChange,
-}: {
-  isSet: boolean;
-  value: PasswordChange;
-  disabled: boolean;
-  onChange: (next: PasswordChange) => void;
-}) {
-  const { t } = useTranslation();
-  return (
-    <>
-      <Field
-        label={t('mailServer.password')}
-        help={isSet ? t('mailServer.passwordSet') : t('mailServer.passwordNotSet')}
-      >
-        <select
-          value={value.action}
-          disabled={disabled}
-          onChange={(e) => {
-            const action = e.target.value;
-            onChange(
-              action === 'set'
-                ? { action, value: '' }
-                : action === 'remove'
-                  ? { action }
-                  : { action: 'keep' },
-            );
-          }}
-        >
-          <option value="keep">{isSet ? t('mailServer.passwordKeep') : t('mailServer.passwordNone')}</option>
-          <option value="set">{t('mailServer.passwordChange')}</option>
-          {isSet && <option value="remove">{t('mailServer.passwordRemove')}</option>}
-        </select>
-      </Field>
-      {value.action === 'set' && (
-        <Field label={t('mailServer.newPassword')}>
-          <input
-            type="password"
-            autoComplete="new-password"
-            value={value.value}
-            onChange={(e) => onChange({ action: 'set', value: e.target.value })}
-          />
-        </Field>
-      )}
-    </>
-  );
+/** The words of the mail password, for the shared secret field. */
+function passwordWords(t: TFunction): SecretWords {
+  return {
+    label: t('mailServer.password'),
+    isSet: t('mailServer.passwordSet'),
+    notSet: t('mailServer.passwordNotSet'),
+    keep: t('mailServer.passwordKeep'),
+    none: t('mailServer.passwordNone'),
+    change: t('mailServer.passwordChange'),
+    remove: t('mailServer.passwordRemove'),
+    newValue: t('mailServer.newPassword'),
+  };
 }
 
 /** Sends a test mail now, with the server that is saved, and shows what came back. */
@@ -214,7 +178,8 @@ export function MailServerPart({ isSystem }: { isSystem: boolean }) {
                 autoComplete="off"
               />
             </Field>
-            <PasswordField
+            <SecretField
+              words={passwordWords(t)}
               isSet={view.password_set}
               value={form.password}
               disabled={readOnly}

@@ -377,6 +377,9 @@ func (s *Service) Section(ctx context.Context, name string) (any, error) {
 	if err := s.ReadSection(ctx, name, v); err != nil {
 		return nil, err
 	}
+	if look, ok := v.(*Look); ok {
+		s.lockName(look)
+	}
 	return settle(v, time.Now()), nil
 }
 
@@ -413,8 +416,17 @@ func (s *Service) SetSectionConfirmed(ctx context.Context, c identity.Caller, na
 	return s.setSection(ctx, c, name, body, Change{Confirmed: true, Reason: reason, At: time.Now()})
 }
 
+// decodeSection is DecodeSection, refusing also a change of what the environment locks.
+func (s *Service) decodeSection(name string, body io.Reader) (any, error) {
+	v, err := DecodeSection(name, body)
+	if err != nil {
+		return nil, err
+	}
+	return v, s.refuseLockedName(name, v)
+}
+
 func (s *Service) setSection(ctx context.Context, c identity.Caller, name string, body io.Reader, change Change) (any, error) {
-	decoded, err := DecodeSection(name, body)
+	decoded, err := s.decodeSection(name, body)
 	if err != nil {
 		return nil, err
 	}

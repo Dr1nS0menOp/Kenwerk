@@ -118,8 +118,10 @@ func serveViewerFile(w http.ResponseWriter, r *http.Request, root fs.FS, name, p
 }
 
 // Handler serves static assets and falls back to index.html, so client-side
-// routes work on reload. notFound answers everything the app does not own.
-func Handler(notFound http.HandlerFunc, drawingOrigin, publicOrigin string) http.Handler {
+// routes work on reload. notFound answers everything the app does not own. drawingOrigin is
+// the drawing service in force, which the administration can change while the process runs
+// (spec 101), so the policy is made for each answer.
+func Handler(notFound http.HandlerFunc, drawingOrigin func() string, publicOrigin string) http.Handler {
 	root, err := fs.Sub(dist, "dist")
 	if err != nil {
 		panic(err)
@@ -127,8 +129,7 @@ func Handler(notFound http.HandlerFunc, drawingOrigin, publicOrigin string) http
 	return newHandler(root, notFound, drawingOrigin, publicOrigin)
 }
 
-func newHandler(root fs.FS, notFound http.HandlerFunc, drawingOrigin, publicOrigin string) http.Handler {
-	policy := contentPolicy(drawingOrigin, publicOrigin)
+func newHandler(root fs.FS, notFound http.HandlerFunc, drawingOrigin func() string, publicOrigin string) http.Handler {
 	files := http.FileServerFS(root)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if (r.Method != http.MethodGet && r.Method != http.MethodHead) ||
@@ -137,7 +138,7 @@ func newHandler(root fs.FS, notFound http.HandlerFunc, drawingOrigin, publicOrig
 			return
 		}
 		h := w.Header()
-		h.Set("Content-Security-Policy", policy)
+		h.Set("Content-Security-Policy", contentPolicy(drawingOrigin(), publicOrigin))
 		// root is an fs.FS, which refuses any name with ".." in it, so Clean only tidies here.
 		// nosemgrep: go.lang.security.filepath-clean-misuse.filepath-clean-misuse
 		name := strings.TrimPrefix(path.Clean(r.URL.Path), "/")

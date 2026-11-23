@@ -24,6 +24,7 @@ import (
 	"github.com/kenwerk/kenwerk/internal/collab"
 	"github.com/kenwerk/kenwerk/internal/comments"
 	"github.com/kenwerk/kenwerk/internal/config"
+	"github.com/kenwerk/kenwerk/internal/connections"
 	"github.com/kenwerk/kenwerk/internal/console"
 	"github.com/kenwerk/kenwerk/internal/db"
 	"github.com/kenwerk/kenwerk/internal/example"
@@ -87,7 +88,10 @@ type Deps struct {
 	Publishing  *publishing.Service
 	Example     *example.Service
 	SCIM        *scim.Service
-	SSO         *sso.Provider // nil when no OIDC provider is configured
+	// SSO holds the identity provider in force, if any; the administration can change it.
+	SSO *sso.Switch
+	// Connections are the outside services in force and their part of the administration.
+	Connections *connections.Service
 	Comments    *comments.Service
 	Watches     *watches.Service
 	Tasks       *tasks.Service

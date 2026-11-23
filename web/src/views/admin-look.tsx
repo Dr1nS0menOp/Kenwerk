@@ -6,6 +6,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api';
 import { appearanceQuery } from '../appearance';
 import { ConfirmButton, ErrorNote, Field, FilePicker } from '../components/ui';
+import { Notice } from '../components/notice';
 import { SectionForm } from './admin-rules';
 import { AppearanceSection } from './admin-appearance';
 
@@ -69,14 +70,34 @@ function ColourField({
   );
 }
 
+/** The name in force, as `GET /admin/instance-name` gives it (spec 101). */
+interface NameView {
+  name: string;
+  source: 'environment' | 'look' | 'default';
+  locked: { setting: string; source: string } | null;
+}
+
 function LookForm() {
   const { t } = useTranslation();
+  const locked = useQuery({
+    queryKey: ['instance-name'],
+    queryFn: () => api.get<NameView>('/admin/instance-name'),
+  }).data?.locked;
   return (
     <SectionForm<Look> section="look" title={t('instance.title')}>
       {(form, set) => (
         <>
+          {locked && (
+            <Notice kind="warning" title={t('connections.lockedTitle')}>
+              {t('instance.nameLocked', { setting: locked.setting, source: locked.source })}
+            </Notice>
+          )}
           <Field label={t('instance.instanceName')}>
-            <input value={form.instance_name} onChange={(e) => set({ instance_name: e.target.value })} />
+            <input
+              value={form.instance_name}
+              disabled={!!locked}
+              onChange={(e) => set({ instance_name: e.target.value })}
+            />
           </Field>
           <Field label={t('instance.organisationName')} help={t('instance.organisationHelp')}>
             <input

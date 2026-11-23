@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	"path"
 	"strings"
+	"sync/atomic"
 	"unicode"
 
 	"github.com/google/uuid"
@@ -54,11 +55,9 @@ type Service struct {
 	instanceID  uuid.UUID
 	log         *slog.Logger
 	tempDir     string
-	pdfURL      string
-	// pdfPassword is sent to the PDF helper, never to Collabora. Empty = none.
-	pdfPassword string
-	// collaboraURL is an office service that an administrator configured. Empty = none.
-	collaboraURL string
+	// helpers are the helper services in force, which the administration can change while the
+	// process runs (spec 101).
+	helpers atomic.Pointer[Helpers]
 	// leftOut reads and writes the marks that leave pages out of releases, which a bundle carries
 	// (spec 073, PUB-1042). The publishing module owns them; nil carries none.
 	leftOut *LeftOutMarks
@@ -107,7 +106,8 @@ type Options struct {
 func NewService(pool *pgxpool.Pool, perms *permissions.Service, pg *pages.Service, att *attachments.Service,
 	store storage.Store, jb *jobs.Service, st *settings.Service, o Options) *Service {
 	s := &Service{pool: pool, perms: perms, pages: pg, attachments: att, store: store, jobs: jb, settings: st,
-		log: o.Log, tempDir: o.TempDir, pdfURL: o.PDFURL, pdfPassword: o.PDFPassword, collaboraURL: o.CollaboraURL, keyring: o.Keyring, instanceID: o.InstanceID}
+		log: o.Log, tempDir: o.TempDir, keyring: o.Keyring, instanceID: o.InstanceID}
+	s.UseHelpers(Helpers{PDFURL: o.PDFURL, PDFPassword: o.PDFPassword, CollaboraURL: o.CollaboraURL})
 	jb.RegisterLong(JobKindImport, s.runImport)
 	jb.RegisterLong(JobKindImportRead, s.readImport)
 	jb.RegisterLong(JobKindExport, s.runExport)

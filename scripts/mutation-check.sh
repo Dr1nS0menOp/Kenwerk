@@ -1141,13 +1141,41 @@ mutate "a mail server on an inside address is saved" internal/mail/server.go \
 mutate "a stored mail server reaches any address" internal/mail/server.go \
   's.replace(", Dialer: s.stored.Outward.Dialer(smtpTimeout)}", "}")' $app -run TestAStoredServerReachesOnlyAllowedAddresses
 mutate "another node never reads the mail server again" internal/app/runtime.go \
-  's.replace("return a.mail.Reload(ctx)", "return nil")' $app -run TestAChangedMailServerIsUsedWithoutARestart
+  's.replace("errors.Join(connectionsErr, a.mail.Reload(ctx))", "errors.Join(connectionsErr, nil)")' $app -run TestAChangedMailServerIsUsedWithoutARestart
 mutate "account mail goes while no mail server is in force" internal/identity/lifecycle.go \
   's.replace("\t\treturn r.Ready()", "\t\treturn r.Ready() || true")' $app -run TestAnEmptyHostTurnsMailOffOnEveryNode
 mutate "test mails have no limit" internal/httpapi/handlers_mail.go \
   's.replace("if !s.mailTests.allow(", "if false && !s.mailTests.allow(")' $app -run TestTestMailsAreLimited
 mutate "a failed test mail hides the answer of the server" internal/mail/server.go \
   's.replace("return fmt.Sprintf(\"%03d %s\", answer.Code, strings.ReplaceAll(answer.Msg, \"\\n\", \" \"))", "return fmt.Sprint(\"The mail could not be delivered.\")")' ./internal/mail -run TestTheSenderNamesTheStepAndTheAnswerOfTheServer
+# Spec 101, wave ST1: the identity provider, the helpers, the drawing service, the metrics token
+# and the name in the administration. Only a system administrator with a second factor changes
+# them, the environment locks what it sets, secrets are kept sealed and out of the audit, what is
+# stored reaches only allowed addresses, and every node reads it again.
+mutate "an administrator changes a connection" internal/httpapi/handlers_connections.go \
+  's.replace("system := Sensitive(Permission(identity.PermSystemAdministrator))", "system := Permission(identity.PermAdministrator)")' $app -run TestNobodyButASystemAdministratorChangesAConnection
+mutate "a connection changes without a second factor" internal/httpapi/handlers_connections.go \
+  's.replace("if !s.confirmSecondFactor(w, r, in.Code) {", "if false {")' $app -run TestAConnectionChangesOnlyWithAFreshLoginAndASecondFactor
+mutate "the browser overrules the environment's connections" internal/connections/connections.go \
+  's.replace("\tif lock == nil {\n\t\treturn nil\n\t}", "\tif true {\n\t\treturn nil\n\t}")' $app -run TestTheEnvironmentLocksItsConnections
+mutate "the browser overrules the environment's name" internal/settings/name.go \
+  's.replace("if !ok || section != SectionLook", "if true || !ok || section != SectionLook")' $app -run TestTheEnvironmentLocksTheName
+mutate "keeping a secret of a connection drops it" internal/settings/secret.go \
+  's.replace("case SecretKeep:\n\t\treturn stored, nil", "case SecretKeep:\n\t\treturn nil, nil")' $app -run TestSecretsAreSealedAndAuditedWithoutTheirValues
+mutate "the audit keeps the secrets of the connections" internal/connections/store.go \
+  's.replace("settings.SafeFields{\"issuer\",", "settings.SafeFields{\"client_secret\", \"password\", \"token\", \"issuer\",")' $app -run TestNoReadNoAuditAndNoLogOfTheConnectionsHoldsASecret
+mutate "an issuer on an inside address is saved" internal/connections/check.go \
+  's.replace("if s.inside(u.Hostname()) {", "if false {")' ./internal/connections -run TestAnInvalidIssuerIsRefused
+mutate "an issuer on plain http is saved" internal/connections/check.go \
+  's.replace("if u.Scheme != \"https\" \x26\x26 (u.Scheme != \"http\" || !s.o.Outward.AllowPrivate) {", "if u.Scheme != \"https\" \x26\x26 u.Scheme != \"http\" {")' ./internal/connections -run TestAnInvalidIssuerIsRefused
+mutate "a short metrics token is saved" internal/connections/check.go \
+  's.replace("len(p.Value) < minTokenLength ||", "false ||")' ./internal/connections -run TestAMetricsTokenMustBeLongAndSendable
+mutate "a stored helper reaches any address" internal/app/connections.go \
+  's.replace("\tif !stored {\n\t\treturn nil\n\t}", "\tif true {\n\t\treturn nil\n\t}")' $app -run 'TestAStored(Helper|Provider)ReachesOnlyAllowedAddresses'
+mutate "another node never reads the connections again" internal/app/runtime.go \
+  's.replace("connectionsErr := a.connections.Reload(ctx)", "connectionsErr := error(nil)")' $app -run TestChangedHelpersAndTheTokenAreUsedWithoutARestart
+mutate "the policy keeps the drawing service it started with" internal/webui/webui.go \
+  's.replace("contentPolicy(drawingOrigin(), publicOrigin)", "contentPolicy(\"\", publicOrigin)")' ./internal/webui -run TestThePolicyFollowsTheDrawingServiceInForce
 mutate "pastes have no slots" internal/httpapi/handlers_organising.go \
   's.replace("case s.markdownBusy <- struct{}{}:\n\t\tdefer func() { <-s.markdownBusy }()\n\tdefault:\n\t\twriteError(w, http.StatusTooManyRequests, \"rate_limited\", \"Too much text is being converted right now. Try again shortly.\")\n\t\treturn\n\t}", "default:\n\t}")' ./internal/httpapi -run TestPastesWaitForAFreeSlot
 mutate "an event too large stops the relay" internal/outbox/outbox.go \

@@ -131,7 +131,7 @@ func (s *Server) handleMonitoring(w http.ResponseWriter, _ *http.Request) {
 	for _, f := range monitoring.Files() {
 		files = append(files, file{Kind: f.Kind, Name: f.Name})
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"metrics_on": s.deps.Config.MetricsToken != "", "files": files})
+	writeJSON(w, http.StatusOK, map[string]any{"metrics_on": s.deps.Connections.InForce().MetricsToken != "", "files": files})
 }
 
 // handleMonitoringFile sends a monitoring file of this release as a download (CSL-585).

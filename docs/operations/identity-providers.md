@@ -2,6 +2,8 @@
 
 Written for: operators.
 
+**In the administration or in the environment.** A system administrator can connect the provider under Administration, Security, Login and second factor, in the part **Identity provider**: issuer address, client ID, client secret, the name on the button, and the switches below. The client secret is stored encrypted with `master.key` and never shown again; each change asks for a code from the authenticator app, and every node uses it within 5 seconds, without a restart. A provider set there is reached only on a public address over https, unless `KENWERK_OUTWARD_ALLOW_PRIVATE=true`. The `KENWERK_OIDC_*` settings below still work: while `KENWERK_OIDC_ISSUER` is set, the environment wins and the part shows that provider read-only. The same is open through the API: `GET /api/v1/admin/connections` and `PUT /api/v1/admin/connections/identity-provider` (spec 101).
+
 ## Authentik
 
 Verified on 2026-11-04 against real Authentik 2026.8.5, with a real browser going through its login screens. `scripts/idp-test/run.sh` repeats that proof.

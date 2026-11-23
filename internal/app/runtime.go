@@ -4,6 +4,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"sync/atomic"
 	"time"
@@ -60,9 +61,9 @@ func (a *App) thresholds() health.Thresholds {
 // runningLevel is the log level this node runs at.
 func (a *App) runningLevel() slog.Level { return slog.Level(a.runtime.running.Load()) }
 
-// ApplyRuntime rereads the log level, the disk thresholds and the mail server, and applies
-// them as they hold at now: a log level whose time ended gives way to the configured one
-// without anyone asking. It is exported for tests, which pass their own clock.
+// ApplyRuntime rereads the log level, the disk thresholds, the connections and the mail
+// server, and applies them as they hold at now: a log level whose time ended gives way to the
+// configured one without anyone asking. It is exported for tests, which pass their own clock.
 func (a *App) ApplyRuntime(ctx context.Context, now time.Time) error {
 	rt, err := settings.ReadRuntime(ctx, a.pool)
 	if err != nil {
@@ -78,9 +79,11 @@ func (a *App) ApplyRuntime(ctx context.Context, now time.Time) error {
 	}
 	t := rt.Health.Thresholds()
 	a.runtime.thresholds.Store(&t)
-	// The mail server of the administration, so a change on another node holds here within
-	// runtimeEvery (spec 098, D5).
-	return a.mail.Reload(ctx)
+	// The connections and the mail server of the administration, so a change on another node
+	// holds here within runtimeEvery (spec 098, D5; spec 101). One that cannot be read keeps
+	// the other from nothing.
+	connectionsErr := a.connections.Reload(ctx)
+	return errors.Join(connectionsErr, a.mail.Reload(ctx))
 }
 
 // runRuntime applies the settings every runtimeEvery until ctx ends. A failed read keeps what
@@ -88,7 +91,7 @@ func (a *App) ApplyRuntime(ctx context.Context, now time.Time) error {
 func (a *App) runRuntime(ctx context.Context) {
 	for {
 		if err := a.ApplyRuntime(ctx, time.Now()); err != nil && ctx.Err() == nil {
-			a.log.Warn("rereading the log level, the disk thresholds and the mail server failed", "error", err)
+			a.log.Warn("rereading the log level, the disk thresholds, the connections and the mail server failed", "error", err)
 		}
 		select {
 		case <-ctx.Done():

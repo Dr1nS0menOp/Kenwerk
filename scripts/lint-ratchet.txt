@@ -88,7 +88,6 @@ internal/templates funlen 17
 internal/templates gocyclo 27
 internal/templates/fields funlen 2
 internal/templates/fields gocyclo 5
-internal/webui funlen 1
 internal/webui gocyclo 1
 internal/webui gosec 3
 internal/workflow funlen 5

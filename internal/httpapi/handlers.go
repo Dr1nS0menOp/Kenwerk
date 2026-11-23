@@ -34,7 +34,7 @@ func (s *Server) registerRoutes() {
 	// page has to load before anyone is logged in. Unknown API paths get a JSON 404.
 	r.Handle("/", Public, webui.Handler(func(w http.ResponseWriter, _ *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "Not found.")
-	}, s.deps.Config.DrawingOrigin(), s.deps.Config.PublicOrigin()))
+	}, s.drawingOrigin, s.deps.Config.PublicOrigin()))
 
 	r.HandleFunc("POST /api/v1/auth/logout", Authenticated(), s.handleLogout)
 	r.HandleFunc("GET /api/v1/me", Authenticated(), s.handleMe)
@@ -57,6 +57,7 @@ func (s *Server) registerRoutes() {
 	s.registerTemplateRoutes()
 	s.registerTogetherRoutes()
 	s.registerMailRoutes()
+	s.registerConnectionRoutes()
 	s.registerSavedBlockRoutes()
 	s.registerIdentityRoutes()
 	s.registerAppearanceRoutes()
@@ -187,7 +188,7 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"user": toUserJSON(p.User), "global_permissions": perms, "preferences": preferences,
-		"personal_space": personal, "needs_second_factor": p.NeedsSecondFactor, "sign_in": signIn, "idle_minutes": access.IdleMinutes, "drawing_origin": s.deps.Config.DrawingOrigin(),
+		"personal_space": personal, "needs_second_factor": p.NeedsSecondFactor, "sign_in": signIn, "idle_minutes": access.IdleMinutes, "drawing_origin": s.drawingOrigin(),
 		"office_preview": s.deps.Exchange.OfficeAvailable()})
 }
 
@@ -214,7 +215,7 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
 		"pdf_export":       s.deps.Exchange.PDFAvailable() && !down["pdf"],
 		"office_preview":   s.deps.Exchange.OfficeAvailable() && !down["office"],
-		"drawing":          s.deps.Config.DrawingOrigin() != "",
+		"drawing":          s.drawingOrigin() != "",
 		"collaboration":    s.deps.Config.CollabURL != "" && !down["collaboration"],
 		"automation":       slices.Contains(experimental.On, features.ExperimentalAutomation),
 		"databases":        slices.Contains(experimental.On, features.ExperimentalDatabases),
@@ -225,9 +226,14 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *Server) handleSystemInfo(w http.ResponseWriter, _ *http.Request) {
+func (s *Server) handleSystemInfo(w http.ResponseWriter, r *http.Request) {
+	name, err := s.deps.Settings.InstanceName(r.Context())
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"name":        s.deps.Config.InstanceName,
+		"name":        name,
 		"instance_id": s.deps.InstanceID.String(),
 		"version":     version.Version,
 	})

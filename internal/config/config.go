@@ -328,7 +328,7 @@ func (l *loader) load() Config {
 	}
 
 	if address := l.str("DRAWING_URL", ""); address != "" {
-		drawing, err := parseDrawingURL(address, c.PublicURL)
+		drawing, err := ParseDrawingURL(address, c.PublicURL)
 		if err != nil {
 			l.fail("DRAWING_URL", err)
 		}
@@ -588,9 +588,10 @@ func (l *loader) backupAge(key string) time.Duration {
 	return d
 }
 
-// parseDrawingURL checks the address of the drawing service. A frame on our own origin
-// would reach our session, so the service must live on another one (SEC-521).
-func parseDrawingURL(address string, public *url.URL) (*url.URL, error) {
+// ParseDrawingURL checks the address of the drawing service. A frame on our own origin
+// would reach our session, so the service must live on another one (SEC-521). The
+// administration checks an address with it too (spec 101).
+func ParseDrawingURL(address string, public *url.URL) (*url.URL, error) {
 	u, err := url.Parse(address)
 	if err != nil {
 		return nil, err

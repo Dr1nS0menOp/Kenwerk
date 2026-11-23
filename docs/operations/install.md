@@ -104,6 +104,8 @@ Every setting is in `.env.example`. Any variable can come from a file by adding 
 
 **Every installation sets** `KENWERK_PUBLIC_URL`, the database addresses, and the mail server if mail should go out. The other settings have defaults that fit most installations; change one only for a reason you can name.
 
+**Set here or in the administration.** The mail server, the identity provider, the helpers, the drawing service, the metrics token and the name can also be set by a system administrator in the administration and through the API (specs 098 and 101). Where a setting is in the environment or this file, it wins, and the administration shows it read-only. The name is Look's name unless `KENWERK_INSTANCE_NAME` is set; four places keep the name a node started with until its next start: the passkey prompt, the `List-Id` header of mail, the restore confirmation, and the name a new installation records.
+
 ### A configuration file
 
 Settings can also live in one YAML file. Set `KENWERK_CONFIG_FILE` to its path; `deploy/kenwerk.example.yaml` is a commented example.
@@ -183,6 +185,8 @@ Each optional helper runs in its own container on the `helpers` network, which h
 | `collab` | The app, to check each connection | The shared draft of a page for people who may edit it | Needs `KENWERK_COLLAB_TOKEN` on both sides |
 | Collabora, draw.io | What you set up | Office files or drawings a person opens | Run them on the same closed network when you can |
 
+**Setting a helper in the administration.** A system administrator sets the PDF helper with its password, the office service and the drawing service under Administration, Instance, General, each with a code from the authenticator app; every node uses a change within 5 seconds, without a restart. The PDF password is stored encrypted with `master.key` and never shown again. A helper set there is reached only on a public address over https, unless `KENWERK_OUTWARD_ALLOW_PRIVATE=true`; the Compose helpers above live on a private network, so keep `KENWERK_PDF_URL` in `.env` for them. A helper whose `KENWERK_PDF_URL`, `KENWERK_COLLABORA_URL` or `KENWERK_DRAWING_URL` is set shows read-only there (spec 101).
+
 **The app itself** needs to reach only PostgreSQL, the mail server, the identity provider, and the addresses an administrator allowed under Outgoing calls. A firewall rule that allows only those, and nothing else on the way out, stops a mistake from becoming a leak (SEC-433).
 
 ## Health
@@ -248,7 +252,7 @@ Kenwerk passes `/collab` on to the service, so your reverse proxy must allow Web
 ## Watching it
 
 - `/livez` says the process runs. `/readyz` says this node may get traffic: it checks the database, migrations and storage. A node with role `worker` or `all` also needs the queue. A node with role `api` does not, because events wait in the database, so people can go on working through a queue outage.
-- `/metrics` gives numbers for Prometheus: requests by method and class of status, how long they took, the database pool, what waits in the outbox, jobs and mail, and how far the migrations of an upgrade are ([upgrade.md](upgrade.md)). It is off until you set `KENWERK_METRICS_TOKEN` to a long random token. Prometheus sends it as `authorization: { credentials_file: ... }`. Numbers about the queues are for the whole instance, so scrape one node for those. Request numbers are per node.
+- `/metrics` gives numbers for Prometheus: requests by method and class of status, how long they took, the database pool, what waits in the outbox, jobs and mail, and how far the migrations of an upgrade are ([upgrade.md](upgrade.md)). It is off until you set `KENWERK_METRICS_TOKEN` to a long random token, or a system administrator sets one under Administration, Instance, General, where **Make a token** makes one to copy before saving (spec 101). Prometheus sends it as `authorization: { credentials_file: ... }`. Numbers about the queues are for the whole instance, so scrape one node for those. Request numbers are per node.
 - Logs are JSON with a `request_id`. A proxy that sends a W3C `traceparent` header also gets its `trace_id` in the log line, so one request can be followed through both. The messages an operator may build on are listed in [monitoring.md](monitoring.md#log-events).
 - Traces: set `KENWERK_TRACING=true` and `OTEL_EXPORTER_OTLP_ENDPOINT` to your OpenTelemetry collector (OTLP over HTTP, such as `http://collector:4318`). One new trace in ten is kept (`KENWERK_TRACING_SAMPLE`), and spans hold route patterns, table names and kinds of work, never content. Off by default; see [monitoring.md](monitoring.md#traces).
 - The pool opens at most 20 database connections per node. Add `pool_max_conns` to the database address to change that, and keep the total of all nodes below `max_connections`.

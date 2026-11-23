@@ -13,6 +13,7 @@ import { useDates } from '../dates';
 import { permissionLabel } from '../permission-words';
 import { RolesTab } from './roles';
 import { TableBox } from '../components/table-box';
+import { IdentityProviderPart } from './admin-connections';
 
 const FEATURES = [
   'comments',
@@ -383,12 +384,16 @@ function LoginMethods() {
   );
 }
 
-/** Login and second factor (ADM-072): the access rules with their guard, and the login methods. */
+/**
+ * Login and second factor (ADM-072): the access rules with their guard, the login methods, and
+ * the identity provider (spec 101).
+ */
 export function LoginTab({ me }: { me: Me }) {
   return (
     <>
       <AccessForm canConfirm={isSystemAdministrator(me)} />
       <LoginMethods />
+      <IdentityProviderPart isSystem={isSystemAdministrator(me)} />
     </>
   );
 }

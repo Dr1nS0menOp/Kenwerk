@@ -91,7 +91,7 @@ func (s *Server) handleAttention(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Administrators get the strongest push: their account reaches everything.
-	if s.deps.SSO == nil {
+	if s.deps.SSO.Provider() == nil {
 		list = append(list, console.Item{Kind: "no_identity_provider"})
 	}
 	// A proxy with TLS in front and a forgotten address leaves cookies weak without a sound (SEC-257).

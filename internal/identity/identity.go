@@ -143,6 +143,9 @@ type Service struct {
 	keyring    *keys.Keyring
 	webauthn   *webauthn.WebAuthn
 	issuer     string
+	// issuerName, when set, is the name in force for authenticator apps, which the
+	// administration can change while the process runs (spec 101).
+	issuerName func(context.Context) (string, error)
 
 	idleSetting      func(context.Context) time.Duration
 	secondFactorRule func(context.Context, db.Querier) string
@@ -169,6 +172,10 @@ func NewService(pool *pgxpool.Pool, instanceID uuid.UUID, opts Options) *Service
 		idle: opts.SessionIdleTimeout, maxAge: opts.SessionMaxAge, now: opts.Now,
 		keyring: opts.Keyring, webauthn: opts.WebAuthn, issuer: opts.Issuer, blocklist: opts.PasswordBlocklist}
 }
+
+// SetIssuerName makes authenticator apps show the name name gives at each enrolment, in place
+// of Options.Issuer.
+func (s *Service) SetIssuerName(name func(context.Context) (string, error)) { s.issuerName = name }
 
 // dummyHash is verified against when a user does not exist, so the response
 // time does not reveal which email addresses have accounts.

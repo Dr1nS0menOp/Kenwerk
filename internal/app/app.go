@@ -29,6 +29,7 @@ import (
 	"github.com/kenwerk/kenwerk/internal/collab"
 	"github.com/kenwerk/kenwerk/internal/comments"
 	"github.com/kenwerk/kenwerk/internal/config"
+	"github.com/kenwerk/kenwerk/internal/connections"
 	"github.com/kenwerk/kenwerk/internal/console"
 	"github.com/kenwerk/kenwerk/internal/db"
 	"github.com/kenwerk/kenwerk/internal/events"
@@ -114,23 +115,25 @@ type App struct {
 	example    *example.Service
 	search     *search.Service
 	scim       *scim.Service
-	sso        *sso.Provider
-	comments   *comments.Service
-	watches    *watches.Service
-	tasks      *tasks.Service
-	failures   *failures.Service
-	setup      *setup.Service
-	notify     *notify.Service
-	backups    *backups.Service
-	mail       *mail.Service
-	sharing    *sharing.Service
-	feed       *feed.Service
-	keyring    *keys.Keyring
-	nodeID     uuid.UUID
-	api        *httpapi.Server
-	instanceID uuid.UUID
-	migrations []db.Migration
-	draining   atomic.Bool
+	sso        *sso.Switch
+	// connections are the outside services in force (spec 101).
+	connections *connections.Service
+	comments    *comments.Service
+	watches     *watches.Service
+	tasks       *tasks.Service
+	failures    *failures.Service
+	setup       *setup.Service
+	notify      *notify.Service
+	backups     *backups.Service
+	mail        *mail.Service
+	sharing     *sharing.Service
+	feed        *feed.Service
+	keyring     *keys.Keyring
+	nodeID      uuid.UUID
+	api         *httpapi.Server
+	instanceID  uuid.UUID
+	migrations  []db.Migration
+	draining    atomic.Bool
 	// healthCache keeps the facts of the health checks for 30 seconds (spec 051).
 	healthCache healthCache
 	// runtime is the log level for a while and the disk thresholds, reread every few seconds.
@@ -201,6 +204,8 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 	a.store = a.guard
 	a.perms = permissions.NewService(a.pool)
 	a.settings = settings.NewService(a.pool, a.store)
+	a.settings.UseInstanceName(cfg.InstanceName, instanceNameLock(a.startedWith))
+	a.identity.SetIssuerName(a.settings.InstanceName)
 	a.identity.SetPolicy(a.accessPolicy())
 	a.people = people.NewService(a.pool, a.perms, a.store, a.identity)
 	a.console = console.NewService(a.pool, a.store, func() int { return a.thresholds().DiskWarnPercent })
@@ -227,7 +232,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 	a.setup = setup.New(a.pool)
 	a.feed = feed.NewService(a.pool)
 	a.notify = notify.NewService(a.pool, a.perms, a.settings, a.watches, notify.Options{
-		InstanceName: cfg.InstanceName, PublicOrigin: cfg.PublicOrigin(), Keyring: a.keyring})
+		PublicOrigin: cfg.PublicOrigin(), Keyring: a.keyring})
 	a.mail = mail.NewService(a.pool, mailSender(cfg), log)
 	a.mail.SetRenderer(a.renderMail)
 	a.mail.HoldWhile(a.inMaintenance)
@@ -297,18 +302,15 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 	})
 	a.example = example.NewService(a.identity, a.settings, a.spaces, a.pages, a.attach, a.perms, a.comments, a.templates)
 	a.scim = scim.NewService(a.pool, a.identity, cfg.PublicOrigin(), log)
-	if cfg.OIDC.Issuer != "" {
-		a.sso = sso.New(sso.Config{Issuer: cfg.OIDC.Issuer, ClientID: cfg.OIDC.ClientID, ClientSecret: cfg.OIDC.ClientSecret,
-			RedirectURL: cfg.PublicOrigin() + "/api/v1/auth/oidc/callback", DisplayName: cfg.OIDC.DisplayName,
-			AutoCreate: cfg.OIDC.AutoCreate, AllowUnverifiedEmail: cfg.OIDC.AllowUnverifiedEmail, GroupsClaim: cfg.OIDC.GroupsClaim}, a.pool, a.identity)
-	}
+	a.sso = sso.NewSwitch(a.pool, a.identity)
+	a.useConnections(ctx)
 
 	if cfg.Role.RunsAPI() {
 		a.api, err = httpapi.New(httpapi.Deps{Config: cfg, Pool: a.pool, Identity: a.identity,
 			Permissions: a.perms, Spaces: a.spaces, Pages: a.pages, Attachments: a.attach, Blocks: blocks.NewService(a.pool, a.perms, a.people, a.analytics), People: a.people, Console: a.console, Search: a.search,
 			Trash: a.trash, Settings: a.settings, Jobs: a.jobs, Exchange: a.exchange, Sites: a.sites, Example: a.example,
 			Publishing: a.publishing,
-			SCIM:       a.scim, SSO: a.sso, Comments: a.comments, Watches: a.watches, Tasks: a.tasks, Notify: a.notify, Mail: a.mail,
+			SCIM:       a.scim, SSO: a.sso, Connections: a.connections, Comments: a.comments, Watches: a.watches, Tasks: a.tasks, Notify: a.notify, Mail: a.mail,
 			Sharing: a.sharing, SavedBlocks: savedblocks.NewService(a.pool), Feed: a.feed, Features: a.features, Templates: a.templates,
 			Analytics: a.analytics, Presence: a.presence, Outward: a.outward, Automation: a.automation, Webhooks: a.webhooks, Collab: a.collab,
 			SystemStatus: a.SystemStatus, HelpersDown: a.HelpersDown, CheckAudit: a.CheckAudit, Gauges: a.Gauges, Failures: a.failures,
@@ -389,13 +391,7 @@ func smtpLock(cfg config.Config, started []config.Setting) *mail.Lock {
 	if cfg.SMTP.Host == "" {
 		return nil
 	}
-	lock := &mail.Lock{Setting: "KENWERK_" + smtpHostSetting, Source: mail.SourceEnvironment}
-	for _, s := range started {
-		if s.Name == smtpHostSetting && s.Source != "default" {
-			lock.Source = s.Source
-		}
-	}
-	return lock
+	return environmentLock(smtpHostSetting, started)
 }
 
 // mailBackupFailures mails failed backups while a mail server is in force; without one they
@@ -642,6 +638,9 @@ func (a *App) Notify() *notify.Service { return a.notify }
 
 // Mail exposes the mail queue (used by tests).
 func (a *App) Mail() *mail.Service { return a.mail }
+
+// Connections exposes the connections in force (used by tests).
+func (a *App) Connections() *connections.Service { return a.connections }
 
 // Logger exposes the logger (used by tests).
 func (a *App) Logger() *slog.Logger { return a.log }

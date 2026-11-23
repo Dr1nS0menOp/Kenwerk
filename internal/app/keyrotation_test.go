@@ -19,6 +19,7 @@ import (
 
 	"github.com/kenwerk/kenwerk/internal/app"
 	"github.com/kenwerk/kenwerk/internal/config"
+	"github.com/kenwerk/kenwerk/internal/connections"
 	"github.com/kenwerk/kenwerk/internal/identity"
 	"github.com/kenwerk/kenwerk/internal/keys"
 	"github.com/kenwerk/kenwerk/internal/mail"
@@ -293,6 +294,56 @@ func TestResealReachesTheMailServerPassword(t *testing.T) {
 	}
 }
 
+// The three secrets of the connections are sealed values like the others: the check counts
+// them and a new key reaches them (spec 101).
+// connectionPurposes are the purposes of the three sealed columns of connections, in their order.
+var connectionPurposes = []string{connections.ClientSecretContext, connections.PDFPasswordContext, connections.MetricsTokenContext}
+
+// storeConnectionSecrets seals one value per purpose into the row of connections.
+func storeConnectionSecrets(t *testing.T, k *keyEnv) {
+	t.Helper()
+	tools := k.tools()
+	defer tools.Close()
+	sealed := make([][]byte, len(connectionPurposes))
+	for i, purpose := range connectionPurposes {
+		var err error
+		if sealed[i], err = tools.Keyring.Seal([]byte("value of "+purpose), purpose); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := tools.Pool.Exec(context.Background(), `INSERT INTO connections (id, oidc_client_secret_sealed,
+		pdf_password_sealed, metrics_token_sealed) VALUES (true, $1, $2, $3)`, sealed[0], sealed[1], sealed[2]); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestResealReachesTheSecretsOfTheConnections(t *testing.T) {
+	k := newKeyEnv(t)
+	ctx := context.Background()
+	purposes := connectionPurposes
+	sealed := make([][]byte, len(purposes))
+	storeConnectionSecrets(t, k)
+	oldID := k.check(false).CurrentKey
+	k.newKey()
+	if rep := k.check(false); rep.Values[oldID] != 4 {
+		t.Fatalf("the check does not count the three secrets: %+v", rep)
+	}
+	if rep := k.resealAll(); rep.Values != 4 || rep.Skipped != 0 {
+		t.Fatalf("the TOTP seed and the three secrets must be sealed again: %+v", rep)
+	}
+	tools := k.tools()
+	defer tools.Close()
+	if err := tools.Pool.QueryRow(ctx, `SELECT oidc_client_secret_sealed, pdf_password_sealed, metrics_token_sealed
+		FROM connections`).Scan(&sealed[0], &sealed[1], &sealed[2]); err != nil {
+		t.Fatal(err)
+	}
+	for i, purpose := range purposes {
+		if plain, err := tools.Keyring.Open(sealed[i], purpose); err != nil || string(plain) != "value of "+purpose {
+			t.Fatalf("the resealed %s: %q %v", purpose, plain, err)
+		}
+	}
+}
+
 func TestAValueChangedWhileItIsSealedAgainKeepsTheNewValue(t *testing.T) {
 	k := newKeyEnv(t)
 	k.newKey()
@@ -388,11 +439,12 @@ func countPlain(t *testing.T, files []string) int {
 // master key is not forgotten there: such a place must be added to sealedColumns, or listed
 // below as not stored.
 func TestEverySealedColumnIsKnown(t *testing.T) {
-	known := map[string]string{
+	known := map[string]string{ //nolint:gosec // G101: file paths and the columns they seal, no credentials
 		"identity/factors.go":   "totp_credentials.secret_sealed",
 		"webhooks/webhooks.go":  "webhook_endpoints.secret and old_secret",
 		"app/account_mail.go":   "mail_queue.sealed",
 		"mail/server.go":        "mail_server.password_sealed",
+		"settings/secret.go":    "seals for its callers: the three sealed columns of connections",
 		"notify/unsubscribe.go": "not stored: the token is in a mail, and stops working once its key is retired",
 		"storage/encrypted.go":  "stored files, which CheckKeys and ResealKeys walk",
 		"app/keyrotation.go":    "seals the places above again with a new key",

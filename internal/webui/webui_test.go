@@ -53,6 +53,29 @@ func TestANewFrontendGetsANewBuildId(t *testing.T) {
 	}
 }
 
+// noDrawing is an installation without a drawing service.
+func noDrawing() string { return "" }
+
+// The administration can set the drawing service while the process runs (spec 101), so the
+// policy of the next answer names the service in force.
+func TestThePolicyFollowsTheDrawingServiceInForce(t *testing.T) {
+	drawing := ""
+	handler := newHandler(fstest.MapFS{"index.html": {Data: []byte("<html>")}}, http.NotFound,
+		func() string { return drawing }, testOrigin)
+	policy := func() string {
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+		return rec.Header().Get("Content-Security-Policy")
+	}
+	if strings.Contains(policy(), "draw.example.com") {
+		t.Fatal("a service that is off is framed")
+	}
+	drawing = "https://draw.example.com"
+	if !strings.Contains(policy(), " https://draw.example.com;") {
+		t.Fatalf("the service set later is not framed: %s", policy())
+	}
+}
+
 func serve(t *testing.T, name string) *httptest.ResponseRecorder {
 	t.Helper()
 	files := fstest.MapFS{
@@ -61,7 +84,7 @@ func serve(t *testing.T, name string) *httptest.ResponseRecorder {
 		"vendor/pdfcraft/app.js":      {Data: []byte("code")},
 		"vendor/pdfcraft/app.wasm.gz": {Data: []byte("packed")},
 	}
-	handler := newHandler(files, func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNotFound) }, "", testOrigin)
+	handler := newHandler(files, func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNotFound) }, noDrawing, testOrigin)
 	rec := httptest.NewRecorder()
 	// The response starts with the headers the server sets on everything.
 	rec.Header().Set("X-Frame-Options", "DENY")

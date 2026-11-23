@@ -74,7 +74,7 @@ func (s *Server) handleSigningBegin(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
-	if s.deps.SSO == nil {
+	if s.deps.SSO.Provider() == nil {
 		prompt.Start.Methods = withoutMethod(prompt.Start.Methods, identity.SigningByProvider)
 	}
 	writeJSON(w, http.StatusOK, prompt)
@@ -138,7 +138,8 @@ func (s *Server) handleSigningPasskey(w http.ResponseWriter, r *http.Request) {
 // handleSigningAtProvider sends the browser to the identity provider for a fresh login that
 // confirms a signing step (DOC-731).
 func (s *Server) handleSigningAtProvider(w http.ResponseWriter, r *http.Request) {
-	if s.deps.SSO == nil {
+	provider := s.deps.SSO.Provider()
+	if provider == nil {
 		writeError(w, http.StatusNotFound, "not_found", "Not found.")
 		return
 	}
@@ -149,7 +150,7 @@ func (s *Server) handleSigningAtProvider(w http.ResponseWriter, r *http.Request)
 		s.fail(w, r, err)
 		return
 	}
-	to, binding, err := s.deps.SSO.StartSigning(r.Context(), token, step.BeganAt)
+	to, binding, err := provider.StartSigning(r.Context(), token, step.BeganAt)
 	if err != nil {
 		s.deps.Log.Error("oidc start for signing failed", "error", err)
 		writeError(w, http.StatusServiceUnavailable, "oidc_unavailable", "The identity provider cannot be reached. Try again shortly.")

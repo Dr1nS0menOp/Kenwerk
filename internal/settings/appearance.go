@@ -58,6 +58,7 @@ func (s *Service) readAppearance(ctx context.Context) (Appearance, error) {
 	if err = s.ReadSection(ctx, SectionLook, &v.Look); err != nil {
 		return v, err
 	}
+	s.lockName(&v.Look)
 	if v.Logo, v.HasLogo, err = s.CurrentLogo(ctx); err != nil {
 		return v, err
 	}
