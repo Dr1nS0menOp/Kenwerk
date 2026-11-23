@@ -58,6 +58,22 @@ func (a *App) EncryptStoredFilesWithinForTest(ctx context.Context, budget time.D
 	return a.encryptStoredFilesWithin(ctx, budget)
 }
 
+// RefreshSearchTextForTest runs the pass that brings search entries up to date, with its own
+// budget and size of a batch.
+func (a *App) RefreshSearchTextForTest(ctx context.Context, budget time.Duration, batch int) error {
+	return a.refreshSearchTextWithin(ctx, textPassRun{budget: budget, batch: batch})
+}
+
+// TextPassBatchForTest and TextPassRestForTest are the size of a batch of the pass and how many
+// times as long as a batch it rests, so a measurement runs it as the worker does.
+const (
+	TextPassBatchForTest = textPassBatch
+	TextPassRestForTest  = textPassRest
+)
+
+// RefreshSearchTextNowForTest runs the pass as the worker does.
+func (a *App) RefreshSearchTextNowForTest(ctx context.Context) error { return a.refreshSearchText(ctx) }
+
 // ResealWithHookForTest runs ResealKeys with a function that runs between reading a value and
 // replacing it, so a test can change the value meanwhile.
 func ResealWithHookForTest(ctx context.Context, t *KeyTools, hook func(table, column, id string)) (ResealReport, error) {

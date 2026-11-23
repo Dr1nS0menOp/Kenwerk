@@ -6,9 +6,9 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { SubjectPicker } from './picker';
 import { useOrderedSpaces } from './my-spaces';
-import { filterCount, spaceChoices, type SearchFilters } from './search-filters';
+import { filterCount, offeredKinds, spaceChoices, type SearchFilters } from './search-filters';
+import { useCapabilities } from '../capabilities';
 
-const KINDS = ['page', 'post', 'database', 'comment'];
 const WITHIN = ['day', 'week', 'month', 'year'];
 const SPACES_SHOWN = 20;
 type Part = 'spaces' | 'kind' | 'labels' | 'people' | 'within';
@@ -37,6 +37,7 @@ export function SearchFilterBar({
   const [label, setLabel] = useState('');
   const [spaceText, setSpaceText] = useState('');
   const spaces = spaceChoices(useOrderedSpaces(), filters.spaces, spaceText, SPACES_SHOWN);
+  const kinds = offeredKinds(useCapabilities());
   const set = (change: Partial<SearchFilters>) => onChange({ ...filters, ...change });
   const choice = (pressed: boolean, text: string, onClick: () => void, key: string) => (
     <button key={key} type="button" className="filter-choice" aria-pressed={pressed} onClick={onClick}>
@@ -107,7 +108,7 @@ export function SearchFilterBar({
           {part === 'kind' && (
             <>
               {choice(!filters.kind, t('search.kind_any'), () => set({ kind: '' }), 'any')}
-              {KINDS.map((k) => choice(filters.kind === k, t(`search.kind_${k}`), () => set({ kind: k }), k))}
+              {kinds.map((k) => choice(filters.kind === k, t(`search.kind_${k}`), () => set({ kind: k }), k))}
             </>
           )}
           {part === 'within' && (

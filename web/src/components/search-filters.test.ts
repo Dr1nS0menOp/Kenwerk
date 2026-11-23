@@ -3,11 +3,13 @@ import { describe, expect, it } from 'vitest';
 import {
   NO_FILTERS,
   filterCount,
+  offeredKinds,
   queryWith,
   resultsAddress,
   spaceChoices,
   splitQuery,
 } from './search-filters';
+import { NOTHING_ON } from '../capabilities';
 
 describe('the filters of the search box are words of the search syntax', () => {
   it('writes chosen spaces, labels and people into the query', () => {
@@ -47,5 +49,15 @@ describe('the filters of the search box are words of the search syntax', () => {
   it('counts what is on, and leaves out an empty word', () => {
     expect(filterCount({ ...NO_FILTERS, spaces: ['A'], kind: 'page' })).toBe(2);
     expect(splitQuery('space: label:"" plans').text).toBe('plans');
+  });
+});
+
+describe('the kind filter offers what the installation has on (spec 087, D6)', () => {
+  it('leaves Database out while databases are off', () => {
+    expect(offeredKinds(NOTHING_ON)).toEqual(['page', 'post', 'comment']);
+  });
+
+  it('offers every kind in its order while databases are on', () => {
+    expect(offeredKinds({ ...NOTHING_ON, databases: true })).toEqual(['page', 'post', 'database', 'comment']);
   });
 });

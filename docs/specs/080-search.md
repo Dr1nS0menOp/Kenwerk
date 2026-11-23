@@ -1,6 +1,6 @@
 # 080: Search after the screens study, waves SR1 and onwards
 
-Status: waves SR1 and SR2 built (SR2 in spec 086); SR3 and SR4 planned
+Status: waves SR1, SR2 and SR3 built (SR2 in spec 086, SR3 in spec 087); SR4 planned
 Phase: before 1.0. The feature freeze of ADR-043 keeps new parts for after 1.0; on 2026-11-15 the product owner put search first among the new work and allowed new search features before 1.0. Changes to the built search screens are rebuilds, not new parts.
 
 ## Problem
@@ -26,8 +26,8 @@ Found with `rg -n -i "search|find|filter|query|DQL" docs/blueprint/03-functional
 | ORG-017 | partly | Several people work through the address | Each chosen person a chip | SR1 |
 | NAV-121 | new | People pickers find by the start of the name | By the start of any word of the name | SR2 |
 | COL-040 | new | The text of tasks is part of the page's text | Tasks as results of their own | SR2, after its study |
-| EDT-221 | new | No tabs block yet | Text in every part of a tabs block is found | SR3, with the tabs block |
-| SPC-117 | new | No switch per kind of item yet | What search does with items of a kind turned off | SR3, a study with SPC-116 |
+| EDT-221 | new | No tabs block yet | Text in every part of a tabs block is found | With the tabs block; spec 087 holds its search contract |
+| SPC-117 | new | No switch per kind of item yet | What search does with items of a kind turned off | Answered in spec 087 (D5): nothing; pinned by tests in SR3 |
 | SPC-129 | new | Archived spaces leave quick search; the results find them with the archived filter (ORG-020) | Nothing for search; the line is the archive section's text | — |
 | ADM-117 | new | Insights count searches (PLT-015) | The count of searches on the administration's summary | The administration's wave |
 | PLT-051 | new | Search insights exist | A Search tab among the insight topics | The insights wave |
@@ -86,7 +86,7 @@ Measured on the real-data dump (60,385 pages, a tenth under control), each the m
 ## Waves after SR1
 
 - **SR2:** people pickers by the start of any word (NAV-121), checked against NAV-059 and ACC-036 and its load; tasks as results of their own (COL-040), after a study of how a task's permission follows its page; the marks, empty states and loading box on the People and Spaces tabs of the results.
-- **SR3:** the tabs block's parts in search (EDT-221), with the editor wave that builds the block; what search does with items of a kind turned off (SPC-117), a study with SPC-116.
+- **SR3 (built, spec 087):** the words of captions, code titles, chart titles and buttons in search, with a one-time pass that brings existing entries up to date (EDT-155); the kind filter offers Database only while databases are on (ADR-043); SPC-117 answered and pinned by tests. The tabs block's parts (EDT-221) wait for the wave that builds the block, with the contract in spec 087.
 - **SR4, after 1.0:** DQL, the query language of the roadmap, from the syntax and the panel of spec 033; the text inside attachments (ORG-025), which needs a text extractor and so a new dependency, the product owner's choice; stemming per space language (ORG-033) with its settings group (NAV-163); a rule condition as a search query (PLT-069) with automation.
 
 ## Acceptance criteria

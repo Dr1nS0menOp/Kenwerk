@@ -3,6 +3,13 @@
 Plain-language notes per release. Every entry has an "Upgrade impact" line.
 
 ## Unreleased
+### Added: search finds every word a reader sees (spec 087, wave SR3)
+- Search now finds a page by the words of a table's caption, a code block's title, a chart's title and the titles of its axes, the caption of a video or sound, and the words on a spotlight's button. The excerpt of a result may show them. As before, only whoever may see the page finds it, and nobody else counts it. Tooltips, the names of anchors and excerpts, and the settings of dynamic blocks stay out of search
+- Pages published before this release are brought up to date once by the worker, in the background, after the upgrade. On a large installation this may take a while; until it is through, older pages are found by these words only once they are published again. The audit log records the end once, as `search.text_refreshed`
+- The type filter of the search box no longer offers Database while databases are turned off for the installation. A database made before is still found under any type, with its mark
+- A blog post in a space whose blog is turned off, and a comment in a space whose comments are turned off, are still found by whoever may see them: turning a part off stops new ones, and hides nothing that exists from search. This was already so; tests now hold it
+- The plain-text export and the search of a published site hold the same words from their next export or build, since they use the same text as search
+- Upgrade impact: one expand migration, `0080_search_state`, a table of one row that the previous release does not read. The pass starts only once no node of the previous release runs, rests between its batches and runs at most two minutes at a time (see `docs/operations/upgrade.md`). Nothing to do. No route, setting or design picture changed### Fixed: four things the product owner saw on 2026-11-22 (wave FX7)
 ### Changed: one row of tools above every long list of the administration and the settings of a space (spec 100, wave TR1)
 - Users, the Audit log and Spaces in the administration, and People, Permissions, Content, Trash, Files and Templates in the settings of a space, have one row above the list: a search field first, then a button per filter that shows its value in words once set ("Role: Administrator"), More filters for the rarer ones, Reset while anything is set, and the screen's own action at the end, such as Add people. A choice applies at once; there is no Filter button
 - Everything a row holds, the search and the sort included, is in the address, so a copied address opens the same view and a reload keeps it. Users now keeps its search and sort; Spaces, People, Trash, Files and Templates keep their filters for the first time

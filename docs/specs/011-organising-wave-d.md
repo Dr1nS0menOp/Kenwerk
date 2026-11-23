@@ -75,7 +75,7 @@ A wiki that grows needs order. Today a page has no owner, no status and no label
 | D23 | Tree selection has a Select mode | Ctrl and click already open a link in a new tab. In Select mode the row is a checkbox, and Ctrl and Shift work on it. |
 | D24 | Dropping a row on a space opens the Move dialog, and does not move at once | A move between spaces always shows its impact first (PAG-044). |
 | D25 | Features live in a small `features` package with its own table | Pages, comments and spaces all ask it. `pages` cannot import `spaces`. |
-| D26 | Turning a feature off refuses new content with a clear error and hides what exists | SPC-048: nothing is deleted. |
+| D26 | Turning a feature off refuses new content with a clear error and hides what exists | SPC-048: nothing is deleted. As built, it hides what exists from the space's own places (its overview and the Blog group of the sidebar), not from search, links or the blog list of all spaces; spec 087 (D5) keeps it so and pins it by tests. |
 | D27 | Space owners are a chosen list, which falls back to the administrators | SPC-013 asks for people to ask, and they need not be the people who hold the rights. |
 | D28 | A space icon image is cropped by the style sheet, with no crop tool | A tool is a lot of code for a small picture. |
 | D29 | Bulk actions run as jobs, one transaction per page | One failure must not stop the rest, and SPC-064 asks for a report. |

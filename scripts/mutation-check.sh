@@ -3288,6 +3288,23 @@ mutate "a field finds only whole words" internal/identity/names.go \
   's.replace("terms[i] = \"\x27\" + w + \"\x27:*\"", "terms[i] = \"\x27\" + w + \"\x27\"")' ./internal/identity/ -run '^TestNameWordsAreStartsOfWords$'
 mutate_web "the Tasks tab asks for the filters of pages" src/views/search.tsx \
   's.replace("for (const key of [\x27q\x27, \x27space_id\x27, \x27archived\x27]) {", "for (const key of [...address.keys()]) {")' src/views/search.test.ts
+# Spec 087, wave SR3: search reads the words a reader sees, and the pass that brings old entries
+# up to date reads the version readers see, creates no entry, waits for older releases and is
+# through only when it reaches the last entry. Only the text pass tests run the pass.
+mutate "search leaves out the caption of a table" internal/document/document.go \
+  's.replace("\tTypeTable:           {line: []string{\"caption\"}},\n", "")' ./internal/document/ -run '^(TestTextHoldsTheWordsAReaderSeesInCaptionsTitlesAndButtons|TestEveryTextAttributeIsSearchedOrNamedAsNotRead)$'
+mutate "the text pass fills the readers' entry from the working version" internal/pages/search_text.go \
+  's.replace("JOIN page_versions v ON v.page_id = p.id AND v.number = p.current_version", "JOIN page_versions v ON v.page_id = p.id AND v.number = GREATEST(p.current_version, COALESCE((SELECT c.head_version FROM page_control c WHERE c.page_id = p.id), 0))")' $app -run '^TestTheTextPass'
+mutate "the text pass creates an entry readers match" internal/search/text_pass.go \
+  's.replace("SELECT page_id FROM search_documents WHERE page_id > $1 ORDER BY page_id LIMIT $2", "SELECT id FROM pages WHERE id > $1 ORDER BY id LIMIT $2").replace(/UPDATE search_documents d[\s\S]*?IS DISTINCT FROM n\.body/, "INSERT INTO search_documents (page_id, title, body) SELECT n.page_id, \x27\x27, n.body FROM unnest($1::uuid[], $2::text[]) AS n(page_id, body) ON CONFLICT (page_id) DO UPDATE SET body = EXCLUDED.body")' $app -run '^TestTheTextPass'
+mutate "the text pass brings back a working entry that was dropped" internal/search/text_pass.go \
+  's.replace(/UPDATE search_working d[\s\S]*?IS DISTINCT FROM n\.body/, "INSERT INTO search_working (page_id, title, body) SELECT n.page_id, \x27\x27, n.body FROM unnest($1::uuid[], $2::text[]) AS n(page_id, body) ON CONFLICT (page_id) DO UPDATE SET body = EXCLUDED.body")' $app -run '^TestTheTextPass'
+mutate "the text pass runs beside an older release" internal/app/search_text.go \
+  's.replace("older, err := a.olderReleaseRuns(ctx)", "older, err := false, error(nil)")' $app -run '^TestTheTextPass'
+mutate "the text pass is through when a run stops at its budget" internal/app/search_text.go \
+  's.replace("a.log.Info(\"search text pass paused\", \"stopped_after\", cursor)\n\t\t\treturn nil", "return a.finishTextPass(ctx)")' $app -run '^TestTheTextPass'
+mutate_web "the kind filter offers Database while databases are off" src/components/search-filters.ts \
+  's.replace("kind !== \x27database\x27 || capabilities.databases", "true")' src/components/search-filters.test.ts
 # Spec 090, wave RV11: a settings change records each changed field before and after, keeps
 # the values of unlisted fields, names and passwords out, the appearance answer is kept per
 # node and limited per address, and a link keeps no title.

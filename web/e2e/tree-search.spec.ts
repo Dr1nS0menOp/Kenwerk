@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Spec 028: search in the middle of the bar, and a tree that loads what is opened. Spec 080:
-// the rebuilt results screen. Spec 086: the People, Spaces and Tasks tabs.
+// the rebuilt results screen. Spec 086: the People, Spaces and Tasks tabs. Spec 087: the words of
+// captions.
 import type { Page } from '@playwright/test';
 import {
   ADMIN,
@@ -218,4 +219,28 @@ test('the Spaces tab shows each space with its badge, or the screen of nothing f
   await expect(page.getByRole('listitem').filter({ hasText: name }).locator('.space-badge')).toBeVisible();
   await page.goto(`/search?q=${unique('nowhere')}&tab=spaces`);
   await expect(page.getByRole('heading', { name: /No spaces found/ })).toBeVisible();
+});
+
+test('a page whose only matching word is in a table caption is found from the results screen', async ({
+  page,
+}) => {
+  const space = await newSpace(page, 'Caption space');
+  const word = unique('captionword');
+  const created = await page.request.post('/api/v1/pages', {
+    data: { space_id: space.id, title: 'Measured values' },
+  });
+  expect(created.status(), await created.text()).toBe(201);
+  const { id } = (await created.json()) as { id: string };
+  const cell = { type: 'tableCell', content: [paragraph('cell').content[0]] };
+  const table = {
+    type: 'table',
+    attrs: { caption: `Values of ${word}` },
+    content: [{ type: 'tableRow', content: [cell] }],
+  };
+  const done = await page.request.post(`/api/v1/pages/${id}/publish`, {
+    data: { title: 'Measured values', document: { type: 'doc', content: [table] }, base_version: 0 },
+  });
+  expect(done.ok(), await done.text()).toBe(true);
+  await page.goto(`/search?q=${word}`);
+  await expect(page.getByRole('link', { name: 'Measured values' })).toBeVisible();
 });

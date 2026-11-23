@@ -332,23 +332,61 @@ func Walk(n Node, visit func(Node)) {
 	}
 }
 
+// searchedAttr names the attributes of one type of node whose words search reads.
+type searchedAttr struct {
+	// own holds what the node itself says. It is read as part of the text of its block, as
+	// the words of a status mark are read with the line around them.
+	own string
+	// line holds words shown on a block outside its content, such as a caption or a title.
+	// Text writes them on a line of their own where the block starts.
+	line []string
+}
+
+// searchedAttrs is every attribute whose words a reader sees as text on the page, by type of
+// node: what search reads from a node besides its children (spec 087, EDT-155). Tooltips,
+// names that serve as addresses and the settings of dynamic blocks stay out (D2).
+// TestEveryTextAttributeIsSearchedOrNamedAsNotRead holds every other text attribute of the
+// gate to a reason. A change here that changes Text for existing documents raises
+// search.TextVersion.
+var searchedAttrs = map[string]searchedAttr{
+	TypeFile:            {own: "filename"},
+	TypeStatus:          {own: "text"},
+	TypeDate:            {own: "value"},
+	TypeInlineImage:     {own: "alt"},
+	TypePlaceholderLink: {own: "title"},
+	TypeImage:           {own: "caption", line: []string{"alt", "caption"}},
+	TypeExpand:          {own: "title", line: []string{"title"}},
+	TypeTable:           {line: []string{"caption"}},
+	TypeCodeBlock:       {line: []string{"title"}},
+	TypeChart:           {line: []string{"title", "x_title", "y_title"}},
+	TypeMedia:           {line: []string{"caption"}},
+	TypeSpotlight:       {line: []string{"button_text"}},
+}
+
 // wordsOf returns what a node itself says, apart from its children.
 func wordsOf(n Node) string {
-	key := map[string]string{TypeFile: "filename", TypeStatus: "text", TypeDate: "value", TypeImage: "caption", TypeInlineImage: "alt", TypeExpand: "title", TypePlaceholderLink: "title"}[n.Type]
-	if n.Type == TypeText {
+	switch n.Type {
+	case TypeText:
 		return n.Text
-	}
-	if n.Type == TypeHardBreak {
+	case TypeHardBreak:
 		return " "
-	}
-	if n.Type == TypeMention {
+	case TypeMention:
 		return mentionText(n)
-	}
-	if n.Type == TypeSheet {
+	case TypeSheet:
 		return sheetText(n)
 	}
-	s, _ := n.Attrs[key].(string)
+	s, _ := n.Attrs[searchedAttrs[n.Type].own].(string)
 	return s
+}
+
+// lineWords gives the words a block shows outside its content, on one line.
+func lineWords(n Node) string {
+	words := make([]string, 0, len(searchedAttrs[n.Type].line))
+	for _, key := range searchedAttrs[n.Type].line {
+		s, _ := n.Attrs[key].(string)
+		words = append(words, s)
+	}
+	return strings.TrimSpace(strings.Join(words, " "))
 }
 
 func inlineText(n Node, b *strings.Builder) {
@@ -370,27 +408,23 @@ func BlockText(n Node) string {
 	return b.String()
 }
 
-// Text returns the plain text of a document, one line per text block, for search.
+// textBlocks are the blocks whose text is a line of Text.
+var textBlocks = []string{TypeParagraph, TypeHeading, TypeCodeBlock, TypeFile, TypeDecision, TypeSheet}
+
+// Text returns the plain text of a document, one line per text block, for search. The words a
+// block shows outside its content come first, on a line of their own (searchedAttrs).
 func Text(n Node) string {
 	var b strings.Builder
+	writeLine := func(t string) {
+		if t != "" {
+			b.WriteString(t)
+			b.WriteByte('\n')
+		}
+	}
 	Walk(n, func(c Node) {
-		switch c.Type {
-		case TypeParagraph, TypeHeading, TypeCodeBlock, TypeFile, TypeDecision, TypeSheet:
-			if t := BlockText(c); t != "" {
-				b.WriteString(t)
-				b.WriteByte('\n')
-			}
-		case TypeImage:
-			alt, _ := c.Attrs["alt"].(string)
-			if t := strings.TrimSpace(alt + " " + wordsOf(c)); t != "" {
-				b.WriteString(t)
-				b.WriteByte('\n')
-			}
-		case TypeExpand:
-			if t := wordsOf(c); t != "" {
-				b.WriteString(t)
-				b.WriteByte('\n')
-			}
+		writeLine(lineWords(c))
+		if contains(textBlocks, c.Type) {
+			writeLine(BlockText(c))
 		}
 	})
 	return b.String()

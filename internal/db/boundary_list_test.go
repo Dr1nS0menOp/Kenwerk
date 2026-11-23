@@ -164,6 +164,7 @@ var tableOwners = map[string]string{
 	"page_template_origin": "internal/templates",
 	"search_documents":     "internal/search",
 	"search_pages":         "internal/search",
+	"search_state":         "internal/search",
 	"search_working":       "internal/search",
 	"trash_items":          "internal/trash",
 

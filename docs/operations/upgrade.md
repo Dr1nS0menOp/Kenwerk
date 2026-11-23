@@ -148,6 +148,17 @@ New events go through NATS again. What the event log already holds is still hand
 - With two nodes of different releases: a reload of a new address on a node of the previous release says not found until that node is upgraded, and a space made by such a node starts at "no access, and ask for it" on the new nodes while the old nodes still answer not found for it. The previous release reads the feature `access_requests`, which the new release keeps in step with the setting. With one node there is no overlap.
 - Migration 0076 also lists every key a space holds, current and old, in `space_key_claims`, which triggers keep in step. Should an existing old key already be another space's current key, the old key keeps its row without a claim: every lookup finds the current key first.
 
+## Search entries after an upgrade (spec 087)
+
+A release can read more words from a document than the one before: since spec 087, search finds the words of a table's caption, a code block's title, a chart's titles, a media block's caption and a spotlight's button. Pages published after the upgrade have them at once. For pages published before, the worker runs a one-time pass, the task `refresh-search-text`:
+
+- It starts only once no node of an older release runs, because such a node would write the old text again. If one comes back while the pass waits, the pass starts again from the first entry once it has stopped.
+- It works in batches of 50 entries, one transaction each, rests after each batch 19 times as long as the batch took, so it is busy at most a twentieth of the time, and stops after two minutes a run; the next run, a minute later, goes on where it stopped. It rewrites only the entries whose text changed and never creates one. The entry readers match is rebuilt from the version they see, never from a version that waits for approval.
+- The log says `search text pass paused` when a run stops at its budget and `search text pass through` at the end, with the counts. The audit log records the end once, as `search.text_refreshed` (actor `worker`), with the text version and the number of entries read and rewritten, and nothing of any page.
+- Until it is through, older pages are found by these words only once they are published again; nothing else about search changes. A new installation has nothing to bring up to date and never runs it.
+- Its state is the one row of `search_state`. Restoring a backup from before this release brings the earlier state back, so the pass runs again, which is right. Going back to the previous release leaves the table unused and the entries with their longer text, which it reads as any text.
+
+You need to do nothing.
 ## Rolling back
 
 Expand migrations leave the old structure in place, so the previous version runs on a database the new version has migrated. Roll back by starting the previous version.

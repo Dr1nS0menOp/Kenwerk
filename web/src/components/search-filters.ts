@@ -3,6 +3,7 @@
 // (space:, label:, author:), so a typed query and the buttons mean the same thing, and a
 // query language can grow from it later (spec 033). Type and date have no words yet: they
 // travel as the parameters the results page already reads, kind and within.
+import type { Capabilities } from '../capabilities';
 
 export interface SearchFilters {
   /** Keys of spaces, any of which; none means every space. */
@@ -94,4 +95,19 @@ export function filterCount(filters: SearchFilters): number {
     (filters.kind ? 1 : 0) +
     (filters.within ? 1 : 0)
   );
+}
+
+/** A kind of item the search can be narrowed to. */
+export type SearchKind = 'page' | 'post' | 'database' | 'comment';
+
+/** Every kind of item the kind filter knows, in the order it offers them. */
+const KINDS: readonly SearchKind[] = ['page', 'post', 'database', 'comment'];
+
+/**
+ * The kinds the filter offers: Database only while the installation has databases on, since a
+ * part that is off is offered on no screen (ADR-043). A database made before still shows among
+ * all kinds, with its mark (spec 087, D6).
+ */
+export function offeredKinds(capabilities: Pick<Capabilities, 'databases'>): SearchKind[] {
+  return KINDS.filter((kind) => kind !== 'database' || capabilities.databases);
 }

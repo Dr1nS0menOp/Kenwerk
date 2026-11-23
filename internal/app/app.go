@@ -753,6 +753,8 @@ func (a *App) PeriodicTasks() []jobs.Task {
 		}},
 		{Name: "collect-pending-copies", Every: 10 * time.Minute, Run: a.attach.CollectPendingCopies},
 		{Name: "encrypt-stored-files", Every: 10 * time.Minute, Run: a.encryptStoredFiles},
+		// Brings search entries written before this release up to its text, once (spec 087).
+		{Name: "refresh-search-text", Every: time.Minute, Run: a.refreshSearchText},
 		{Name: "fail-stale-jobs", Every: 10 * time.Minute, Run: a.jobs.FailStale},
 		{Name: "purge-identity", Every: 10 * time.Minute, Run: a.identity.PurgeExpired},
 		{Name: "end-expired-accounts", Every: 10 * time.Minute, Run: a.identity.EndExpiredAccounts},
