@@ -173,10 +173,7 @@ func (s *Service) groupSize(ctx context.Context, group uuid.UUID) (int, error) {
 // Candidates lists people for the @ list and for Share, those who can see the page
 // first. forShare keeps groups in the list: a group mention has its own rule.
 func (s *Service) Candidates(ctx context.Context, c identity.Caller, pageID uuid.UUID, text string, forShare bool) ([]Candidate, error) {
-	if err := s.perms.RequirePage(ctx, s.pool, c.UserID, pageID, permissions.ActionPageView, uuid.Nil); err != nil {
-		return nil, err
-	}
-	space, _, err := s.perms.LoadPage(ctx, s.pool, pageID)
+	space, err := s.viewablePage(ctx, s.pool, c, pageID)
 	if err != nil {
 		return nil, err
 	}
@@ -190,33 +187,60 @@ func (s *Service) Candidates(ctx context.Context, c identity.Caller, pageID uuid
 	}
 	out := []Candidate{}
 	for _, e := range found {
-		candidate := Candidate{Kind: e.Type, ID: e.ID, Name: e.Name, CanView: true}
-		if e.Type == "group" {
-			if candidate.Members, err = s.groupSize(ctx, e.ID); err != nil {
-				return nil, err
-			}
-			if !forShare && (!values.GroupMentions || candidate.Members > maxGroupMembers) {
-				continue
-			}
-		} else {
-			d, err := s.perms.CheckPage(ctx, s.pool, e.ID, pageID, permissions.ActionPageView, uuid.Nil)
-			if err != nil {
-				return nil, err
-			}
-			candidate.CanView = d.Allowed
+		candidate, err := s.candidate(ctx, e, pageID)
+		if err != nil {
+			return nil, err
+		}
+		if e.Type == "group" && !forShare && !groupMentionable(values.GroupMentions, candidate.Members) {
+			continue
 		}
 		out = append(out, candidate)
 	}
-	slices.SortStableFunc(out, func(a, b Candidate) int {
-		switch {
-		case a.CanView == b.CanView:
-			return 0
-		case a.CanView:
-			return -1
-		}
-		return 1
-	})
+	slices.SortStableFunc(out, viewersFirst)
 	return out, nil
+}
+
+// viewablePage loads the space of a page the caller may see, and refuses one they may not.
+func (s *Service) viewablePage(ctx context.Context, q db.Querier, c identity.Caller, pageID uuid.UUID) (permissions.SpaceFacts, error) {
+	if err := s.perms.RequirePage(ctx, q, c.UserID, pageID, permissions.ActionPageView, uuid.Nil); err != nil {
+		return permissions.SpaceFacts{}, err
+	}
+	space, _, err := s.perms.LoadPage(ctx, q, pageID)
+	return space, err
+}
+
+// candidate makes a candidate of an entry of the directory: a group with its number of
+// members, which can always view, or a person with whether they can view the page.
+func (s *Service) candidate(ctx context.Context, e identity.DirectoryEntry, pageID uuid.UUID) (Candidate, error) {
+	candidate := Candidate{Kind: e.Type, ID: e.ID, Name: e.Name, CanView: true}
+	if e.Type == "group" {
+		var err error
+		candidate.Members, err = s.groupSize(ctx, e.ID)
+		return candidate, err
+	}
+	d, err := s.perms.CheckPage(ctx, s.pool, e.ID, pageID, permissions.ActionPageView, uuid.Nil)
+	if err != nil {
+		return Candidate{}, err
+	}
+	candidate.CanView = d.Allowed
+	return candidate, nil
+}
+
+// groupMentionable says whether a group may be mentioned: group mentions are on, and the
+// group is small enough for everyone in it to be told.
+func groupMentionable(groupMentions bool, members int) bool {
+	return groupMentions && members <= maxGroupMembers
+}
+
+// viewersFirst orders the candidates who can view the page before those who cannot.
+func viewersFirst(a, b Candidate) int {
+	switch {
+	case a.CanView == b.CanView:
+		return 0
+	case a.CanView:
+		return -1
+	}
+	return 1
 }
 
 // ShareInput is who to tell, and what to say.
@@ -274,16 +298,13 @@ func (s *Service) expand(ctx context.Context, q db.Querier, people []permissions
 // Share notifies people about a page. Someone who cannot see it gets nothing: a
 // notification would reveal its title (spec 010, D19). Nothing is granted here.
 func (s *Service) Share(ctx context.Context, c identity.Caller, pageID uuid.UUID, in ShareInput) (ShareResult, error) {
-	message := strings.TrimSpace(in.Message)
-	if !utf8.ValidString(message) || utf8.RuneCountInString(message) > maxMessageRunes {
-		return ShareResult{}, apperr.Invalid("A message can have at most 500 characters.")
+	message, err := shareMessage(in.Message)
+	if err != nil {
+		return ShareResult{}, err
 	}
 	out := ShareResult{NoAccess: []Person{}}
-	err := pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
-		if err := s.perms.RequirePage(ctx, tx, c.UserID, pageID, permissions.ActionPageView, uuid.Nil); err != nil {
-			return err
-		}
-		space, _, err := s.perms.LoadPage(ctx, tx, pageID)
+	err = pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
+		space, err := s.viewablePage(ctx, tx, c, pageID)
 		if err != nil {
 			return err
 		}
@@ -291,7 +312,7 @@ func (s *Service) Share(ctx context.Context, c identity.Caller, pageID uuid.UUID
 		if err != nil {
 			return err
 		}
-		event := ids.New()
+		share := shareEvent{caller: c, page: pageID, space: space.ID, event: ids.New(), message: message}
 		var missing []uuid.UUID
 		for _, person := range people {
 			d, err := s.perms.CheckPage(ctx, tx, person, pageID, permissions.ActionPageView, uuid.Nil)
@@ -306,28 +327,63 @@ func (s *Service) Share(ctx context.Context, c identity.Caller, pageID uuid.UUID
 			if !in.Notify {
 				continue
 			}
-			row := notify.Row{UserID: person, Type: notify.TypeShare, Reason: notify.ReasonShared, ActorID: c.UserID, PageID: pageID,
-				SpaceID: space.ID, Event: event, Data: map[string]any{"message": message}}
-			if err := s.notify.Deliver(ctx, tx, row); err != nil {
+			if err := s.tell(ctx, tx, share, person); err != nil {
 				return err
 			}
 		}
-		names, err := identity.DisplayNames(ctx, tx, missing)
-		if err != nil {
+		if err := out.addNoAccess(ctx, tx, missing); err != nil {
 			return err
 		}
-		for _, id := range missing {
-			out.NoAccess = append(out.NoAccess, Person{ID: id, Name: names[id]})
-		}
-		// The message stays out of the audit log: it is between people.
-		if _, err := audit.Record(ctx, tx, c.Event("page.shared", "page", pageID.String(), space.ID.String(),
-			map[string]any{"people": len(people), "notified": out.Notified})); err != nil {
-			return err
-		}
-		_, err = outbox.Enqueue(ctx, tx, "page.shared", map[string]any{"page_id": pageID, "space_id": space.ID, "actor_id": c.UserID})
-		return err
+		return recordShare(ctx, tx, share, map[string]any{"people": len(people), "notified": out.Notified})
 	})
 	return out, err
+}
+
+// shareEvent is one share of a page: who shared it, where, and what they said.
+type shareEvent struct {
+	caller      identity.Caller
+	page, space uuid.UUID
+	event       uuid.UUID
+	message     string
+}
+
+// tell notifies one person of a share.
+func (s *Service) tell(ctx context.Context, tx pgx.Tx, share shareEvent, person uuid.UUID) error {
+	row := notify.Row{UserID: person, Type: notify.TypeShare, Reason: notify.ReasonShared, ActorID: share.caller.UserID, PageID: share.page,
+		SpaceID: share.space, Event: share.event, Data: map[string]any{"message": share.message}}
+	return s.notify.Deliver(ctx, tx, row)
+}
+
+// addNoAccess names the people who could not be told because they cannot see the page.
+func (r *ShareResult) addNoAccess(ctx context.Context, q db.Querier, missing []uuid.UUID) error {
+	names, err := identity.DisplayNames(ctx, q, missing)
+	if err != nil {
+		return err
+	}
+	for _, id := range missing {
+		r.NoAccess = append(r.NoAccess, Person{ID: id, Name: names[id]})
+	}
+	return nil
+}
+
+// recordShare writes a share to the audit log, with the counts in details, and to the
+// outbox. The message stays out of the audit log: it is between people.
+func recordShare(ctx context.Context, tx pgx.Tx, share shareEvent, details map[string]any) error {
+	c := share.caller
+	if _, err := audit.Record(ctx, tx, c.Event("page.shared", "page", share.page.String(), share.space.String(), details)); err != nil {
+		return err
+	}
+	_, err := outbox.Enqueue(ctx, tx, "page.shared", map[string]any{"page_id": share.page, "space_id": share.space, "actor_id": c.UserID})
+	return err
+}
+
+// shareMessage tidies the message of a share, and refuses one that is not text or too long.
+func shareMessage(raw string) (string, error) {
+	message := strings.TrimSpace(raw)
+	if !utf8.ValidString(message) || utf8.RuneCountInString(message) > maxMessageRunes {
+		return "", apperr.Invalid("A message can have at most 500 characters.")
+	}
+	return message, nil
 }
 
 // Request is a request for access, as a person who may answer sees it.
@@ -561,20 +617,8 @@ func (s *Service) Ask(ctx context.Context, c identity.Caller, pageID uuid.UUID, 
 		return apperr.Invalid("Ask to view or to edit.")
 	}
 	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
-		if err := s.checkMayRequest(ctx, tx, c, pageID, kind); err != nil {
-			return err
-		}
-		effect, err := s.effectOf(ctx, tx, c.UserID, pageID, kind)
+		effect, err := s.checkMayAsk(ctx, tx, c, pageID, kind)
 		if err != nil {
-			return err
-		}
-		if effect == EffectNone {
-			return apperr.Conflict("already_allowed", "You can already do this.")
-		}
-		if err := s.checkNotRefused(ctx, tx, c, pageID, kind); err != nil {
-			return err
-		}
-		if err := s.checkRoomToAsk(ctx, tx, c, kind); err != nil {
 			return err
 		}
 		asked, err := s.whoToAsk(ctx, tx, pageID, kind, effect)
@@ -596,6 +640,29 @@ func (s *Service) Ask(ctx context.Context, c identity.Caller, pageID uuid.UUID, 
 		}
 		return recordRequest(ctx, tx, c, "access.requested", request{Request: Request{ID: id, PageID: pageID, Kind: kind}, spaceID: space.ID, requester: c.UserID, asked: asked})
 	})
+}
+
+// checkMayAsk refuses a request the caller may not make: one they may not ask at all, for
+// what they can already do, refused within the week, or past their limit of open requests.
+// It returns what allowing the request would change.
+func (s *Service) checkMayAsk(ctx context.Context, tx pgx.Tx, c identity.Caller, pageID uuid.UUID, kind string) (string, error) {
+	if err := s.checkMayRequest(ctx, tx, c, pageID, kind); err != nil {
+		return "", err
+	}
+	effect, err := s.effectOf(ctx, tx, c.UserID, pageID, kind)
+	if err != nil {
+		return "", err
+	}
+	if effect == EffectNone {
+		return "", apperr.Conflict("already_allowed", "You can already do this.")
+	}
+	if err := s.checkNotRefused(ctx, tx, c, pageID, kind); err != nil {
+		return "", err
+	}
+	if err := s.checkRoomToAsk(ctx, tx, c, kind); err != nil {
+		return "", err
+	}
+	return effect, nil
 }
 
 func recordRequest(ctx context.Context, tx pgx.Tx, c identity.Caller, action string, r request) error {
@@ -679,14 +746,7 @@ func (s *Service) Answer(ctx context.Context, c identity.Caller, id uuid.UUID, a
 		status, action := statusRefused, "access.refused"
 		if allow {
 			status, action = statusAllowed, "access.allowed"
-			levels, err := s.levels(ctx, tx, c, r)
-			if err != nil {
-				return err
-			}
-			if !canOpenAll(levels) {
-				return apperr.Conflict("restriction_out_of_reach", "This needs someone who can manage every restriction on the way to this page.")
-			}
-			if err := s.grant(ctx, tx, c, r, effect); err != nil {
+			if err := s.allow(ctx, tx, c, r, effect); err != nil {
 				return err
 			}
 		}
@@ -696,6 +756,18 @@ func (s *Service) Answer(ctx context.Context, c identity.Caller, id uuid.UUID, a
 		}
 		return recordRequest(ctx, tx, c, action, r)
 	})
+}
+
+// allow gives what a request asks, when the caller can open every level that blocks it.
+func (s *Service) allow(ctx context.Context, tx pgx.Tx, c identity.Caller, r request, effect string) error {
+	levels, err := s.levels(ctx, tx, c, r)
+	if err != nil {
+		return err
+	}
+	if !canOpenAll(levels) {
+		return apperr.Conflict("restriction_out_of_reach", "This needs someone who can manage every restriction on the way to this page.")
+	}
+	return s.grant(ctx, tx, c, r, effect)
 }
 
 func (s *Service) grant(ctx context.Context, tx pgx.Tx, c identity.Caller, r request, effect string) error {
