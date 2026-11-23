@@ -1780,6 +1780,9 @@ mutate "a typo in a title stands before a word in the text" internal/search/word
   's.replace("if typos && q.Quick {", "if typos {")' $app -run TestTitlesThatHoldTheTypedTextOrANearWordComeAfterTheWords
 mutate "the typo threshold lets other words through" internal/search/words.go \
   's.replace("const NearThreshold = \"0.4\"", "const NearThreshold = \"0.1\"")' $app -run TestTheThresholdFindsTheTyposAndLeavesTheDecoys
+# Wave FX10: the index of words is asked once a search, even with the statistics of a small space.
+mutate "the index of words is asked again for every page" internal/search/words.go \
+  's.replace("WITH h AS MATERIALIZED (", "WITH h AS NOT MATERIALIZED (")' ./internal/search/ -run '^TestTheIndexOfWordsIsAskedOnceWhateverTheStatistics$'
 mutate "the Files screen orders names by date alone" internal/attachments/versions.go \
   's.replace("ORDER BY ` + fileNameWords + ` DESC, ` + nearNameOrder", "ORDER BY a.updated_at DESC, ` + nearNameOrder")' $app -run TestAFileNameIsFoundTheSameWayInTheBoxAndOnTheFilesScreen
 mutate "the box finds no near file names" internal/attachments/attachments.go \

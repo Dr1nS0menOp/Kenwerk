@@ -175,10 +175,12 @@ func (s sqlOf) recent(t tier) string {
 	return `SELECT w.page_id FROM ` + recentRows + s.joins(t) + ` WHERE ` + s.tail(t) + newest
 }
 
-// wordHits asks the index of words and nothing else. OFFSET 0 keeps it apart: joined with the
-// rest, the planner may read the words of every page instead, which took 200 ms.
-const wordHits = `(SELECT x.page_id FROM search_documents x WHERE x.tsv @@ ` + matchesWords + ` OFFSET 0) h
-	JOIN search_pages w ON w.page_id = h.page_id`
+// wordHits asks the index of words and nothing else, once. Kept apart, so the planner cannot
+// read the words of every page instead, which took 200 ms. MATERIALIZED makes it once: as a
+// subquery it was asked again for every page of the space whenever the statistics still
+// counted that space as small, as after an import of many pages, which took 2.4 s for 2,100
+// pages and ran past the time of a search.
+const wordHits = `WITH h AS MATERIALIZED (SELECT x.page_id FROM search_documents x WHERE x.tsv @@ ` + matchesWords + `) `
 
 // titles reads a title tier in one step. A title is small, so even a walk past many of them
 // costs little, and the index of titles settles the rest. The planner may choose here.
@@ -195,7 +197,8 @@ func (s sqlOf) every(t tier) string {
 		return `SELECT w.page_id FROM search_pages w` + s.joins(t) + ` WHERE ` + rowScope + ` AND ` + s.tail(t) + everyRowOrder
 	}
 	rest := tier{match: t.byWords}
-	return `SELECT w.page_id FROM ` + wordHits + s.joins(rest) + ` WHERE ` + rowScope + ` AND ` + s.tail(rest) + everyRowOrder
+	return wordHits + `SELECT w.page_id FROM h JOIN search_pages w ON w.page_id = h.page_id` + s.joins(rest) + ` WHERE ` + rowScope + ` AND ` +
+		s.tail(rest) + everyRowOrder
 }
 
 // windowIsFull tells whether the newest pages run past the window. If not, the window
