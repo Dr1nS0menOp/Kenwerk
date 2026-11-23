@@ -132,44 +132,61 @@ func (r *Relay) RunOnce(ctx context.Context) (int, error) {
 				return err
 			}
 		}
-		rows, err := tx.Query(ctx, `SELECT id, type, payload, created_at FROM outbox_events
-			WHERE published_at IS NULL ORDER BY created_at, id LIMIT $1 FOR UPDATE SKIP LOCKED`, batch)
-		if err != nil {
-			return err
-		}
-		msgs, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (Message, error) {
-			var m Message
-			var payload []byte
-			err := row.Scan(&m.ID, &m.Type, &payload, &m.CreatedAt)
-			m.Payload = payload
-			return m, err
-		})
-		if err != nil {
-			return err
-		}
-		for _, m := range msgs {
-			body, err := json.Marshal(m)
-			if err != nil {
-				return err
-			}
-			if len(body) > MaxEventBytes {
-				if err := r.setAside(ctx, m, body); err != nil {
-					return fmt.Errorf("outbox: set aside %s: %w", m.ID, err)
-				}
-			} else if err := r.Publisher.Publish(ctx, SubjectPrefix+m.Type, body, m.ID.String()); err != nil {
-				return fmt.Errorf("outbox: publish %s: %w", m.ID, err)
-			}
-			if _, err := tx.Exec(ctx, "UPDATE outbox_events SET published_at = now() WHERE id = $1", m.ID); err != nil {
-				return err
-			}
-			n++
-		}
-		return nil
+		var err error
+		n, err = r.publishBatch(ctx, tx, batch)
+		return err
 	})
 	if err != nil {
 		return 0, err
 	}
 	return n, nil
+}
+
+// publishBatch claims up to batch unpublished events inside tx, hands each to the publisher
+// or sets it aside, and marks it published. It returns how many events it handled.
+func (r *Relay) publishBatch(ctx context.Context, tx pgx.Tx, batch int) (int, error) {
+	rows, err := tx.Query(ctx, `SELECT id, type, payload, created_at FROM outbox_events
+		WHERE published_at IS NULL ORDER BY created_at, id LIMIT $1 FOR UPDATE SKIP LOCKED`, batch)
+	if err != nil {
+		return 0, err
+	}
+	msgs, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (Message, error) {
+		var m Message
+		var payload []byte
+		err := row.Scan(&m.ID, &m.Type, &payload, &m.CreatedAt)
+		m.Payload = payload
+		return m, err
+	})
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, m := range msgs {
+		if err := r.publishOne(ctx, m); err != nil {
+			return 0, err
+		}
+		if _, err := tx.Exec(ctx, "UPDATE outbox_events SET published_at = now() WHERE id = $1", m.ID); err != nil {
+			return 0, err
+		}
+		n++
+	}
+	return n, nil
+}
+
+// publishOne hands one event to the publisher, or sets it aside when the queue would refuse it.
+func (r *Relay) publishOne(ctx context.Context, m Message) error {
+	body, err := json.Marshal(m)
+	if err != nil {
+		return err
+	}
+	if len(body) > MaxEventBytes {
+		if err := r.setAside(ctx, m, body); err != nil {
+			return fmt.Errorf("outbox: set aside %s: %w", m.ID, err)
+		}
+	} else if err := r.Publisher.Publish(ctx, SubjectPrefix+m.Type, body, m.ID.String()); err != nil {
+		return fmt.Errorf("outbox: publish %s: %w", m.ID, err)
+	}
+	return nil
 }
 
 // Run publishes until ctx is cancelled. Errors are logged and retried with backoff.

@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/kenwerk/kenwerk/internal/outbox"
 	"github.com/kenwerk/kenwerk/internal/queue"
@@ -24,21 +25,37 @@ func (p *countingPublisher) Publish(_ context.Context, subject string, _ []byte,
 	return nil
 }
 
+// event is one event for enqueue.
+type event struct {
+	kind    string
+	payload any
+}
+
+// enqueue commits events in one transaction.
+func enqueue(t *testing.T, pool *pgxpool.Pool, events ...event) {
+	t.Helper()
+	ctx := context.Background()
+	err := pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
+		for _, e := range events {
+			if _, err := outbox.Enqueue(ctx, tx, e.kind, e.payload); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 // The queue refuses a message past its limit, and a relay that retried it would stop every
 // event behind it, for good.
 func TestAnEventTooLargeForTheQueueDoesNotStopTheOthers(t *testing.T) {
 	tdb := testutil.Database(t)
 	ctx := context.Background()
-	err := pgx.BeginFunc(ctx, tdb.Pool, func(tx pgx.Tx) error {
-		if _, err := outbox.Enqueue(ctx, tx, "page.huge", map[string]string{"x": strings.Repeat("y", outbox.MaxEventBytes)}); err != nil {
-			return err
-		}
-		_, err := outbox.Enqueue(ctx, tx, "page.created", map[string]string{"page_id": "p1"})
-		return err
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	enqueue(t, tdb.Pool,
+		event{"page.huge", map[string]string{"x": strings.Repeat("y", outbox.MaxEventBytes)}},
+		event{"page.created", map[string]string{"page_id": "p1"}})
 	var refused []string
 	publisher := &countingPublisher{}
 	relay := &outbox.Relay{Pool: tdb.Pool, Publisher: publisher, Refused: func(_ context.Context, data []byte, cause error) error {
@@ -93,13 +110,7 @@ func TestRelayPublishesCommittedEventsOnce(t *testing.T) {
 	defer q.Close()
 
 	// One committed and one rolled-back event.
-	err = pgx.BeginFunc(ctx, tdb.Pool, func(tx pgx.Tx) error {
-		_, err := outbox.Enqueue(ctx, tx, "page.created", map[string]string{"page_id": "p1"})
-		return err
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	enqueue(t, tdb.Pool, event{"page.created", map[string]string{"page_id": "p1"}})
 	tx, _ := tdb.Pool.Begin(ctx)
 	if _, err := outbox.Enqueue(ctx, tx, "page.created", map[string]string{"page_id": "ghost"}); err != nil {
 		t.Fatal(err)
@@ -115,6 +126,16 @@ func TestRelayPublishesCommittedEventsOnce(t *testing.T) {
 		t.Fatalf("second run published %d again", n)
 	}
 
+	m := onlyMessage(t, q, outbox.SubjectPrefix+"page.created")
+	if m.Type != "page.created" || string(m.Payload) != `{"page_id": "p1"}` && string(m.Payload) != `{"page_id":"p1"}` {
+		t.Fatalf("unexpected message %+v payload %s", m, m.Payload)
+	}
+}
+
+// onlyMessage reads the one message of the events stream, which must be on subject.
+func onlyMessage(t *testing.T, q *queue.Queue, subject string) outbox.Message {
+	t.Helper()
+	ctx := context.Background()
 	stream, err := q.JetStream().Stream(ctx, queue.StreamEvents)
 	if err != nil {
 		t.Fatal(err)
@@ -123,7 +144,7 @@ func TestRelayPublishesCommittedEventsOnce(t *testing.T) {
 	if info.State.Msgs != 1 {
 		t.Fatalf("stream has %d messages, want 1", info.State.Msgs)
 	}
-	raw, err := stream.GetLastMsgForSubject(ctx, outbox.SubjectPrefix+"page.created")
+	raw, err := stream.GetLastMsgForSubject(ctx, subject)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,9 +152,7 @@ func TestRelayPublishesCommittedEventsOnce(t *testing.T) {
 	if err := json.Unmarshal(raw.Data, &m); err != nil {
 		t.Fatal(err)
 	}
-	if m.Type != "page.created" || string(m.Payload) != `{"page_id": "p1"}` && string(m.Payload) != `{"page_id":"p1"}` {
-		t.Fatalf("unexpected message %+v payload %s", m, m.Payload)
-	}
+	return m
 }
 
 func TestDuplicatePublishIsDeduplicated(t *testing.T) {
