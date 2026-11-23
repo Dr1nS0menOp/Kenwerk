@@ -215,19 +215,7 @@ func (s *Service) counts(ctx context.Context, user uuid.UUID, kind string, targe
 
 // addReactions fills in the counters of a whole page of comments at once.
 func (s *Service) addReactions(ctx context.Context, c identity.Caller, p *Page) error {
-	var pageID uuid.UUID
-	targets := []uuid.UUID{}
-	collect := func(list []Comment) {
-		for _, t := range list {
-			pageID = t.PageID
-			targets = append(targets, t.ID)
-			for _, r := range t.Replies {
-				targets = append(targets, r.ID)
-			}
-		}
-	}
-	collect(p.Threads)
-	collect(p.Inline)
+	pageID, targets := reactionTargets(p.Threads, p.Inline)
 	if len(targets) == 0 {
 		return nil
 	}
@@ -243,21 +231,39 @@ func (s *Service) addReactions(ctx context.Context, c identity.Caller, p *Page) 
 	if err != nil {
 		return err
 	}
-	fill := func(list []Comment) {
-		for i := range list {
-			if got := counts[list[i].ID]; got != nil {
-				list[i].Reactions = got
-			}
-			for j := range list[i].Replies {
-				if got := counts[list[i].Replies[j].ID]; got != nil {
-					list[i].Replies[j].Reactions = got
-				}
+	fillReactions(p.Threads, counts)
+	fillReactions(p.Inline, counts)
+	return nil
+}
+
+// reactionTargets lists the comments of the threads and their replies, with the page they are on.
+func reactionTargets(lists ...[]Comment) (uuid.UUID, []uuid.UUID) {
+	var pageID uuid.UUID
+	targets := []uuid.UUID{}
+	for _, list := range lists {
+		for _, t := range list {
+			pageID = t.PageID
+			targets = append(targets, t.ID)
+			for _, r := range t.Replies {
+				targets = append(targets, r.ID)
 			}
 		}
 	}
-	fill(p.Threads)
-	fill(p.Inline)
-	return nil
+	return pageID, targets
+}
+
+// fillReactions puts the counters of each thread and reply in list that has any.
+func fillReactions(list []Comment, counts map[uuid.UUID][]ReactionCount) {
+	for i := range list {
+		if got := counts[list[i].ID]; got != nil {
+			list[i].Reactions = got
+		}
+		for j := range list[i].Replies {
+			if got := counts[list[i].Replies[j].ID]; got != nil {
+				list[i].Replies[j].Reactions = got
+			}
+		}
+	}
 }
 
 // Reactors says who reacted, up to a limit per emoji.

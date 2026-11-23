@@ -333,73 +333,34 @@ func (s *Service) threadRoot(ctx context.Context, q db.Querier, c identity.Calle
 
 // Create posts a comment or a reply.
 func (s *Service) Create(ctx context.Context, c identity.Caller, pageID uuid.UUID, in NewComment) (Comment, error) {
-	body, err := document.NormalizeComment(in.Body)
-	if err != nil {
-		return Comment{}, err
-	}
-	raw, err := document.Marshal(body)
+	body, raw, err := normalizeBody(in.Body)
 	if err != nil {
 		return Comment{}, err
 	}
 	var out row
 	err = pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
-		if err := s.perms.RequirePage(ctx, tx, c.UserID, pageID, permissions.CommentAdd, uuid.Nil); err != nil {
-			return err
-		}
-		spaceID, err := s.spaceOf(ctx, tx, pageID)
+		spaceID, err := s.checkMayComment(ctx, tx, c, pageID, body)
 		if err != nil {
 			return err
 		}
-		if err := s.checkOpen(ctx, tx, pageID, spaceID); err != nil {
+		place, err := s.placeComment(ctx, tx, c, pageID, in)
+		if err != nil {
 			return err
 		}
-		if err := s.checkRate(ctx, tx, c.UserID); err != nil {
-			return err
-		}
-		if err := attachmentsOnPage(ctx, tx, pageID, document.AttachmentIDs(body)); err != nil {
-			return err
-		}
-		editorsOnly := in.EditorsOnly
-		var parent *uuid.UUID
-		var anchor *Anchor
-		if in.ParentID != nil {
-			root, err := s.threadRoot(ctx, tx, c, pageID, *in.ParentID)
-			if err != nil {
-				return err
-			}
-			parent, editorsOnly = &root.ID, root.EditorsOnly
-		} else if anchor, err = s.cleanAnchor(ctx, tx, pageID, in.Anchor); err != nil {
-			return err
-		}
-		if editorsOnly && in.ParentID == nil {
-			if err := s.perms.RequirePage(ctx, tx, c.UserID, pageID, permissions.PageEdit, uuid.Nil); err != nil {
-				return err
-			}
-		}
+		editorsOnly := place.editorsOnly
 		if !editorsOnly {
 			if editorsOnly, err = s.aboutWorking(ctx, tx, c, pageID); err != nil {
 				return err
 			}
 		}
-		var rawAnchor []byte
-		if anchor != nil {
-			if rawAnchor, err = json.Marshal(anchor); err != nil {
-				return err
-			}
-		}
-		id := ids.New()
-		if _, err := tx.Exec(ctx, `INSERT INTO comments (id, origin_instance_id, space_id, page_id, parent_id, author_id, body, anchor, editors_only)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-			id, s.instanceID, spaceID, pageID, parent, c.UserID, raw, rawAnchor, editorsOnly); err != nil {
-			return err
-		}
-		if out, err = load(ctx, tx, id); err != nil {
+		if out, err = s.insert(ctx, tx, newRow{spaceID: spaceID, pageID: pageID, parent: place.parent, author: c.UserID,
+			body: raw, anchor: place.anchor, editorsOnly: editorsOnly}); err != nil {
 			return err
 		}
 		if err := markSeen(ctx, tx, c.UserID, pageID); err != nil {
 			return err
 		}
-		return record(ctx, tx, c, "comment.created", out, map[string]any{"parent_id": parent, "editors_only": editorsOnly,
+		return record(ctx, tx, c, "comment.created", out, map[string]any{"parent_id": place.parent, "editors_only": editorsOnly,
 			"mentions": document.MentionedUsers(body), "mentioned_groups": document.MentionedGroups(body)})
 	})
 	if err != nil {
@@ -408,50 +369,114 @@ func (s *Service) Create(ctx context.Context, c identity.Caller, pageID uuid.UUI
 	return out.Comment, nil
 }
 
+// normalizeBody cleans the body of a comment, and gives it as a node and as JSON.
+func normalizeBody(rawBody json.RawMessage) (document.Node, []byte, error) {
+	body, err := document.NormalizeComment(rawBody)
+	if err != nil {
+		return body, nil, err
+	}
+	raw, err := document.Marshal(body)
+	return body, raw, err
+}
+
+// checkMayComment refuses a comment the caller may not post on the page: without the
+// permission, where comments are closed, too many at once, or with a file of another page.
+// It returns the space of the page.
+func (s *Service) checkMayComment(ctx context.Context, tx pgx.Tx, c identity.Caller, pageID uuid.UUID, body document.Node) (uuid.UUID, error) {
+	if err := s.perms.RequirePage(ctx, tx, c.UserID, pageID, permissions.CommentAdd, uuid.Nil); err != nil {
+		return uuid.Nil, err
+	}
+	spaceID, err := s.spaceOf(ctx, tx, pageID)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	if err := s.checkOpen(ctx, tx, pageID, spaceID); err != nil {
+		return uuid.Nil, err
+	}
+	if err := s.checkRate(ctx, tx, c.UserID); err != nil {
+		return uuid.Nil, err
+	}
+	if err := attachmentsOnPage(ctx, tx, pageID, document.AttachmentIDs(body)); err != nil {
+		return uuid.Nil, err
+	}
+	return spaceID, nil
+}
+
+// placement is where a new comment goes: the thread it replies to or the words it is about,
+// and whether it is for editors only.
+type placement struct {
+	parent      *uuid.UUID
+	anchor      *Anchor
+	editorsOnly bool
+}
+
+// placeComment places a new comment. A reply joins its thread and is for editors when the
+// thread is; a new thread is about the words of its anchor, and only an editor may start one
+// for editors.
+func (s *Service) placeComment(ctx context.Context, tx pgx.Tx, c identity.Caller, pageID uuid.UUID, in NewComment) (placement, error) {
+	if in.ParentID != nil {
+		root, err := s.threadRoot(ctx, tx, c, pageID, *in.ParentID)
+		if err != nil {
+			return placement{}, err
+		}
+		return placement{parent: &root.ID, editorsOnly: root.EditorsOnly}, nil
+	}
+	anchor, err := s.cleanAnchor(ctx, tx, pageID, in.Anchor)
+	if err != nil {
+		return placement{}, err
+	}
+	if in.EditorsOnly {
+		if err := s.perms.RequirePage(ctx, tx, c.UserID, pageID, permissions.PageEdit, uuid.Nil); err != nil {
+			return placement{}, err
+		}
+	}
+	return placement{anchor: anchor, editorsOnly: in.EditorsOnly}, nil
+}
+
+// newRow is a comment to insert.
+type newRow struct {
+	spaceID, pageID uuid.UUID
+	parent          *uuid.UUID
+	author          uuid.UUID
+	body            []byte
+	anchor          *Anchor
+	editorsOnly     bool
+}
+
+// insert stores a new comment and reads it back.
+func (s *Service) insert(ctx context.Context, tx pgx.Tx, n newRow) (row, error) {
+	var rawAnchor []byte
+	if n.anchor != nil {
+		var err error
+		if rawAnchor, err = json.Marshal(n.anchor); err != nil {
+			return row{}, err
+		}
+	}
+	id := ids.New()
+	if _, err := tx.Exec(ctx, `INSERT INTO comments (id, origin_instance_id, space_id, page_id, parent_id, author_id, body, anchor, editors_only)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+		id, s.instanceID, n.spaceID, n.pageID, n.parent, n.author, n.body, rawAnchor, n.editorsOnly); err != nil {
+		return row{}, err
+	}
+	return load(ctx, tx, id)
+}
+
 // Edit changes a comment. Only its author or a space administrator may. A mention that
 // is new in this edit is told, and one that was already there is not.
 func (s *Service) Edit(ctx context.Context, c identity.Caller, id uuid.UUID, rawBody json.RawMessage) (Comment, error) {
-	body, err := document.NormalizeComment(rawBody)
-	if err != nil {
-		return Comment{}, err
-	}
-	raw, err := document.Marshal(body)
+	body, raw, err := normalizeBody(rawBody)
 	if err != nil {
 		return Comment{}, err
 	}
 	var out row
 	err = pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error {
-		v, err := load(ctx, tx, id)
+		v, err := s.editable(ctx, tx, c, id, body)
 		if err != nil {
 			return err
 		}
-		if err := s.visible(ctx, tx, c, v); err != nil {
-			return err
-		}
-		if v.trashed || v.purged {
-			return apperr.NotFound()
-		}
-		if v.AuthorID != c.UserID {
-			if err := s.perms.RequirePage(ctx, tx, c.UserID, v.PageID, permissions.SpaceAdminister, uuid.Nil); err != nil {
-				return err
-			}
-		}
-		if err := s.perms.RequirePage(ctx, tx, c.UserID, v.PageID, permissions.CommentAdd, uuid.Nil); err != nil {
-			return err
-		}
-		if err := attachmentsOnPage(ctx, tx, v.PageID, document.AttachmentIDs(body)); err != nil {
-			return err
-		}
-		old, err := document.Parse(v.Body)
+		added, err := addedMentions(v.Body, body)
 		if err != nil {
 			return err
-		}
-		before := document.MentionedUsers(old)
-		added := []uuid.UUID{}
-		for _, person := range document.MentionedUsers(body) {
-			if !slices.Contains(before, person) {
-				added = append(added, person)
-			}
 		}
 		if _, err := tx.Exec(ctx, "UPDATE comments SET body = $2, edited_at = now(), edited_by = $3 WHERE id = $1", id, raw, c.UserID); err != nil {
 			return err
@@ -465,6 +490,47 @@ func (s *Service) Edit(ctx context.Context, c identity.Caller, id uuid.UUID, raw
 		return Comment{}, err
 	}
 	return out.Comment, nil
+}
+
+// editable loads a comment the caller may change to body: one they can see and that is not
+// in the trash, theirs or in a space they administer, on a page they may comment on, with
+// files of that page only.
+func (s *Service) editable(ctx context.Context, tx pgx.Tx, c identity.Caller, id uuid.UUID, body document.Node) (row, error) {
+	v, err := load(ctx, tx, id)
+	if err != nil {
+		return v, err
+	}
+	if err := s.visible(ctx, tx, c, v); err != nil {
+		return v, err
+	}
+	if v.trashed || v.purged {
+		return v, apperr.NotFound()
+	}
+	if v.AuthorID != c.UserID {
+		if err := s.perms.RequirePage(ctx, tx, c.UserID, v.PageID, permissions.SpaceAdminister, uuid.Nil); err != nil {
+			return v, err
+		}
+	}
+	if err := s.perms.RequirePage(ctx, tx, c.UserID, v.PageID, permissions.CommentAdd, uuid.Nil); err != nil {
+		return v, err
+	}
+	return v, attachmentsOnPage(ctx, tx, v.PageID, document.AttachmentIDs(body))
+}
+
+// addedMentions lists the people body mentions that the stored body did not.
+func addedMentions(stored []byte, body document.Node) ([]uuid.UUID, error) {
+	old, err := document.Parse(stored)
+	if err != nil {
+		return nil, err
+	}
+	before := document.MentionedUsers(old)
+	added := []uuid.UUID{}
+	for _, person := range document.MentionedUsers(body) {
+		if !slices.Contains(before, person) {
+			added = append(added, person)
+		}
+	}
+	return added, nil
 }
 
 func trashTitle(raw []byte) string {

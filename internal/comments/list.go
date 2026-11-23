@@ -5,6 +5,7 @@ package comments
 import (
 	"context"
 	"encoding/json"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -160,20 +161,42 @@ func (s *Service) List(ctx context.Context, c identity.Caller, pageID uuid.UUID,
 	if err != nil {
 		return Page{}, err
 	}
+	out := Page{Threads: []Comment{}, Inline: []Comment{}, SeenAt: a.seen}
+	if err := a.addThreads(&out, all, names); err != nil {
+		return out, err
+	}
+	if len(out.Inline) > maxInlineThreads {
+		out.Inline = out.Inline[len(out.Inline)-maxInlineThreads:]
+	}
+	if opts.Order == OrderNewest {
+		slices.Reverse(out.Threads)
+	}
+	out.Total = len(out.Threads)
+	out.Threads = window(out.Threads, opts)
+	closed, err := s.pages.CommentsClosed(ctx, s.pool, pageID)
+	if err != nil {
+		return out, err
+	}
+	out.Closed = closed
+	return out, s.addReactions(ctx, c, &out)
+}
+
+// addThreads puts every thread of the page that the asker may see in out, with its replies:
+// inline threads apart from the others, oldest first, counting what is unread.
+func (a asker) addThreads(out *Page, all []row, names map[uuid.UUID]string) error {
 	replies := map[uuid.UUID][]row{}
 	for _, v := range all {
 		if v.ParentID != nil {
 			replies[*v.ParentID] = append(replies[*v.ParentID], v)
 		}
 	}
-	out := Page{Threads: []Comment{}, Inline: []Comment{}, SeenAt: a.seen}
 	for _, v := range all {
 		if v.ParentID != nil {
 			continue
 		}
 		thread, ok, err := a.thread(v, replies[v.ID], names, &out.Unread)
 		if err != nil {
-			return out, err
+			return err
 		}
 		if !ok {
 			continue
@@ -184,22 +207,7 @@ func (s *Service) List(ctx context.Context, c identity.Caller, pageID uuid.UUID,
 			out.Threads = append(out.Threads, thread)
 		}
 	}
-	if len(out.Inline) > maxInlineThreads {
-		out.Inline = out.Inline[len(out.Inline)-maxInlineThreads:]
-	}
-	if opts.Order == OrderNewest {
-		for i, j := 0, len(out.Threads)-1; i < j; i, j = i+1, j-1 {
-			out.Threads[i], out.Threads[j] = out.Threads[j], out.Threads[i]
-		}
-	}
-	out.Total = len(out.Threads)
-	out.Threads = window(out.Threads, opts)
-	closed, err := s.pages.CommentsClosed(ctx, s.pool, pageID)
-	if err != nil {
-		return out, err
-	}
-	out.Closed = closed
-	return out, s.addReactions(ctx, c, &out)
+	return nil
 }
 
 func (a asker) thread(root row, replyRows []row, names map[uuid.UUID]string, unread *int) (Comment, bool, error) {
