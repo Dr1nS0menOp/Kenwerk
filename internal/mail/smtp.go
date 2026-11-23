@@ -103,47 +103,78 @@ func (s SMTP) secure(c *smtp.Client) error {
 	return c.StartTLS(s.tlsConfig())
 }
 
+// envelope is what one delivery sends: the composed bytes and the two addresses of the
+// SMTP conversation.
+type envelope struct {
+	body     []byte
+	from, to string
+}
+
 // Send delivers one message. A failure is a *StepError.
 func (s SMTP) Send(ctx context.Context, m Message) error {
-	body, err := Compose(s.Config.From, s.Config.ReplyTo, s.ListID, m, time.Now())
+	e, err := s.prepare(m)
 	if err != nil {
 		return failedAt(StepCompose, err)
+	}
+	c, err := s.connect(ctx)
+	if err != nil {
+		return failedAt(StepConnect, err)
+	}
+	defer func() { _ = c.Close() }()
+	return s.converse(c, e)
+}
+
+// prepare composes the message and reads the addresses the conversation names.
+func (s SMTP) prepare(m Message) (envelope, error) {
+	body, err := Compose(s.Config.From, s.Config.ReplyTo, s.ListID, m, time.Now())
+	if err != nil {
+		return envelope{}, err
 	}
 	from, err := mail.ParseAddress(s.Config.From)
 	if err != nil {
-		return failedAt(StepCompose, err)
+		return envelope{}, err
 	}
 	to, err := mail.ParseAddress(oneLine(m.To))
 	if err != nil {
-		return failedAt(StepCompose, errors.New("mail: the address of a person is not valid"))
+		return envelope{}, errors.New("mail: the address of a person is not valid")
 	}
+	return envelope{body: body, from: from.Address, to: to.Address}, nil
+}
+
+// connect opens the connection and starts the SMTP client on it, with a deadline for the
+// whole conversation.
+func (s SMTP) connect(ctx context.Context) (*smtp.Client, error) {
 	conn, err := s.dial(ctx)
 	if err != nil {
-		return failedAt(StepConnect, err)
+		return nil, err
 	}
 	if err := conn.SetDeadline(time.Now().Add(smtpTimeout)); err != nil {
 		_ = conn.Close()
-		return failedAt(StepConnect, err)
+		return nil, err
 	}
 	c, err := smtp.NewClient(conn, s.Config.Host)
 	if err != nil {
 		_ = conn.Close()
-		return failedAt(StepConnect, err)
+		return nil, err
 	}
-	defer func() { _ = c.Close() }()
+	return c, nil
+}
+
+// converse runs the conversation on an open client, from TLS to the message itself.
+func (s SMTP) converse(c *smtp.Client, e envelope) error {
 	if err := s.secure(c); err != nil {
 		return failedAt(StepTLS, err)
 	}
 	if err := s.authenticate(c); err != nil {
 		return failedAt(StepLogin, err)
 	}
-	if err := c.Mail(from.Address); err != nil {
+	if err := c.Mail(e.from); err != nil {
 		return failedAt(StepSender, err)
 	}
-	if err := c.Rcpt(to.Address); err != nil {
+	if err := c.Rcpt(e.to); err != nil {
 		return failedAt(StepRecipient, err)
 	}
-	return failedAt(StepMessage, s.write(c, body))
+	return failedAt(StepMessage, s.write(c, e.body))
 }
 
 func (s SMTP) write(c *smtp.Client, body []byte) error {

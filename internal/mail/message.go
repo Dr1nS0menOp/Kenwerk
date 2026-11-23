@@ -91,15 +91,24 @@ func Compose(from, replyTo, listID string, m Message, at time.Time) ([]byte, err
 		header("List-Unsubscribe", "<"+oneLine(m.Unsubscribe)+">")
 		header("List-Unsubscribe-Post", "List-Unsubscribe=One-Click")
 	}
-	fmt.Fprintf(&b, "Content-Type: multipart/alternative; boundary=%q\r\n\r\n", mark)
-	fmt.Fprintf(&b, "--%s\r\n", mark)
-	if err := writeBody(&b, "text/plain", m.Text); err != nil {
+	if err := writeAlternatives(&b, mark, m); err != nil {
 		return nil, err
 	}
-	fmt.Fprintf(&b, "--%s\r\n", mark)
-	if err := writeBody(&b, "text/html", m.HTML); err != nil {
-		return nil, err
-	}
-	fmt.Fprintf(&b, "--%s--\r\n", mark)
 	return b.Bytes(), nil
+}
+
+// writeAlternatives writes the plain text and the HTML of a message as the two parts of a
+// multipart/alternative body, separated by mark.
+func writeAlternatives(b *bytes.Buffer, mark string, m Message) error {
+	fmt.Fprintf(b, "Content-Type: multipart/alternative; boundary=%q\r\n\r\n", mark)
+	fmt.Fprintf(b, "--%s\r\n", mark)
+	if err := writeBody(b, "text/plain", m.Text); err != nil {
+		return err
+	}
+	fmt.Fprintf(b, "--%s\r\n", mark)
+	if err := writeBody(b, "text/html", m.HTML); err != nil {
+		return err
+	}
+	fmt.Fprintf(b, "--%s--\r\n", mark)
+	return nil
 }

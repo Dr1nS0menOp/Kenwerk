@@ -86,70 +86,103 @@ func startRefusingServer(t *testing.T, offerTLS bool, refuse map[string]string) 
 	return s, &tls.Config{RootCAs: pool, ServerName: "127.0.0.1", MinVersion: tls.VersionTLS12}
 }
 
+// fakeSession is one connection to the fake server, which may move to TLS halfway.
+type fakeSession struct {
+	server   *fakeServer
+	conn     net.Conn
+	reader   *bufio.Reader
+	offerTLS bool
+	secured  bool
+}
+
 func (s *fakeServer) serve(conn net.Conn, offerTLS bool) {
-	defer func() { _ = conn.Close() }()
-	reader := bufio.NewReader(conn)
-	say := func(line string) { fmt.Fprintf(conn, "%s\r\n", line) }
-	say("220 fake")
-	secured := false
+	session := &fakeSession{server: s, conn: conn, reader: bufio.NewReader(conn), offerTLS: offerTLS}
+	defer func() { _ = session.conn.Close() }()
+	session.say("220 fake")
 	for {
-		line, err := reader.ReadString('\n')
+		line, err := session.reader.ReadString('\n')
 		if err != nil {
 			return
 		}
-		command := strings.ToUpper(strings.TrimSpace(line))
-		if answer, refused := s.refusal(command); refused {
-			say(answer)
-			continue
-		}
-		switch {
-		case strings.HasPrefix(command, "EHLO"):
-			if offerTLS && !secured {
-				say("250-fake")
-				say("250 STARTTLS")
-			} else {
-				say("250-fake")
-				say("250 AUTH PLAIN")
-			}
-		case command == "STARTTLS":
-			say("220 go")
-			secure := tls.Server(conn, s.certs)
-			if err := secure.Handshake(); err != nil {
-				return
-			}
-			conn, reader, secured = secure, bufio.NewReader(secure), true
-			s.mu.Lock()
-			s.secured = true
-			s.mu.Unlock()
-		case strings.HasPrefix(command, "AUTH PLAIN"):
-			parts := strings.Fields(strings.TrimSpace(line))
-			raw, _ := base64.StdEncoding.DecodeString(parts[len(parts)-1])
-			s.mu.Lock()
-			s.authWhile = append(s.authWhile, secured)
-			s.password = string(raw)
-			s.mu.Unlock()
-			say("235 ok")
-		case command == "DATA":
-			say("354 go")
-			var body strings.Builder
-			for {
-				part, err := reader.ReadString('\n')
-				if err != nil || part == ".\r\n" {
-					break
-				}
-				body.WriteString(part)
-			}
-			s.mu.Lock()
-			s.data = body.String()
-			s.mu.Unlock()
-			say("250 ok")
-		case command == "QUIT":
-			say("221 bye")
+		if !session.answer(line) {
 			return
-		default:
-			say("250 ok")
 		}
 	}
+}
+
+func (f *fakeSession) say(line string) { fmt.Fprintf(f.conn, "%s\r\n", line) }
+
+// answer answers one command line, and reports whether the conversation goes on.
+func (f *fakeSession) answer(line string) bool {
+	command := strings.ToUpper(strings.TrimSpace(line))
+	if answer, refused := f.server.refusal(command); refused {
+		f.say(answer)
+		return true
+	}
+	switch {
+	case strings.HasPrefix(command, "EHLO"):
+		f.hello()
+	case command == "STARTTLS":
+		return f.startTLS()
+	case strings.HasPrefix(command, "AUTH PLAIN"):
+		f.login(line)
+	case command == "DATA":
+		f.data()
+	case command == "QUIT":
+		f.say("221 bye")
+		return false
+	default:
+		f.say("250 ok")
+	}
+	return true
+}
+
+func (f *fakeSession) hello() {
+	f.say("250-fake")
+	if f.offerTLS && !f.secured {
+		f.say("250 STARTTLS")
+		return
+	}
+	f.say("250 AUTH PLAIN")
+}
+
+func (f *fakeSession) startTLS() bool {
+	f.say("220 go")
+	secure := tls.Server(f.conn, f.server.certs)
+	if err := secure.Handshake(); err != nil {
+		return false
+	}
+	f.conn, f.reader, f.secured = secure, bufio.NewReader(secure), true
+	f.server.mu.Lock()
+	f.server.secured = true
+	f.server.mu.Unlock()
+	return true
+}
+
+func (f *fakeSession) login(line string) {
+	parts := strings.Fields(strings.TrimSpace(line))
+	raw, _ := base64.StdEncoding.DecodeString(parts[len(parts)-1])
+	f.server.mu.Lock()
+	f.server.authWhile = append(f.server.authWhile, f.secured)
+	f.server.password = string(raw)
+	f.server.mu.Unlock()
+	f.say("235 ok")
+}
+
+func (f *fakeSession) data() {
+	f.say("354 go")
+	var body strings.Builder
+	for {
+		part, err := f.reader.ReadString('\n')
+		if err != nil || part == ".\r\n" {
+			break
+		}
+		body.WriteString(part)
+	}
+	f.server.mu.Lock()
+	f.server.data = body.String()
+	f.server.mu.Unlock()
+	f.say("250 ok")
 }
 
 func (s *fakeServer) port() int { return s.listener.Addr().(*net.TCPAddr).Port }
