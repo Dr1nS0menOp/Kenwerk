@@ -76,6 +76,7 @@ Each runs one node, as Kenwerk is sized for, and generates its own passwords: no
 | [Beta criteria](docs/beta-criteria.md) | What must hold before a release is called beta, and what holds today |
 | [Promises for 1.0](docs/promises.md) | What is frozen, how it may change, upgrades, security fixes and support |
 | [Development](docs/development.md) | Everything runs in containers |
+| [How Kenwerk is tested](docs/testing.md) | Every check, when it runs, the counts, and what is not tested yet |
 | [Threat model](docs/security/threat-model.md) | What we defend against, and how we know |
 | [Routes](docs/api/routes.txt) | Every API route and its access rule |
 

@@ -68,9 +68,13 @@ A release comes about **once a month** (`1.x.0`), with a security fix as a patch
 - Any certification, legal advice or compliance on your behalf: the organisation that runs Kenwerk carries that ([the security risks](security/risks.md)).
 - That the project goes on forever. If it stops, the README and `SECURITY.md` say so on the day it is decided, and the last release says which line was the last. The licence lets anyone carry it on, and the export formats let anyone take their pages elsewhere.
 
+## 8. Before 1.0 is published
+
+- **A full public test report.** Decided by the product owner on 2026-11-23. Before 1.0 is published, every check of [How Kenwerk is tested](testing.md) runs once on the release candidate: CI with the nightly job, the end-to-end suite and the design pictures, the full mutation check and Stryker, fuzzing, the restore drill, the upgrade test, the security scanners, load and stress on the test server, and the permission matrix. Every check is listed in the report with its result, and the report is kept in `docs/reports/`, naming the commit. 1.0 is not published until it exists, so anyone can see that the release works and how it was tested.
+
 ## Decisions
 
-Each was decided on the product owner's behalf on 2026-11-14, may be overruled.
+Decisions 1 to 8 were made on the product owner's behalf on 2026-11-14 and may be overruled. Decision 9 is the product owner's own.
 
 1. **Six months and two releases of deprecation**, not the one release RMP-002 suggested: one release would break an installation that jumps six months, which section 3 allows.
 2. **The API keeps its 12 months**, as `docs/api/README.md` already promised; the API is the interface outside programs depend on most.
@@ -80,6 +84,7 @@ Each was decided on the product owner's behalf on 2026-11-14, may be overruled.
 6. **Experimental parts are outside the freeze**, but their data is kept: a part may go, its rows may not vanish with it.
 7. **PostgreSQL follows the PostgreSQL project**: no major version is dropped while PostgreSQL still supports it.
 8. **A notice if the project stops**, because a reader who relies on these promises should learn the same day that they ended.
+9. **A full public test report before 1.0** (section 8), decided by the product owner on 2026-11-23: people must be able to see that the product works and is adequately tested.
 
 ## How others promise it
 

@@ -3,6 +3,11 @@
 Plain-language notes per release. Every entry has an "Upgrade impact" line.
 
 ## Unreleased
+### Added: how Kenwerk is tested (wave TD1)
+- `docs/testing.md` lists every check with what it proves, its tool, when it runs and how to run it locally, the counts of tests measured on 2026-11-23 with the command for each, the end-to-end suite by file, security testing, load and stress, what a wave must pass before it lands, how unreliable tests are handled, and the known limits of the test setup. The README, `docs/development.md` and `CONTRIBUTING.md` link to it
+- Blueprint 09 now says what is true: no load test in CI, PostgreSQL without Testcontainers, waves land by push without pull requests or branch protection, no signed commits, CODEOWNERS or issue templates, and where the "How to test" steps live. Pull requests and a load test in CI are left open for the product owner
+- The 1.0 promises gain a full public test report before 1.0, decided by the product owner on 2026-11-23
+- Upgrade impact: none
 ### Added: assistants over HTTP at `/mcp`, and a switch for assistants (spec 096, wave MC4)
 - **`POST /mcp`** serves the same 43 tools as `kenwerk mcp`, over Streamable HTTP, to an assistant that can send a header, such as Claude Code: give it `https://<your server>/mcp` and `Authorization: Bearer <token>`. Nothing needs installing on the assistant's computer. Each tool runs inside the server as requests of the API with the token, so every access rule, scope, space limit, rate limit and audit event is the API's own. It speaks revisions 2026-07-28 and 2025-11-25 of the protocol, answers each message with JSON and keeps no session
 - `/mcp` takes only a token made **For an assistant**, never a browser's session cookie, refuses a request from a page of another site, answers `401` without a token and `405` to `GET` and `DELETE`

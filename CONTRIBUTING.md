@@ -29,7 +29,7 @@ Kenwerk offers behaviour similar to other wikis, but **all code, text and design
 ## 3. Workflow
 
 1. One issue → one branch → one pull request. Keep it small.
-2. Write or update tests first. Every change must keep `make check` green.
+2. Write or update tests first. Every change must keep `make check` green. [How Kenwerk is tested](docs/testing.md) lists every check and how to run it.
 3. Every new HTTP route declares its access rule. Every state change writes an audit event and an outbox event **in the same transaction**.
 4. Migrations are append-only: never edit a migration that has been merged.
 5. Fill in the pull request template, including the plain-language "How to test" checklist.

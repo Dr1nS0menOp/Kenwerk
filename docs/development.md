@@ -16,6 +16,8 @@ scripts/dev make fuzz          # fuzzes the parsers
 scripts/dev down
 ```
 
+[How Kenwerk is tested](testing.md) lists every check with when it runs in CI, and what a wave must pass before it lands.
+
 Proof against real systems, each with its own containers:
 
 ```sh
