@@ -136,7 +136,7 @@ func TestALargeProgramFileIsSentPacked(t *testing.T) {
 
 // appHandler serves files as the app, answering 404 for what it does not own.
 func appHandler(files fstest.MapFS) http.Handler {
-	return newHandler(files, func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNotFound) }, "", testOrigin)
+	return newHandler(files, func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNotFound) }, noDrawing, testOrigin)
 }
 
 func TestTheAppAnswersOnlyReadsOutsideTheAPI(t *testing.T) {
