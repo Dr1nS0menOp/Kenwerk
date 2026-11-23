@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 import { describe, expect, it } from 'vitest';
-import { accessOf, RESTRICTION_STATES, restrictionsKey, restrictionState, stateOf } from './restriction-state';
+import {
+  accessOf,
+  RESTRICTION_STATES,
+  restrictionsKey,
+  restrictionState,
+  stateOf,
+} from './restriction-state';
 
 describe('the way a page stands', () => {
   it('is private as soon as anyone is named for viewing, whoever may edit', () => {

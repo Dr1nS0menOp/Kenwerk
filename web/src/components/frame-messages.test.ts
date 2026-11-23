@@ -44,7 +44,11 @@ describe('listening to a frame', () => {
     const send = fakeWindow();
     const frame = {} as Window;
     const heard: unknown[] = [];
-    listenToFrame(() => frame, OPAQUE_ORIGIN, (data) => heard.push(data));
+    listenToFrame(
+      () => frame,
+      OPAQUE_ORIGIN,
+      (data) => heard.push(data),
+    );
     send(frame, OPAQUE_ORIGIN, 'ours');
     send({}, OPAQUE_ORIGIN, 'another window');
     send(frame, 'https://evil.example', 'another origin');
@@ -55,7 +59,11 @@ describe('listening to a frame', () => {
     const send = fakeWindow();
     let frame: Window | null = null;
     const heard: unknown[] = [];
-    listenToFrame(() => frame, OPAQUE_ORIGIN, (data) => heard.push(data));
+    listenToFrame(
+      () => frame,
+      OPAQUE_ORIGIN,
+      (data) => heard.push(data),
+    );
     send(null, OPAQUE_ORIGIN, 'too early');
     frame = {} as Window;
     send(frame, OPAQUE_ORIGIN, 'loaded');
@@ -66,7 +74,11 @@ describe('listening to a frame', () => {
     const send = fakeWindow();
     const frame = {} as Window;
     const heard: unknown[] = [];
-    const stop = listenToFrame(() => frame, OPAQUE_ORIGIN, (data) => heard.push(data));
+    const stop = listenToFrame(
+      () => frame,
+      OPAQUE_ORIGIN,
+      (data) => heard.push(data),
+    );
     stop();
     send(frame, OPAQUE_ORIGIN, 'after');
     expect(heard).toEqual([]);
