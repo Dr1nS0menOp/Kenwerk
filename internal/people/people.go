@@ -162,13 +162,8 @@ func (s *Service) List(ctx context.Context, c identity.Caller, q Query) ([]Row, 
 	if err != nil {
 		return nil, 0, err
 	}
-	var group *uuid.UUID
-	if q.GroupID != uuid.Nil {
-		group = &q.GroupID
-	}
-	// Each typed word is the start of a word of the name (NAV-121), through the index of names.
-	words := identity.NameWords(q.Text)
-	if words == "" && strings.TrimSpace(q.Text) != "" {
+	words, group, matchesNobody := filterOf(q)
+	if matchesNobody {
 		return []Row{}, 0, nil
 	}
 	const where = ` JOIN perm_visible_people($1) v ON v.user_id = u.id
@@ -193,6 +188,17 @@ func (s *Service) List(ctx context.Context, c identity.Caller, q Query) ([]Row, 
 		out = append(out, p.row(viewer, p.ID == c.UserID))
 	}
 	return out, total, nil
+}
+
+// filterOf reads the filter of a query: the words of the name to search, the group to keep
+// to, and whether text without a word to search can match nobody.
+func filterOf(q Query) (words string, group *uuid.UUID, matchesNobody bool) {
+	if q.GroupID != uuid.Nil {
+		group = &q.GroupID
+	}
+	// Each typed word is the start of a word of the name (NAV-121), through the index of names.
+	words = identity.NameWords(q.Text)
+	return words, group, words == "" && strings.TrimSpace(q.Text) != ""
 }
 
 // require answers "not found" for a person the caller may not see.
