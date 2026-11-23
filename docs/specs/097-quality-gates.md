@@ -1,6 +1,6 @@
 # 097: Stronger quality gates, held by a ratchet
 
-Status: built (wave QG1); the cleaning goes on in waves QG2 and later
+Status: built (wave QG1); cleaning in waves QG2 (done) and later
 Phase: hardening before 1.0 (wave QG1)
 
 ## Problem
@@ -84,6 +84,14 @@ The low ones are mostly code no unit test reaches (`kept-fields.ts`: 98 of 140 m
 
 Fourteen packages with one to four findings each, by splitting functions along the steps they already had, with no change of behaviour: `internal/collab`, `internal/outward`, `internal/spaces`, `internal/tasks`, `internal/blocks`, `internal/jobs`, `internal/restore`, `internal/setup`, `internal/console`, `internal/tracing`, `internal/analytics`, `internal/feed`, `internal/example` and `cmd/password-filter`. Four gosec findings in `console` and `password-filter` are values gosec cannot see are safe (a percentage of at most 100, paths the person running a tool names); each got a `#nosec` with the reason. One line of `scripts/mutation-check.sh` follows the code it mutates to its new place (`internal/jobs`, "jobs run during maintenance"). The new `cmd/ratchet` is clean from its first line. After QG1: 70 packages, 34 clean and locked, 36 listed with 1,138 findings (gocyclo 568, funlen 446, gosec 124).
 
+### What QG2 cleaned
+
+Eleven of the fourteen packages planned: `internal/mail`, `internal/outbox`, `internal/queue`, `internal/webui`, `internal/conditions`, `internal/people`, `internal/templates/fields`, `internal/sharing`, `internal/scim`, `internal/sites` and `internal/comments`, 66 findings. Every function was split along the steps it already had, with no change of behaviour; where the split code had no test of its own, the test came first (the routes of `webui`, pictures and crops in `people`, the input of `sites`, and every SCIM PATCH operation on a group and every value SCIM refuses). Nine gosec findings on six lines are values gosec cannot see are safe, each line with a `#nosec` and its reason: a delivery count that the consumer's `MaxDeliver` caps and a count of stored events (`queue`), the average of premultiplied colours (`people`), the public prefix of a SCIM token (`scim`), the files of a build the service just wrote (`sites`) and a file of the embedded build (`webui`). The test of the pinned viewer files reads them through an `fs.FS` and needs no exception. Every mutation line of these files still applies unchanged, at the same indentation, so `scripts/mutation-check.sh` did not change.
+
+`internal/search`, `internal/settings` and `internal/sso` stay listed for QG3: waves SR3 and ST1 were changing them at the same time, and cleaning them now would only have made merge conflicts.
+
+For Stryker, QG2 added unit tests for the logic of `restriction-state.ts` (the three states and the access row) and for listening and sending in `frame-messages.ts`. `kept-fields.ts` needs a DOM, which the unit tests do not have (they run in Node without jsdom); its parsing is tested, and the rest waits for a decision on a DOM for unit tests.
+
 ### Choices
 
 - **Tests count.** The limits hold for `_test.go` files too: "all code" is all code. Half of the findings are in tests, mostly long test functions. A table of cases is data and stays long only as a table; a test that walks through ten steps becomes helpers with names.
@@ -123,7 +131,7 @@ Each wave cleans whole packages, so each one ends with lines removed from the li
 | Wave | Packages | Findings | Rough size |
 |---|---|---|---|
 | QG2 | `mail` 5, `outbox` 5, `queue` 5, `sso` 5, `webui` 5, `conditions` 6, `people` 6, `search` 6, `settings` 6, `sharing` 6, `scim` 7, `sites` 7, `templates/fields` 7, `comments` 8 | 84 | one wave |
-| QG3 | `notify` 11, `automation` 12, `config` 13, `db` 13, `attachments` 14, `backups` 14, `workflow` 15, `keys` 17, `office` 17, `events` 18 | 144 | one wave |
+| QG3 | left from QG2: `search` 6, `settings` 6, `sso` 5; then `notify` 11, `automation` 12, `config` 13, `db` 13, `attachments` 14, `backups` 14, `workflow` 15, `keys` 17, `office` 17, `events` 18 | 161 | one wave |
 | QG4 | `storage` 22, `document` 26, `audit` 27, `httpapi` 27, `exchange` 31, `cmd/kenwerk` 40 | 173 | one wave |
 | QG5 | `identity` 43, `templates` 44, `permissions` 57 | 144 | one wave; `permissions` is the access rule, so its mutation check runs in full |
 | QG6 | `publishing` 85, `pages` 111 | 196 | one or two waves |

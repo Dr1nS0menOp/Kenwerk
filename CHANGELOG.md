@@ -3,6 +3,10 @@
 Plain-language notes per release. Every entry has an "Upgrade impact" line.
 
 ## Unreleased
+### Changed: eleven more packages meet the quality limits (spec 097, wave QG2)
+- The code of mail, the outbox, the queue, the frontend server, template conditions and fields, people, sharing, SCIM, public sites and comments now meets the limits of `make lint`: no function longer than 40 lines or with more than ten paths, and every security finding fixed or explained on its line. Their lines left `scripts/lint-ratchet.txt`, which now lists 25 packages, and from now on these eleven must stay clean
+- Functions were split along the steps they already had; nothing a person or a client sees changed. New tests cover what the split code did without a test of its own: the routes of the frontend server, pictures and crops, the settings of a site, every SCIM operation on a group and the values SCIM refuses, and the two frontend files Stryker found untested (`restriction-state.ts`, `frame-messages.ts`)
+- Upgrade impact: none
 ### Added: the identity provider, the helpers, the metrics token and the name, set in the administration (spec 101, wave ST1)
 - **Identity provider.** A system administrator connects it under Administration, Security, Login and second factor: issuer address, client ID, client secret, the name on the login button, whether a first login makes an account, whether an address the provider does not mark verified is accepted, and the groups claim
 - **Helper services and metrics.** Under Instance, General: the PDF helper and its password, the office service (Collabora), the drawing service (draw.io), and the token a metrics scraper sends, with **Make a token**, which makes one in the browser to copy before saving
