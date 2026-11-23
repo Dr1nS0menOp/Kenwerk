@@ -125,23 +125,29 @@ func TestAnEventWaitingForItsRetryCountsAsWaiting(t *testing.T) {
 	if n, err := q.Waiting(ctx, []string{"slow"}); err != nil || n != 1 {
 		t.Fatalf("waiting %d, err %v", n, err)
 	}
-	// The acknowledgement reaches the server a moment after the handler returns.
+	waitForNothingWaiting(t, q, "fast")
+	if n, err := q.Waiting(ctx, []string{"slow", "fast"}); err != nil || n != 1 {
+		t.Fatalf("waiting in both %d, err %v", n, err)
+	}
+}
+
+// waitForNothingWaiting waits until durable has no event waiting. The acknowledgement reaches
+// the server a moment after the handler returns.
+func waitForNothingWaiting(t *testing.T, q *Queue, durable string) {
+	t.Helper()
 	deadline := time.Now().Add(30 * time.Second)
 	for {
-		n, err := q.Waiting(ctx, []string{"fast"})
+		n, err := q.Waiting(context.Background(), []string{durable})
 		if err != nil {
 			t.Fatal(err)
 		}
 		if n == 0 {
-			break
+			return
 		}
 		if time.Now().After(deadline) {
 			t.Fatalf("a handled event still waits: %d", n)
 		}
 		time.Sleep(10 * time.Millisecond)
-	}
-	if n, err := q.Waiting(ctx, []string{"slow", "fast"}); err != nil || n != 1 {
-		t.Fatalf("waiting in both %d, err %v", n, err)
 	}
 }
 

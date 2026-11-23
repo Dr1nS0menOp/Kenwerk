@@ -51,25 +51,11 @@ func Open(ctx context.Context, natsURL, dataDir string, replicas int, log *slog.
 
 	var err error
 	if natsURL == "" {
-		ns, nerr := server.NewServer(&server.Options{
-			ServerName: "kenwerk-embedded",
-			DontListen: true, // only reachable in-process
-			JetStream:  true,
-			StoreDir:   filepath.Join(dataDir, "nats"),
-			NoSigs:     true,
-			NoLog:      true,
-		})
-		if nerr != nil {
-			return nil, fmt.Errorf("queue: create embedded NATS: %w", nerr)
+		if serr := q.startEmbedded(dataDir); serr != nil {
+			return nil, serr
 		}
-		go ns.Start()
-		if !ns.ReadyForConnections(15 * time.Second) {
-			ns.Shutdown()
-			return nil, errors.New("queue: embedded NATS did not start")
-		}
-		q.embedded = ns
-		opts = append(opts, nats.InProcessServer(ns))
-		q.nc, err = nats.Connect(ns.ClientURL(), opts...)
+		opts = append(opts, nats.InProcessServer(q.embedded))
+		q.nc, err = nats.Connect(q.embedded.ClientURL(), opts...)
 		log.Info("embedded NATS JetStream started", "store", filepath.Join(dataDir, "nats"))
 	} else {
 		q.nc, err = nats.Connect(natsURL, opts...)
@@ -84,6 +70,38 @@ func Open(ctx context.Context, natsURL, dataDir string, replicas int, log *slog.
 		q.Close()
 		return nil, err
 	}
+	if err := q.ensureStream(ctx, replicas); err != nil {
+		q.Close()
+		return nil, err
+	}
+	return q, nil
+}
+
+// startEmbedded starts the embedded server, with its data under dataDir, and keeps it in q
+// once it takes connections.
+func (q *Queue) startEmbedded(dataDir string) error {
+	ns, nerr := server.NewServer(&server.Options{
+		ServerName: "kenwerk-embedded",
+		DontListen: true, // only reachable in-process
+		JetStream:  true,
+		StoreDir:   filepath.Join(dataDir, "nats"),
+		NoSigs:     true,
+		NoLog:      true,
+	})
+	if nerr != nil {
+		return fmt.Errorf("queue: create embedded NATS: %w", nerr)
+	}
+	go ns.Start()
+	if !ns.ReadyForConnections(15 * time.Second) {
+		ns.Shutdown()
+		return errors.New("queue: embedded NATS did not start")
+	}
+	q.embedded = ns
+	return nil
+}
+
+// ensureStream creates the event stream, or updates it to the copies streamReplicas gives.
+func (q *Queue) ensureStream(ctx context.Context, replicas int) error {
 	sctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 	existing := 0
@@ -92,10 +110,10 @@ func Open(ctx context.Context, natsURL, dataDir string, replicas int, log *slog.
 	}
 	want := streamReplicas(existing, replicas)
 	if want > replicas {
-		log.Warn("queue: the event stream keeps more copies than NATS_REPLICAS asks; left as it is",
+		q.log.Warn("queue: the event stream keeps more copies than NATS_REPLICAS asks; left as it is",
 			"copies", existing, "setting", replicas)
 	}
-	_, err = q.js.CreateOrUpdateStream(sctx, jetstream.StreamConfig{
+	_, err := q.js.CreateOrUpdateStream(sctx, jetstream.StreamConfig{
 		Name:       StreamEvents,
 		Subjects:   []string{"kenwerk.events.>"},
 		Storage:    jetstream.FileStorage,
@@ -105,10 +123,9 @@ func Open(ctx context.Context, natsURL, dataDir string, replicas int, log *slog.
 		Replicas:   want,
 	})
 	if err != nil {
-		q.Close()
-		return nil, fmt.Errorf("queue: create stream with %d copies: %w", want, err)
+		return fmt.Errorf("queue: create stream with %d copies: %w", want, err)
 	}
-	return q, nil
+	return nil
 }
 
 // streamReplicas is the copies the stream gets: the setting, or more when the stream has
@@ -149,7 +166,7 @@ func (q *Queue) triesOf(m jetstream.Msg) int {
 		q.log.Warn("queue: an event has no metadata", "error", err)
 		return 1
 	}
-	return int(meta.NumDelivered)
+	return int(meta.NumDelivered) // #nosec G115 -- the consumer's MaxDeliver caps it at a few dozen.
 }
 
 // settle logs an answer that did not reach the server. The event then simply comes
@@ -228,7 +245,7 @@ func (q *Queue) Waiting(ctx context.Context, durables []string) (int, error) {
 		if err != nil {
 			return 0, fmt.Errorf("queue: read consumer %s: %w", durable, err)
 		}
-		total += int(info.NumPending) + info.NumAckPending
+		total += int(info.NumPending) + info.NumAckPending // #nosec G115 -- a count of stored events, which the stream's seven days keep far below the range of int.
 	}
 	return total, nil
 }
