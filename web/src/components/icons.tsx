@@ -250,8 +250,9 @@ export const IconFilePdf = line('M7 3h7l4 4v14H7zM14 3v4h4M10 18v-6h2a2 2 0 0 1 
 /** The sidebar beside the page: the button that shows or hides it (NAV-092). */
 export const IconSidebar = line('M4 5h16v14H4zM9 5v14');
 /** A wheel with teeth: the administration (NAV-095). */
+/** A gear: a rim of eight teeth around a hub (NAV-095). */
 export const IconSettings = line(
-  'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8',
+  'M10.3 5.2L10.4 2.7A9.4 9.4 0 0 1 13.6 2.7L13.7 5.2A7 7 0 0 1 15.6 6L17.4 4.3A9.4 9.4 0 0 1 19.7 6.6L18 8.4A7 7 0 0 1 18.8 10.3L21.3 10.4A9.4 9.4 0 0 1 21.3 13.6L18.8 13.7A7 7 0 0 1 18 15.6L19.7 17.4A9.4 9.4 0 0 1 17.4 19.7L15.6 18A7 7 0 0 1 13.7 18.8L13.6 21.3A9.4 9.4 0 0 1 10.4 21.3L10.3 18.8A7 7 0 0 1 8.4 18L6.6 19.7A9.4 9.4 0 0 1 4.3 17.4L6 15.6A7 7 0 0 1 5.2 13.7L2.7 13.6A9.4 9.4 0 0 1 2.7 10.4L5.2 10.3A7 7 0 0 1 6 8.4L4.3 6.6A9.4 9.4 0 0 1 6.6 4.3L8.4 6A7 7 0 0 1 10.3 5.2zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
 );
 /** Half light, half dark. */
 export const IconTheme = line('M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 3v18M12 8h4M12 12h5M12 16h4');

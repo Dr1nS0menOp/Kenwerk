@@ -129,6 +129,8 @@
   --color-line: light-dark(#dde2ea, #2e3848);
   --color-field: light-dark(#8591a5, #66748a);
   --color-guide: light-dark(#b9c6d8, #445269);
+  /* The outline and the grid of a table in a page: where cells meet must be seen (WCAG 1.4.11). */
+  --color-table-line: light-dark(#7f8b9f, #66748a);
   --color-accent: light-dark(#1d5fbf, #7fb0f5);
   --color-accent-hover: light-dark(#174c99, #a2c6f8);
   --color-accent-tint: light-dark(#e4edfa, #1e3150);

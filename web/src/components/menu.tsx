@@ -7,6 +7,7 @@ import {
   type AnchorHTMLAttributes,
   type ButtonHTMLAttributes,
   type KeyboardEvent,
+  type PointerEvent,
   type ReactNode,
 } from 'react';
 import { Link } from '../router';
@@ -292,9 +293,19 @@ export function MenuSeparator() {
 }
 
 /**
- * An entry that opens a sub-menu. A click, Enter, Space or the arrow towards the end side
- * opens it and focuses its first entry; the arrow towards the start side and Escape close it
- * and return to the entry. Choosing an entry in it closes the whole menu.
+ * How a sub-menu is open: shut, shown because the pointer rests on its entry (the focus stays
+ * in the menu around it), or opened on purpose with the focus on its first entry.
+ */
+type SubMenuState = 'shut' | 'hovered' | 'chosen';
+
+/** How long the pointer may be away before a sub-menu it opened shuts, so it can cross the gap. */
+const HOVER_LEAVE_MS = 300;
+
+/**
+ * An entry that opens a sub-menu. Resting the pointer on it shows the sub-menu; a click, Enter,
+ * Space or the arrow towards the end side opens it and focuses its first entry; the arrow towards
+ * the start side and Escape close it and return to the entry. Choosing an entry in it closes the
+ * whole menu. The list stands on the screen, so no scrolling menu around it cuts it off.
  */
 export function MenuSub({
   label,
@@ -307,9 +318,11 @@ export function MenuSub({
   className?: string;
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
+  const [state, setState] = useState<SubMenuState>('shut');
+  const open = state !== 'shut';
   const entry = useRef<HTMLButtonElement>(null);
   const list = useRef<HTMLDivElement>(null);
+  const leaving = useRef<number | undefined>(undefined);
 
   useLayoutEffect(() => {
     const box = list.current;
@@ -322,8 +335,13 @@ export function MenuSub({
     );
     box.style.top = `${place.top}px`;
     box.style.left = `${place.left}px`;
-    itemsOf(box)[0]?.focus({ preventScroll: true });
   }, [open]);
+
+  useLayoutEffect(() => {
+    if (state === 'chosen') itemsOf(list.current)[0]?.focus({ preventScroll: true });
+  }, [state]);
+
+  useEffect(() => () => window.clearTimeout(leaving.current), []);
 
   useEffect(() => {
     if (!open) return;
@@ -332,23 +350,38 @@ export function MenuSub({
     const close = (e: Event) => {
       const menu = entry.current?.closest('.menu-list');
       if (e.target instanceof Node && menu?.contains(e.target)) return;
-      setOpen(false);
+      setState('shut');
     };
     window.addEventListener('scroll', close, { capture: true, passive: true });
     return () => window.removeEventListener('scroll', close, { capture: true });
   }, [open]);
 
   const back = () => {
-    setOpen(false);
+    setState('shut');
     entry.current?.focus();
   };
   const towardsEnd = (key: string) =>
     key === (isRightToLeft(entry.current ?? document.body) ? 'ArrowLeft' : 'ArrowRight');
   const towardsStart = (key: string) =>
     key === (isRightToLeft(entry.current ?? document.body) ? 'ArrowRight' : 'ArrowLeft');
+  // Only a mouse hovers: a touch or a pen press arrives as a click as well.
+  const pointerIn = (e: PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType !== 'mouse') return;
+    window.clearTimeout(leaving.current);
+    setState((now) => (now === 'shut' ? 'hovered' : now));
+  };
+  const pointerOut = (e: PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType !== 'mouse') return;
+    window.clearTimeout(leaving.current);
+    leaving.current = window.setTimeout(() => {
+      // The list goes away, so a focus inside it would fall to the page.
+      if (list.current?.contains(document.activeElement)) entry.current?.focus();
+      setState('shut');
+    }, HOVER_LEAVE_MS);
+  };
 
   return (
-    <div className="menu-sub">
+    <div className="menu-sub" onPointerEnter={pointerIn} onPointerLeave={pointerOut}>
       <button
         ref={entry}
         type="button"
@@ -357,15 +390,16 @@ export function MenuSub({
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={(e) => {
-          // The menu around it closes on any click; this one only opens the sub-menu.
+          // The menu around it closes on any click; this one only opens the sub-menu. A click on
+          // a sub-menu the pointer already showed keeps it and moves into it.
           e.stopPropagation();
-          setOpen(!open);
+          setState(state === 'chosen' ? 'shut' : 'chosen');
         }}
         onKeyDown={(e) => {
           if (!towardsEnd(e.key)) return;
           e.preventDefault();
           e.stopPropagation();
-          setOpen(true);
+          setState('chosen');
         }}
       >
         {icon}

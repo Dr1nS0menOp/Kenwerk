@@ -317,6 +317,17 @@
   background: var(--color-accent);
 }
 
+/* The sidebar's menus live in its stacking context, which sits under its edge. While one is open
+   the sidebar takes the menu layer, so the menu lies over the edge (SPC-024). */
+.sidebar:has([role='menu']) {
+  z-index: var(--layer-menu);
+}
+
+/* While any menu is open, a press on the edge only closes the menu: it neither shows nor drags. */
+:root:has([role='menu']) .sidebar-edge {
+  pointer-events: none;
+}
+
 .side-links {
   display: flex;
   flex-direction: column;
@@ -387,8 +398,7 @@
   color: var(--color-muted);
 }
 
-:dir(rtl) .side-entry-arrow svg,
-:dir(rtl) .menu-arrow svg {
+:dir(rtl) .side-entry-arrow svg {
   transform: scaleX(-1);
 }
 

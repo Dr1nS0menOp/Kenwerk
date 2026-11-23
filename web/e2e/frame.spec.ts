@@ -220,6 +220,131 @@ test('Theme in the account menu is a sub-menu that works from the keyboard', asy
   await expect(page.getByRole('menuitemradio', { name: 'Dark' })).toHaveAttribute('aria-checked', 'true');
 });
 
+/**
+ * Each choice of the open Theme sub-menu lies inside the window, and the point in its middle
+ * reaches the choice itself, so nothing covers it and no menu cuts it off.
+ */
+async function expectThemeChoicesShown(page: Page) {
+  const choices = page.getByRole('menu', { name: 'Theme' });
+  const window_ = page.viewportSize();
+  if (!window_) throw new Error('the page has no window size');
+  for (const name of ['Light', 'Dark', 'Same as my system']) {
+    const choice = choices.getByRole('menuitemradio', { name });
+    await expect(choice).toBeVisible();
+    const box = await choice.boundingBox();
+    if (!box) throw new Error(`${name} has no box`);
+    expect(box.x, name).toBeGreaterThanOrEqual(0);
+    expect(box.y, name).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width, name).toBeLessThanOrEqual(window_.width);
+    expect(box.y + box.height, name).toBeLessThanOrEqual(window_.height);
+    const reached = await page.evaluate(
+      ({ x, y }) => document.elementFromPoint(x, y)?.closest('[role="menuitemradio"]')?.textContent ?? '',
+      { x: box.x + box.width / 2, y: box.y + box.height / 2 },
+    );
+    expect(reached, name).toContain(name);
+  }
+}
+
+test('Theme in the account menu opens its choices on the screen by pointer, click and keys', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await freshMember(page);
+  const account = page.getByRole('button', { name: 'Account' });
+  const theme = page.getByRole('menuitem', { name: 'Theme' });
+  const choices = page.getByRole('menu', { name: 'Theme' });
+
+  await account.click();
+  await theme.hover();
+  await expectThemeChoicesShown(page);
+  // Moving on to another entry closes it again.
+  await page.getByRole('menuitem', { name: 'Your account' }).hover();
+  await expect(choices).toHaveCount(0);
+
+  await theme.click();
+  await expectThemeChoicesShown(page);
+  await page.keyboard.press('Escape');
+  await expect(choices).toHaveCount(0);
+  await expect(theme).toBeFocused();
+
+  for (const key of ['Enter', 'Space', 'ArrowRight']) {
+    await theme.focus();
+    await page.keyboard.press(key);
+    await expect(choices.getByRole('menuitemradio', { name: 'Light' }), key).toBeFocused();
+    await expectThemeChoicesShown(page);
+    await page.keyboard.press('ArrowLeft');
+    await expect(choices, key).toHaveCount(0);
+    await expect(theme, key).toBeFocused();
+  }
+  await page.keyboard.press('Escape');
+
+  // On a phone, and right to left, the choices stay inside the window as well.
+  await page.setViewportSize(PHONE);
+  await account.click();
+  await theme.click();
+  await expectThemeChoicesShown(page);
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
+
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.evaluate(() => document.documentElement.setAttribute('dir', 'rtl'));
+  await account.click();
+  await theme.click();
+  await expectThemeChoicesShown(page);
+  await page.keyboard.press('ArrowRight');
+  await expect(choices).toHaveCount(0);
+  await expect(theme).toBeFocused();
+});
+
+test('an open menu of the sidebar lies over its edge, and the edge does not drag until it closes', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await login(page, ADMIN.email, ADMIN.password);
+  const space = await newSpace(page, unique('Edge'));
+  const leaf = unique('Leaf');
+  await publishedPage(page, space.id, leaf, 'x');
+  await page.goto(`/pages/${space.home_page_id}`);
+  const edge = page.getByRole('separator', { name: 'Width of the sidebar' });
+  const width = await edge.getAttribute('aria-valuenow');
+  if (!width) throw new Error('the edge has no width');
+
+  for (const name of ['More for this space', `Actions for ${leaf}`]) {
+    await page.getByRole('button', { name }).click();
+    const menu = page.getByRole('menu', { name });
+    await expect(menu).toBeVisible();
+    const list = await menu.boundingBox();
+    const line = await edge.boundingBox();
+    if (!list || !line) throw new Error(`${name}: the menu or the edge is missing`);
+    const x = line.x + line.width / 2;
+    expect(x, `${name} must cross the edge`).toBeGreaterThan(list.x);
+    expect(x, `${name} must cross the edge`).toBeLessThan(list.x + list.width);
+
+    // The middle of the part of the menu that is inside the window.
+    const shown = Math.min(list.y + list.height, line.y + line.height) - list.y;
+    const hit = await page.evaluate(
+      (point) => {
+        const found = document.elementFromPoint(point.x, point.y);
+        return {
+          inMenu: !!found?.closest('[role="menu"]'),
+          what: found?.outerHTML.slice(0, 160) ?? 'nothing',
+        };
+      },
+      { x, y: list.y + shown / 2 },
+    );
+    expect(hit.inMenu, `${name} lies over the edge, not under ${hit.what}`).toBe(true);
+
+    // A press on the edge beside the menu only closes the menu: the sidebar keeps its width.
+    const free = list.y + list.height + 20 < line.y + line.height ? list.y + list.height + 20 : list.y - 20;
+    await page.mouse.move(x, free);
+    await page.mouse.down();
+    await page.mouse.move(x + 120, free, { steps: 5 });
+    await page.mouse.up();
+    await expect(menu).toHaveCount(0);
+    await expect(edge, name).toHaveAttribute('aria-valuenow', width);
+  }
+});
+
 test('customising the sidebar hides an entry under More and moves one by keyboard; Cancel keeps all', async ({
   page,
 }) => {

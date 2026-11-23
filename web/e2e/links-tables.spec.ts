@@ -518,6 +518,9 @@ test('the cell with the cursor has a button in its top end corner, and Shift F10
 
   // Outside a table the keys do what they did before.
   await body(page).locator('p').first().click();
+  // The editor takes the new place of the cursor from the browser a moment after the click; a
+  // key sent before that still finds the cell. The cell button goes once the cursor has left.
+  await expect(cellButton(page)).toHaveCount(0);
   await page.keyboard.press('Shift+F10');
   await expect(cellMenu(page)).toHaveCount(0);
 });

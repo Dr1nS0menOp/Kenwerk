@@ -793,17 +793,23 @@ a.file-tile:hover {
 }
 
 /* A wide table scrolls in its own frame, so the page itself never scrolls sideways.
-   The outline is clear and the grid inside it is soft. */
+   The outline is clear, and a thinner grid shows where every two cells meet (EDT-159). */
 .prose .tableWrapper {
   margin-block: var(--space-3);
   overflow-x: auto;
-  border: 1px solid var(--color-guide);
+  border: 2px solid var(--color-table-line);
   border-radius: var(--radius-card);
 }
 
+/* The hidden border of the table keeps the outer cell lines off the outline. */
 .prose .tableWrapper table {
   margin-block: 0;
   border-style: hidden;
+}
+
+.prose .tableWrapper th,
+.prose .tableWrapper td {
+  border: 1px solid var(--color-table-line);
 }
 
 .prose .tableWrapper caption {

@@ -55,6 +55,9 @@ export const CONTRAST_PAIRS = [
   ['syntax-number', 'code', NORMAL_TEXT],
   ['syntax-title', 'code', NORMAL_TEXT],
   ['field', 'surface', LARGE_OR_CONTROL],
+  ['table-line', 'surface', LARGE_OR_CONTROL],
+  // Header rows and columns of a table have a quiet fill, and the grid runs beside it too.
+  ['table-line', 'side', LARGE_OR_CONTROL],
   ['accent', 'subtle', LARGE_OR_CONTROL],
   ...[
     'grey',

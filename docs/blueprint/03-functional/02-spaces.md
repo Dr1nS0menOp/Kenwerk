@@ -45,7 +45,7 @@ A space is the unit of ownership: it holds a tree of pages, a blog, files and it
 
 - **SPC-022** · built · The sidebar shows the space badge and name, a button to hide it, and the page tree. The hide button moved to the top bar (NAV-092) in spec 078.
 - **SPC-023** · built · The sidebar can be hidden and comes back at the same state after a reload.
-- **SPC-024** · built · The sidebar can be made wider or narrower by dragging its edge. The width is remembered per person.
+- **SPC-024** · built · The sidebar can be made wider or narrower by dragging its edge. The width is remembered per person. A menu that is open lies over the edge, and the edge neither shows nor drags until the menu closes.
 - **SPC-025** · partly · A section **Shortcuts** holds links chosen by space administrators: to pages, other spaces or outside addresses, each with its own label and an order that can be changed by dragging. Still open: dragging: Move up and Move down do the job.
 - **SPC-026** · partly · Fixed entries sit above the tree: **Overview**, **Blog** when turned on, **Calendar** later, and **Files** (FIL-043). Still open: Calendar. Replaced by SPC-106 in spec 078.
 - **SPC-027** · built · Space administrators see links to Space settings and Trash at the bottom. Replaced by SPC-106 in spec 078.

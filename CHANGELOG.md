@@ -3,6 +3,12 @@
 Plain-language notes per release. Every entry has an "Upgrade impact" line.
 
 ## Unreleased
+### Fixed: four things the product owner saw on 2026-11-22 (wave FX7)
+- An open menu of the sidebar, such as the menu of the space or of a page in the tree, now lies over the edge that makes the sidebar wider. While any menu is open the edge neither lights up nor drags; a press on it only closes the menu
+- Tables in a page show a thin line between every two columns and every two rows, inside an outline that is twice as thick, in the reading view and in the editor. Outline and lines use a new colour, `--color-table-line`, which stands out 3:1 from the page in the light and the dark theme (WCAG 1.4.11)
+- The settings button in the top bar, which opens the administration, is now a gear
+- **Theme** in the account menu opens its choices again. The list was drawn inside the account menu, which scrolls and so cut it off: it was focused but not seen. Theme now uses the same sub-menu as the page menu, which stands on the screen beside its entry, opens when the pointer rests on it as well as on a click, Enter, Space or the arrow, stays inside the window on a phone and right to left, and closes with Escape or the arrow back onto Theme. Every sub-menu now also opens when the pointer rests on its entry
+- Upgrade impact: none. No migration, route or setting changed. The design pictures of the account menu, of tables in a page and of every screen that shows the settings button changed
 ### Added: tokens with fine scopes, chosen spaces and a mark for assistants (spec 096, wave MC2)
 - Every route of the API now names the one scope a token needs: `content:read`, `content:write`, `content:delete`, `content:share`, `content:export`, `spaces:manage`, `people:read`, `account:read`, `account:write`, `admin:read`, `admin:audit`, `admin:system` or `admin:write`. `docs/api/routes.txt` prints it beside the rule, and `openapi.json` as `x-scope`. A route a token could reach without a scope stops the server from starting, so no new route can skip the decision
 - Sharing out, public links, published sites, guests, page restrictions, access requests and the members of a group need `content:share`; a space's access and roles, automation, webhooks, templates, workflows, archiving or deleting it, and its trash need `spaces:manage`. Before, the word `write` covered all of it without saying so

@@ -3229,6 +3229,23 @@ test.describe('the administration as blueprint 03 arranges it', () => {
     });
   }
 
+  // The settings button is a gear (NAV-095, decided 2026-11-22). A picture of the end of the bar
+  // alone, because a change of one icon stays under what a picture of the whole screen notices.
+  for (const colorScheme of ['light', 'dark'] as const) {
+    test(`AdminView: the round buttons of the top bar with the gear, ${colorScheme}`, async ({ browser }) => {
+      const page = await adminPage(browser, colorScheme);
+      await page.goto('/admin/summary');
+      const end = page.getByRole('banner').locator('.top-end');
+      await expect(end.getByRole('link', { name: 'Administration' })).toBeVisible();
+      await useFixedFont(page);
+      // Each run makes a new administrator, whose initials and colour differ.
+      await expect(end).toHaveScreenshot(`top-bar-buttons-${colorScheme}.png`, {
+        mask: [end.locator('.avatar-button')],
+      });
+      await page.context().close();
+    });
+  }
+
   test('AdminView: the sidebar right to left', async ({ browser }) => {
     const page = await adminPage(browser);
     await page.setViewportSize(TALL_SCREEN);

@@ -315,7 +315,7 @@ The editor is where people spend their time. The look is settled (Rail, ADR-021)
 
 ## 4.x After the product owner's first test (spec 017)
 
-- **EDT-159** · built · A table has a clear outline and a soft grid, for readers and for writers, and the table with the cursor gets an accent outline.
+- **EDT-159** · built · A table has a clear outline and a soft grid, for readers and for writers, and the table with the cursor gets an accent outline. The grid is a thin line between every two columns and every two rows, thinner than the outline, and it stands out from the page enough to show where cells meet (3:1, WCAG 1.4.11) in the light and the dark theme (thin inner lines decided by the product owner on 2026-11-22).
 - **EDT-160** · replaced by EDT-209, EDT-213 · One button on the table opens a menu with everything for tables: rows, columns, cells, colours and width. It stays open while it is used, and Ctrl Shift . opens it from the keyboard. The button stays in reach while a long table scrolls.
 - **EDT-161** · built · The row of tools does not change when the cursor enters a table.
 - **EDT-162** · built · A whole row or column gets a colour in one step.

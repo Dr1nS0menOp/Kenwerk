@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // The round buttons at the end of the top bar: help, the administration and the account
 // (spec 078, NAV-094 to NAV-098). Their lists load when they open, so the bar costs nothing.
-import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, type Me, type Space, type SystemInfo } from '../api';
@@ -9,7 +9,6 @@ import { appearanceQuery } from '../appearance';
 import { usePreferences } from '../preferences';
 import { Link, navigate } from '../router';
 import {
-  IconChevronRight,
   IconHelp,
   IconLogout,
   IconPage,
@@ -20,7 +19,7 @@ import {
   IconTick,
 } from './icons';
 import { DOCUMENTATION_ADDRESS } from './guide-link';
-import { Menu, MenuDownload, MenuItem, MenuLink, MenuSeparator } from './menu';
+import { Menu, MenuDownload, MenuItem, MenuLink, MenuSeparator, MenuSub } from './menu';
 import { personQuery, PersonPicture } from './person';
 import { ShortcutsDialog } from './shortcuts';
 import { Avatar, Dialog, ErrorNote } from './ui';
@@ -107,93 +106,30 @@ function PersonalSpaceEntry({ me }: { me: Me }) {
 }
 
 /**
- * Theme: a sub-menu of light, dark and system, with a tick on the choice (NAV-097). It opens
- * toward the start side, because the account menu stands at the end of the bar.
+ * Theme: a sub-menu of light, dark and system, with a tick on the choice (NAV-097). It is the
+ * shared sub-menu, which stands on the screen, so the scrolling account menu cannot cut it off,
+ * and goes to the start side when the end side has no room.
  */
 function ThemeEntry() {
   const { t } = useTranslation();
   const { preferences, update } = usePreferences();
-  const [open, setOpen] = useState(false);
-  const entry = useRef<HTMLButtonElement>(null);
-  const list = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (open) list.current?.querySelector<HTMLElement>('[role="menuitemradio"]')?.focus();
-  }, [open]);
-  const isRtl = () => getComputedStyle(document.documentElement).direction === 'rtl';
-  const inward = () => (isRtl() ? 'ArrowLeft' : 'ArrowRight');
-  const outward = () => (isRtl() ? 'ArrowRight' : 'ArrowLeft');
-  const closeSub = () => {
-    setOpen(false);
-    entry.current?.focus();
-  };
-  const entryKeys = (e: KeyboardEvent<HTMLButtonElement>) => {
-    if (e.key !== inward()) return;
-    e.preventDefault();
-    e.stopPropagation();
-    setOpen(true);
-  };
-  const subKeys = (e: KeyboardEvent<HTMLDivElement>) => {
-    const items = Array.from(list.current?.querySelectorAll<HTMLElement>('[role="menuitemradio"]') ?? []);
-    const at = items.indexOf(document.activeElement as HTMLElement);
-    const step = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0;
-    if (step) {
-      items[(at + step + items.length) % items.length]?.focus();
-    } else if (e.key === 'Escape' || e.key === outward()) {
-      closeSub();
-    } else if (e.key === 'Home' || e.key === 'End') {
-      items[e.key === 'Home' ? 0 : items.length - 1]?.focus();
-    } else {
-      return;
-    }
-    e.preventDefault();
-    e.stopPropagation();
-  };
   return (
-    <div className="sub-menu" role="none">
-      <button
-        ref={entry}
-        type="button"
-        role="menuitem"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onKeyDown={entryKeys}
-        onClick={(e: MouseEvent) => {
-          // The account menu closes on a click inside it; this click opens the sub-menu instead.
-          e.stopPropagation();
-          setOpen(!open);
-        }}
-      >
-        <IconTheme size={MENU_ICON_SIZE} />
-        <span className="grow">{t('nav.theme')}</span>
-        <span className="menu-arrow">
-          <IconChevronRight size={MENU_ICON_SIZE} />
-        </span>
-      </button>
-      {open && (
-        <div
-          ref={list}
-          role="menu"
-          aria-label={t('nav.theme')}
-          className="menu-list sub-menu-list"
-          onKeyDown={subKeys}
+    <MenuSub label={t('nav.theme')} icon={<IconTheme size={MENU_ICON_SIZE} />}>
+      {THEMES.map((theme) => (
+        <button
+          key={theme}
+          type="button"
+          role="menuitemradio"
+          aria-checked={preferences.theme === theme}
+          onClick={() => update({ theme })}
         >
-          {THEMES.map((theme) => (
-            <button
-              key={theme}
-              type="button"
-              role="menuitemradio"
-              aria-checked={preferences.theme === theme}
-              onClick={() => update({ theme })}
-            >
-              <span className="menu-tick">
-                {preferences.theme === theme && <IconTick size={MENU_ICON_SIZE} />}
-              </span>
-              {t(`preferences.theme_${theme}`)}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+          <span className="menu-tick">
+            {preferences.theme === theme && <IconTick size={MENU_ICON_SIZE} />}
+          </span>
+          {t(`preferences.theme_${theme}`)}
+        </button>
+      ))}
+    </MenuSub>
   );
 }
 

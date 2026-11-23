@@ -198,6 +198,67 @@ test('the block handle stays off the cells of a stretched table', async ({ page 
   expect(Math.abs(handle.x - frame.x)).toBeLessThan(handle.width);
 });
 
+/** The WCAG contrast of two colours as a computed style gives them, such as `rgb(1, 2, 3)`. */
+function contrast(first: string, second: string) {
+  const luminance = (colour: string) => {
+    const [r = NaN, g = NaN, b = NaN] = (colour.match(/[\d.]+/g) ?? []).map((part) => {
+      const c = Number(part) / 255;
+      return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const lighter = Math.max(luminance(first), luminance(second));
+  const darker = Math.min(luminance(first), luminance(second));
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+/**
+ * The outline of a table, the lines after its first heading cell, the page under the table, and
+ * the heading cell's own fill, which lies beside those lines too.
+ */
+function measureLines(frame: Element) {
+  const heading = frame.querySelector('th') as Element;
+  const cell = getComputedStyle(heading);
+  let under: Element | null = frame;
+  while (under && getComputedStyle(under).backgroundColor === 'rgba(0, 0, 0, 0)') under = under.parentElement;
+  const surface = under ? getComputedStyle(under).backgroundColor : 'rgb(255, 255, 255)';
+  return {
+    outline: parseFloat(getComputedStyle(frame).borderInlineStartWidth),
+    column: parseFloat(cell.borderInlineEndWidth),
+    columnColour: cell.borderInlineEndColor,
+    row: parseFloat(cell.borderBlockEndWidth),
+    rowColour: cell.borderBlockEndColor,
+    surface,
+    fill: cell.backgroundColor === 'rgba(0, 0, 0, 0)' ? surface : cell.backgroundColor,
+  };
+}
+
+test('a table has thin lines between its cells inside a thicker outline, for readers and writers', async ({
+  page,
+}) => {
+  const { id } = await pageWith(page, 'Grid lines', [table()]);
+  for (const address of [`/pages/${id}`, `/pages/${id}/edit`]) {
+    await page.goto(address);
+    const frame = page.locator('.prose .tableWrapper').first();
+    await expect(frame).toBeVisible();
+    for (const theme of ['light', 'dark']) {
+      await page.evaluate((name) => {
+        document.documentElement.dataset.theme = name;
+      }, theme);
+      const lines = await frame.evaluate(measureLines);
+      const where = `${address} in ${theme}: ${JSON.stringify(lines)}`;
+      expect(lines.column, where).toBeGreaterThan(0);
+      expect(lines.row, where).toBeGreaterThan(0);
+      expect(lines.column, where).toBeLessThan(lines.outline);
+      expect(lines.row, where).toBeLessThan(lines.outline);
+      // Where the columns and rows meet must be seen, so the lines pass WCAG 1.4.11.
+      expect(contrast(lines.columnColour, lines.surface), where).toBeGreaterThanOrEqual(3);
+      expect(contrast(lines.rowColour, lines.surface), where).toBeGreaterThanOrEqual(3);
+      expect(contrast(lines.columnColour, lines.fill), where).toBeGreaterThanOrEqual(3);
+    }
+  }
+});
+
 test('the column handle acts on the table with the cursor, and colours a whole column', async ({ page }) => {
   const { id } = await pageWith(page, 'Two tables', [table(), paragraph('between').content[0], table()]);
   await page.goto(`/pages/${id}/edit`);
