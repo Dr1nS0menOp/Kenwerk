@@ -4341,6 +4341,17 @@
     "deleteConfirm": "Delete all view data for good?",
     "deleted": "All view data is deleted."
   },
+  "assistantsAdmin": {
+    "mode": "What assistants may do",
+    "on": "Everything their token allows",
+    "onHelp": "Sharing, access changes and what cannot be undone still need the person, in the browser.",
+    "readOnly": "Only read",
+    "readOnlyHelp": "Every change an assistant tries is refused, whatever its token holds.",
+    "off": "Nothing",
+    "offHelp": "Every call of an assistant's token is refused, at the API and at /mcp. Tokens of scripts keep working.",
+    "address": "Assistants connect over HTTP at",
+    "saved": "Saved."
+  },
   "outgoing": {
     "help": "Rules and webhooks only call hosts on this list, over https, and never a private address.",
     "empty": "The list is empty, so nothing leaves this instance.",
@@ -5469,6 +5480,10 @@
     "outgoing": {
       "name": "Outgoing calls",
       "intro": "What may leave this instance: the hosts that rules and webhooks may call, and the addresses that link cards and embeds may show."
+    },
+    "assistants": {
+      "name": "Assistants",
+      "intro": "Whether assistants may act on this instance through a token made For an assistant: everything their token allows, only reading, or nothing."
     },
     "instance-permissions": {
       "name": "Instance permissions",

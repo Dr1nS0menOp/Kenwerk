@@ -46,7 +46,7 @@ You may still send the words when making a token, but `write` then means `conten
 
 **Spaces.** A token reaches every space its person reaches, unless you choose spaces when you make it (at most 50; `"spaces": [...]`). A limited token gets `404` for a page, file, comment, task or export in any other space, finds nothing of other spaces in lists, search and the tree, cannot hold an `admin:` scope, and gets `403 token_spaces` on routes that belong to no space, such as making a space or changing a template.
 
-**For an assistant.** `"assistant": true` marks a token you give to an AI assistant. It gets stricter limits (below), and later waves of spec 096 make it ask for your approval before it shares out or deletes for good.
+**For an assistant.** `"assistant": true` marks a token you give to an AI assistant. It gets stricter limits (below). Until approvals arrive (a later wave of spec 096), it is refused with `403 approval_required` what reaches outside a space or cannot be undone: sharing, guests, public links, page restrictions, a space's access, roles and owners, published sites, webhooks, deleting a space, emptying the trash, deleting a version of a file, and exports. An administrator can set every assistant to read only (`assistants_read_only`) or off (`assistants_off`) under Administration, Security, Assistants, or with `PUT /api/v1/admin/settings/assistants`.
 
 A scope only limits a token. A token is its owner, so every check on the owner still applies, and a route marked `session-only` never takes a token. Every route under `/api/v1/admin/` that changes something is `session-only`: Administration is changed in a signed-in session, never by a token (spec 085).
 
@@ -72,7 +72,7 @@ A webhook follows the Standard Webhooks format: the headers `webhook-id`, `webho
 
 ## Assistants
 
-`kenwerk mcp` serves an assistant over the Model Context Protocol, with a token for an assistant; its tools are requests of this API with that token and nothing more. See [`docs/operations/mcp.md`](../operations/mcp.md).
+`kenwerk mcp` (over standard input and output) and `POST /mcp` (over Streamable HTTP, with the token as `Authorization: Bearer`) serve an assistant over the Model Context Protocol, with a token for an assistant; their tools are requests of this API with that token and nothing more. `/mcp` never reads a session cookie and takes no other token. See [`docs/operations/mcp.md`](../operations/mcp.md).
 
 ## The command line tool
 

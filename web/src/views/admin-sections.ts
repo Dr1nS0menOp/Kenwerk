@@ -106,6 +106,7 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   { id: 'scim', group: 'admin-security', width: 'column', doc: IDENTITY },
   { id: 'export', group: 'admin-security', width: 'column', doc: 'operations/public-sites.md' },
   { id: 'outgoing', group: 'admin-security', width: 'column' },
+  { id: 'assistants', group: 'admin-security', width: 'column', doc: 'operations/mcp.md' },
   { id: 'instance-permissions', group: 'admin-permissions', width: 'column' },
   { id: 'permissions', group: 'admin-permissions', width: 'column' },
   { id: 'space-defaults', group: 'admin-permissions', width: 'column' },

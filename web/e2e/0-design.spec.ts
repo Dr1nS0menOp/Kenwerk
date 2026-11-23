@@ -2406,6 +2406,10 @@ test.describe('the look of every kind of screen', () => {
         await expect(page.getByLabel('Host')).toBeVisible();
         await picture(page, 'admin-outgoing');
         await checkAccessibility(page);
+        await page.goto('/admin/assistants');
+        await expect(page.getByRole('radio', { name: /Everything their token allows/ })).toBeChecked();
+        await picture(page, 'admin-assistants');
+        await checkAccessibility(page);
         await page.goto('/admin/insights');
         await expect(page.getByRole('heading', { name: 'What people search for' })).toBeVisible();
         await picture(page, 'admin-insights');

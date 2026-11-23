@@ -56,6 +56,9 @@ const ADDED_IN_SC4 = [
   'spaces-trash',
 ];
 
+/** Added in wave MC4 of spec 096. */
+const ADDED_IN_MC4 = ['assistants'];
+
 const ALL_ON: Capabilities = Object.fromEntries(
   Object.keys(NOTHING_ON).map((name) => [name, true]),
 ) as unknown as Capabilities;
@@ -69,8 +72,11 @@ describe('the sections of the administration', () => {
   });
 
   it('still answers every address of before, and the seven new ones', () => {
-    for (const id of [...ADDRESSES_BEFORE_SC4, ...ADDED_IN_SC4]) expect(adminSection(id)?.id).toBe(id);
-    expect(ADMIN_SECTIONS).toHaveLength(ADDRESSES_BEFORE_SC4.length + ADDED_IN_SC4.length);
+    for (const id of [...ADDRESSES_BEFORE_SC4, ...ADDED_IN_SC4, ...ADDED_IN_MC4])
+      expect(adminSection(id)?.id).toBe(id);
+    expect(ADMIN_SECTIONS).toHaveLength(
+      ADDRESSES_BEFORE_SC4.length + ADDED_IN_SC4.length + ADDED_IN_MC4.length,
+    );
   });
 
   it('does not take an unknown id, or a name of a group, for a section', () => {
@@ -112,7 +118,14 @@ describe('the sections of the administration', () => {
       'templates',
       'control',
     ]);
-    expect(inGroup('admin-security')).toEqual(['login', 'sessions', 'scim', 'export', 'outgoing']);
+    expect(inGroup('admin-security')).toEqual([
+      'login',
+      'sessions',
+      'scim',
+      'export',
+      'outgoing',
+      'assistants',
+    ]);
     expect(inGroup('admin-permissions')).toEqual(['instance-permissions', 'permissions', 'space-defaults']);
     expect(inGroup('admin-look')).toEqual(['look']);
     expect(inGroup('admin-data')).toEqual(['care', 'backups', 'import-space', 'spaces-trash', 'webhooks']);

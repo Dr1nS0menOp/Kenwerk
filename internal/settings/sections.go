@@ -336,6 +336,9 @@ func sectionValue(name string) (section, error) {
 		return &Backups{}, nil
 	case SectionHealth:
 		return &Health{}, nil
+	case SectionAssistants:
+		a := DefaultAssistants
+		return &a, nil
 	}
 	return nil, apperr.NotFound()
 }

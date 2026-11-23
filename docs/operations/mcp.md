@@ -1,8 +1,11 @@
 # Assistants through the Model Context Protocol
 
-Kenwerk serves AI assistants through the Model Context Protocol (MCP, spec 096). An assistant that speaks MCP, such as Claude Desktop, Claude Code, or any other MCP client, starts `kenwerk mcp` on the person's own computer and talks to it over standard input and output. `kenwerk mcp` calls the Kenwerk API of your server with a token, so every rule of the API applies to every tool: what the person may see and do, the token's scopes, its spaces, its limits and the audit log.
+Kenwerk serves AI assistants through the Model Context Protocol (MCP, spec 096), in two ways:
 
-This release has the transport over standard input and output (stdio). Connecting a remote assistant by the address of the server, with a consent screen in Kenwerk, follows in a later release (spec 096, wave MC4).
+- **Over HTTP, at `https://<your server>/mcp`.** An MCP client that lets you set a header connects straight to the server with a token. Each tool runs inside the server as requests of the API with that token.
+- **Over standard input and output (stdio).** An MCP client such as Claude Desktop starts `kenwerk mcp` on the person's own computer, which calls the Kenwerk API of your server with the token.
+
+Both offer the same tools under the same rules: what the person may see and do, the token's scopes, its spaces, its limits and the audit log. Connecting a remote assistant without a token, through a consent screen in Kenwerk, follows in a later release.
 
 ## 1. Make a token for the assistant
 
@@ -15,11 +18,31 @@ In Kenwerk, open Your account, Tokens, and make a token:
 
 Copy the token once; Kenwerk shows it only then. Save it in a file only you can read, for example `~/.config/kenwerk/assistant-token` with mode `600`.
 
-## 2. Get `kenwerk` on the computer of the assistant
+## 2. Connect over HTTP
+
+For a client that takes an address and a header, nothing needs installing. Give it:
+
+- the address `https://kenwerk.example.org/mcp` (your server's public address with `/mcp`);
+- the header `Authorization: Bearer <the token>`.
+
+**Claude Code**, in a terminal, with the token in the variable `KENWERK_TOKEN`:
+
+```sh
+claude mcp add --transport http kenwerk https://kenwerk.example.org/mcp \
+  --header "Authorization: Bearer $KENWERK_TOKEN"
+```
+
+`/mcp` speaks Streamable HTTP of revisions 2026-07-28 and 2025-11-25, answers each message with one JSON object, and keeps no session between messages. It takes only a bearer token made **For an assistant**; it never reads a browser's session, and it refuses a request from a page of another site. A client that cannot set a header uses stdio below.
+
+**Behind a reverse proxy**, pass `/mcp` to Kenwerk like `/api/`. The answers are plain JSON, so no setting for server-sent events is needed.
+
+## 3. Or run `kenwerk mcp` on the computer of the assistant (stdio)
+
+### Get `kenwerk`
 
 `kenwerk mcp` is part of the one Kenwerk binary. Take the binary of the same release as your server from the release page (or the package of your system), and put it on the path. It needs nothing else: no database, no settings, only the address of the server and the token.
 
-## 3. Add Kenwerk to the assistant
+### Add Kenwerk to the assistant
 
 Every MCP client names its servers in a JSON file with a command, its arguments and its environment.
 
@@ -65,7 +88,7 @@ The assistant is offered only the tools its token can use. Each tool says whethe
 
 ## What an assistant does not do
 
-- **Needs your approval, in a later release.** Sharing a page, guests, public links, page restrictions, a space's access, roles and owners, published sites, webhooks, deleting a space, emptying the trash, deleting a version of a file, exports, and every change in the Administration. Until approvals arrive (spec 096, wave MC5), `call_api` refuses them and says so; you do them in the browser.
+- **Needs your approval, in a later release.** Sharing a page, guests, public links, page restrictions, a space's access, roles and owners, published sites, webhooks, deleting a space, emptying the trash, deleting a version of a file, exports, and every change in the Administration. Until approvals arrive (spec 096, wave MC5), the server refuses them to every token made For an assistant with `approval_required`, also when the token is used at the API directly, and `call_api` says so before it sends anything; you do them in the browser.
 - **Never.** Your password, second factor, passkeys, sessions and tokens; confirming who you are; signing; confirming that you read a page; the codes from the backup service; asking for your account to be removed; signing in; and SCIM. A token that could make a token or end your other sessions would outlive its own end, and a signature or a read confirmation says that *you* did it.
 - **Nothing the API refuses.** A tool is only requests of the API with the token, so whatever the token cannot do there, it cannot do through a tool.
 
@@ -79,6 +102,10 @@ An assistant reads pages other people wrote, and a page can hold words meant for
 - the token's scopes and spaces, the limits for assistants, and the approval class above hold whatever the model decides.
 
 Give an assistant the least it needs: read only, in the spaces of the job.
+
+## Turning assistants off or to read only
+
+An administrator chooses under Administration, Security, **Assistants** what assistants may do on the instance: everything their token allows (the default), **only read**, or **nothing**. The choice holds at once for every token made For an assistant, at `/mcp` and at the API; tokens of scripts are not touched. On a read-only instance an assistant is offered only the tools that read. The same switch is `PUT /api/v1/admin/settings/assistants` with `{"mode": "on" | "read_only" | "off"}`.
 
 ## Seeing what the assistant did
 
@@ -94,3 +121,8 @@ Every change an assistant makes is in the audit log as the person, with `via` na
 | `ask the server about this token: Kenwerk answered 404` | The server runs an older release than `kenwerk`; use the binary of the server's release |
 | A tool answers `token_read_only` or `token_scope` | The token lacks the scope; make one with it |
 | A tool answers `429` | The assistant made too many calls; it may go on after a minute |
+| `approval_required` | Sharing, access changes and what cannot be undone wait for approvals in a later release; do it in the browser |
+| `assistants_off` or `assistants_read_only` | An administrator set the switch under Administration, Security, Assistants |
+| `/mcp` answers `401` | No token was sent, or it is wrong, ended or deleted; check the header `Authorization: Bearer ...` |
+| `/mcp` answers `assistant_token_required` | Make a new token with **For an assistant** ticked |
+| `/mcp` answers `403` with `origin_refused` or `cross_origin_blocked` | A browser page called `/mcp`; connect from the assistant's program instead |

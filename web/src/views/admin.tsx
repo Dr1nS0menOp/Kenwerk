@@ -58,6 +58,7 @@ import { differs, SaveReset } from '../components/save-reset';
 import { ControlTab } from './admin-control';
 import { MailServerPart } from './admin-mail';
 import { HelperServicesParts } from './admin-connections';
+import { AssistantsTab } from './admin-assistants';
 import { TableBox, TableEmpty } from '../components/table-box';
 import {
   FilterDate,
@@ -1479,6 +1480,8 @@ function SectionContent({ id, me }: { id: string; me: Me }) {
       return <ExportTab />;
     case 'outgoing':
       return <OutgoingTab />;
+    case 'assistants':
+      return <AssistantsTab />;
     case 'instance-permissions':
       return <InstancePermissionsTab />;
     case 'permissions':

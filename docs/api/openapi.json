@@ -15212,6 +15212,56 @@
         "x-access": "public"
       }
     },
+    "/mcp": {
+      "delete": {
+        "operationId": "delete /mcp",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Done. Most routes answer with JSON."
+          },
+          "default": {
+            "description": "An error, as {\"error\": {\"code\", \"message\"}}."
+          }
+        },
+        "tags": [
+          ""
+        ],
+        "x-access": "public"
+      },
+      "get": {
+        "operationId": "get /mcp",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Done. Most routes answer with JSON."
+          },
+          "default": {
+            "description": "An error, as {\"error\": {\"code\", \"message\"}}."
+          }
+        },
+        "tags": [
+          ""
+        ],
+        "x-access": "public"
+      },
+      "post": {
+        "operationId": "post /mcp",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Done. Most routes answer with JSON."
+          },
+          "default": {
+            "description": "An error, as {\"error\": {\"code\", \"message\"}}."
+          }
+        },
+        "tags": [
+          ""
+        ],
+        "x-access": "public"
+      }
+    },
     "/metrics": {
       "get": {
         "operationId": "get /metrics",

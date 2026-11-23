@@ -1,6 +1,6 @@
 # 096: Assistants through the Model Context Protocol
 
-Status: MC2 built (scopes per route, spaces on tokens, assistant tokens, `via`, limits); MC3 built (the catalogue and `kenwerk mcp` over stdio); MC4 to MC6 planned
+Status: MC2 built (scopes per route, spaces on tokens, assistant tokens, `via`, limits); MC3 built (the catalogue and `kenwerk mcp` over stdio); MC4 built (`POST /mcp` for tokens, the instance's switch, the approval class refused in the router); MC4b (the authorization server) waits for question 5; MC5 and MC6 planned
 Phase: before 1.0, all of MC2 to MC6 (decided by the product owner on 2026-11-22); the roadmap places the MCP server (PLT-047) in phase 6 and OAuth (PLT-037) in phase 7
 
 ## Problem
@@ -439,7 +439,8 @@ One per rule (spec 037): the scope check skipped; the per-route scope replaced b
 | **MC1** | S | This study and plan | |
 | **MC2** | M | Scopes per route in the router and `routes.txt`; old words as bundles; spaces on tokens through `Evaluate` and `perm_*`; assistant tokens; `via` on every audit event; the per-person and per-class limits; the token screen in Your account gains scopes, spaces and "For an assistant". Tests 1, 2, 3, 6, 7. | migrations 1 and 7 |
 | **MC3** | M | `internal/mcp`: the catalogue, task tools for reading and writing content, `describe_api`, `call_api`, resources, content marked as data, form-mode confirmation; `kenwerk mcp` over stdio with an assistant token. Class A and N refuse with a clear message, as approvals do not exist yet. Test 5 for stdio. | the MCP Go SDK, if approved (D13) |
-| **MC4** | L | The authorization server: discovery, consent screen, pre-registered and CIMD clients, codes with PKCE, access and refresh tokens with rotation, revocation, Connected apps, Administration's Assistants with its switches; `POST /mcp` over Streamable HTTP. Test 4 (OAuth part), 5 for HTTP. | the module for the authorization server (D2); migrations 2 to 5 |
+| **MC4** | M | `POST /mcp` over Streamable HTTP for tokens made For an assistant, running each tool through the router in process; Administration's Assistants with its switch (on, read only, off); the approval class refused in the router for every assistant credential until MC5. Test 5 for HTTP. (Split from the plan of 2026-11-22 by D27.) | |
+| **MC4b** | L | The authorization server: discovery, consent screen, pre-registered and CIMD clients, codes with PKCE, access and refresh tokens with rotation, revocation, Connected apps, the client list of Administration's Assistants; grants at `/mcp`. Test 4 (OAuth part). | the module for the authorization server (question 5); migrations 2 to 5 |
 | **MC5** | L | Pending actions: the approval class in the router, the approval page and batches, URL-mode elicitation, running from the session, secrets kept in the browser, service account approvals; administration through assistants as a guarded setting; the amended ADR. Test 4 (approval part). | migration 6 |
 | **MC6** | M | Space switches (PLT-048); the e2e flow and pictures; the load measurement; docs; the mutation lines not yet added; the contract migration of the old `perm_*` signatures one release later. | |
 
@@ -490,6 +491,60 @@ What MC3 built, and how it differs in detail from the plan above.
 - **D19. The scope of each route lives in one table beside the router**, not in an argument at each registration (see above).
 - **D20. During a rolling upgrade a node of the previous release refuses tokens made by this one** (they hold scope names it does not know): safe, and over once every node runs this release. Old tokens work on both.
 
+## Study before wave MC4 (2026-11-23)
+
+**Where main moved.** Since this plan, main gained waves MC2 and MC3 (above) and the rebuilt Your account of spec 084 (SC6), which keeps the token screen of MC2 under Your account, Tokens. Nothing on main changes the plan of MC4 itself, with one finding below.
+
+**The module of the authorization server (D2).** `ory/fosite` v0.49.0, its latest release, is Apache-2.0, as D2 expected. Its own packages (`fosite`, `handler/oauth2`, `handler/pkce`) carry PKCE `S256`, single-use codes, refresh rotation that revokes the family on reuse, and opaque HMAC tokens, which our code can prefix. But they bring about fifty modules into the binary, two of them under MPL-2.0 (`hashicorp/go-retryablehttp` and `hashicorp/go-cleanhttp`, through the client authentication by JWT that fosite's core imports), beside `gobuffalo/pop`, `sirupsen/logrus` and the Jaeger and Zipkin exporters. Blueprint 02 and `scripts/check-licenses.mjs` allow MIT, BSD, Apache-2.0 and ISC for what ships, so fosite as it is fails the licence gate. Two other modules were measured the same way:
+
+| Module | Licence | Brings into the binary | Carries | Our code would add |
+|---|---|---|---|---|
+| `ory/fosite` v0.49.0 | Apache-2.0 | about 50 modules, two MPL-2.0 | PKCE, codes, rotation with reuse revocation, revocation (RFC 7009), opaque tokens | the `resource` parameter, `iss`, CIMD, the stores |
+| `go-oauth2/oauth2` v4.6.0 | MIT | `golang-jwt/jwt` v5 and `google/uuid`, both in the module graph already | PKCE (both methods), codes, refresh with rotation, own token generators and stores | refusing `plain`, reuse revocation, the `resource` parameter, `iss`, revocation, CIMD |
+| `zitadel/oidc` v3.53.0 | Apache-2.0 | 18 modules, one under the Unlicense (`muhlemmer/gu`) | a whole OpenID provider | the stores, CIMD; much we would not use |
+
+Choosing another module for a security-critical part, or allowing a licence blueprint 02 does not, is the product owner's decision (spec 015 question 3, D2, D13), so MC4 builds what does not depend on it (D27) and asks question 5 below.
+
+### Decided on the product owner's behalf on 2026-11-23, may be overruled
+
+- **D27. MC4 is split in two.** MC4 builds `POST /mcp` for tokens made For an assistant (D4 already lets `/mcp` take a personal token), Administration's switch for assistants, and the refusal of the approval class in the router. MC4b builds the authorization server, the consent screen, the clients and the grants once question 5 is answered. Building the stores and the screens of OAuth first would tie them to a module that is not chosen yet.
+- **D28. `/mcp` takes only tokens made For an assistant,** as `kenwerk mcp` does (D21): only those carry the limits for assistants and the approval rules. Any other token gets `403 assistant_token_required`.
+- **D29. Until approvals exist (MC5), the router refuses the approval class to every credential of an assistant** with `403 approval_required`, also at `/api/v1` directly, not only in `call_api`. The list stays the one beside `call_api` (`internal/mcp/reach.go`), so both always agree. Tokens that are not for an assistant keep what they reach (AC-15, D7). MC5 turns the refusal into a pending action.
+- **D30. The instance's switch has three positions, on by default:** everything the credential allows, only read, or nothing. It is a section `assistants` of the settings, changed through the existing settings routes, and not guarded (D10: assistants for content are on by default; allowing administration through assistants is the guarded setting, which comes with approvals in MC5). Read only refuses every method that is not a read, whatever the scope, so an export by `POST` is refused too; the credential route then tells an assistant's token only its reading scopes, so it is offered only read tools.
+- **D31. `/mcp` answers each message with one JSON object and keeps no session** (revision 2026-07-28 removed both; for revision 2025-11-25 the stateless mode serves the same). The SDK's own check of the `Host` header for local addresses is off: it would refuse every request a reverse proxy on the same host passes on, and what it guards against, a page that rebinds a name, gains nothing at `/mcp`, which refuses a foreign `Origin` and needs a bearer token such a page does not hold.
+- **D32. A tool's request through `/mcp` runs through the router in process,** behind the parts of the chain that belong to each request (the query limit, the permission memo, read freshness and maintenance), with the message's principal, address, user agent and request id. The message itself is admitted and logged once; each inner request counts against the token's limits and is audited as over HTTP.
+
+### Question 5, for the product owner
+
+**Which module carries the authorization server of MC4b?**
+
+- **A. `ory/fosite`, with an exception in the licence gate for the two MPL-2.0 modules**, which are used unmodified as libraries (MPL-2.0 is copyleft per file, and asks nothing of code that only links to it). The flows that matter most for security stay in the most widely reviewed module. The cost is the exception and about fifty more modules in the binary.
+- **B. `go-oauth2/oauth2` v4**, which keeps to the licence rule and adds almost no modules, but leaves more of the security logic to our code: refusing `plain`, ending a grant when a refresh token comes back, binding the audience.
+- **C. `zitadel/oidc`**, with an exception for the Unlicense; it is built for a whole OpenID provider, much of which Kenwerk would not use.
+
+Recommendation: **A**, because the dependency rule asks that security-critical parts come from a widely used module and not from our code, and fosite carries more of them than B. B is the choice if keeping the module graph and the licence rule as they are weighs more.
+
+## Through the API (wave MC4)
+
+| Route | Rule | Scope |
+|---|---|---|
+| `POST /mcp` | public route; the handler takes only `Authorization: Bearer` with a token made For an assistant, never a cookie; a foreign `Origin` is refused | none for the message; each tool's request needs its own route's scope, as listed by `describe_api` |
+| `GET /mcp`, `DELETE /mcp` | public; `405` with `Allow: POST` | none |
+| `GET /api/v1/admin/settings/assistants` | session-only, administrator | `admin:read` |
+| `PUT /api/v1/admin/settings/assistants` | session-only, administrator; body `{"mode": "on" \| "read_only" \| "off"}` | `admin:write` (a token reaches it only through an approval, MC5) |
+| `GET /api/v1/me/credential` | every credential (MC3) | `scope:any`; on a read-only instance an assistant's token is told only its reading scopes |
+
+New refusals, each `403` with this code: `approval_required` (a route of the approval class with an assistant's credential), `assistants_off`, `assistants_read_only`, `assistant_token_required` and `origin_refused` (at `/mcp`).
+
+## Built in wave MC4
+
+What MC4 built, and how it differs in detail from the plan above.
+
+- **`POST /mcp`** in `internal/httpapi/handlers_mcp.go` serves the catalogue of MC3 over Streamable HTTP with the official SDK, stateless and in JSON, for revisions 2026-07-28 and 2025-11-25 (D11). The server of a message is built from the token's scopes, so a read-only token lists only read tools. Each tool's request runs through the router in process (D32): every access rule, scope, space limit, rate limit and audit event is the API's own, and `via` names the token as over HTTP. The SDK checks that `Mcp-Method` and `Mcp-Name` match the body (`-32020`).
+- **`/mcp` never reads the session cookie** (`withAuthentication` skips it for that path), refuses an `Origin` other than the instance's own, answers `401` with `WWW-Authenticate: Bearer` without a token, and `405` to `GET` and `DELETE`. The `resource_metadata` of the challenge and the discovery documents come with the authorization server in MC4b.
+- **The switch** is the settings section `assistants` (D30), shown under Administration, Security, **Assistants**, with the address of `/mcp`. It holds for every credential of an assistant at the API and at `/mcp`; tokens of scripts are untouched.
+- **The approval class in the router** (D29): `assistantMayGoOn` beside the scope check refuses it to every assistant's credential.
+- **No migration**: the tables of grants, clients, codes and tokens come with MC4b.
 ## Decided on the product owner's behalf on 2026-11-22, may be overruled (study)
 
 - **D1. Both OAuth and personal tokens.** OAuth for remote clients over HTTP, tokens for stdio and scripts, with one model of a credential with limits under both.
@@ -528,6 +583,11 @@ After MC3:
 1. Your account, Tokens: make a token "For an assistant", read only, for one space.
 2. Configure `kenwerk mcp` in an assistant with that token. Ask it about a page in that space: it answers. Ask about a page in another space: it finds nothing.
 3. Ask it to edit a page: it says the token can only read.
+
+After MC4:
+1. Connect an assistant that takes a header (such as Claude Code) to `https://<instance>/mcp` with the same token, as `docs/operations/mcp.md` shows. Ask it about a page: it answers, as over stdio.
+2. Make a token For an assistant with sharing (`content:share`). Ask the assistant to share a page: it says this needs your approval, which comes later. The same token at the API directly gets `approval_required`.
+3. Administration, Security, Assistants: choose **Only read**. Ask the assistant to edit a page: refused. Choose **Nothing**: every question fails. Choose **Everything their token allows** again.
 
 After MC5:
 4. Add Kenwerk to a remote assistant by its `/mcp` address. Sign in on the consent screen; note the client's host and the redirect host. Connect with changes allowed.

@@ -32,8 +32,9 @@ var sectionSafeFields = map[string]SafeFields{
 	SectionRetention: {"audit_days", "longer_because", "lowering"},
 	SectionLook: {"instance_name", "accent_light", "accent_dark", "login_welcome", "terms_url", "banner_text", "banner_level",
 		"banner_ends", "welcome_page"},
-	SectionBackups: {"interval_hours", "keep"},
-	SectionHealth:  {"disk_warn_percent", "disk_refuse_percent"},
+	SectionBackups:    {"interval_hours", "keep"},
+	SectionHealth:     {"disk_warn_percent", "disk_refuse_percent"},
+	SectionAssistants: {"mode"},
 }
 
 // sectionRedactedFields are the fields of a section recorded as changed without their values

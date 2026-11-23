@@ -38,7 +38,7 @@ func (s *Server) registerRoutes() {
 
 	r.HandleFunc("POST /api/v1/auth/logout", Authenticated(), s.handleLogout)
 	r.HandleFunc("GET /api/v1/me", Authenticated(), s.handleMe)
-	r.HandleFunc("GET /api/v1/me/credential", Authenticated(), handleMyCredential)
+	r.HandleFunc("GET /api/v1/me/credential", Authenticated(), s.handleMyCredential)
 	r.HandleFunc("GET /api/v1/system/info", Permission(identity.PermUseProduct), s.handleSystemInfo)
 	r.HandleFunc("GET /api/v1/system/capabilities", Permission(identity.PermUseProduct), s.handleCapabilities)
 
@@ -73,6 +73,7 @@ func (s *Server) registerRoutes() {
 	s.registerRunningRoutes()
 	s.registerPublishingRoutes()
 	s.registerReleaseRoutes()
+	s.registerMCPRoutes()
 }
 
 type userJSON struct {

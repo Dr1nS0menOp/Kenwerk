@@ -79,7 +79,8 @@ func TestAnAddressIsRecordedWithoutItsUserAndPassword(t *testing.T) {
 // A field nobody decided on stays out of the audit log by default; this makes the decision
 // explicit for every field a section has now.
 func TestEveryFieldOfEverySectionHasAnAuditDecision(t *testing.T) {
-	for _, name := range []string{SectionGeneral, SectionFeatures, SectionAccess, SectionRetention, SectionLook, SectionBackups, SectionHealth} {
+	for _, name := range []string{SectionGeneral, SectionFeatures, SectionAccess, SectionRetention, SectionLook, SectionBackups, SectionHealth,
+		SectionAssistants} {
 		v, err := sectionValue(name)
 		if err != nil {
 			t.Fatal(err)

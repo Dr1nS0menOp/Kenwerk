@@ -53,6 +53,7 @@ DELETE /api/v1/templates/{id}/favourite                        authenticated sco
 DELETE /api/v1/trash/{id}                                      object:space.administer scope:spaces:manage
 DELETE /api/v1/users/{id}/follow                               authenticated scope:account:write
 DELETE /api/v1/webhooks/{id}                                   object:space.automation scope:spaces:manage
+DELETE /mcp                                                    public
 DELETE /scim/v2/Groups/{id}                                    scim-token
 DELETE /scim/v2/Users/{id}                                     scim-token
 GET /api/v1/access-requests/{id}                               object:restriction.manage scope:content:read
@@ -307,6 +308,7 @@ GET /api/v1/workflows/{id}/template-changes                    authenticated sco
 GET /collab                                                    public
 GET /collab/documents/{id}                                     public
 GET /livez                                                     public
+GET /mcp                                                       public
 GET /metrics                                                   public
 GET /readyz                                                    public
 GET /scim/v2/Groups                                            scim-token
@@ -526,6 +528,7 @@ POST /api/v1/workflows/{id}/archive                            authenticated sco
 POST /api/v1/workflows/{id}/take-template                      authenticated scope:spaces:manage
 POST /collab/authorize                                         public
 POST /hooks/{token}                                            public
+POST /mcp                                                      public
 POST /scim/v2/Groups                                           scim-token
 POST /scim/v2/Users                                            scim-token
 PUT /api/v1/admin/analytics                                    session-only permission:administrator scope:admin:write

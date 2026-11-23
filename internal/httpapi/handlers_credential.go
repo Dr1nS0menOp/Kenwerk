@@ -21,14 +21,23 @@ type credentialView struct {
 
 // handleMyCredential tells a credential what it holds, so a client such as kenwerk mcp offers
 // only the tools it can use (spec 096, AC-13). Every credential reaches it (scope:any); it
-// reads nothing from the database, because the principal holds it all.
-func handleMyCredential(w http.ResponseWriter, r *http.Request) {
+// reads nothing from the database but the instance's switch for assistants: on a read-only instance an
+// assistant's credential is told only the scopes that read.
+func (s *Server) handleMyCredential(w http.ResponseWriter, r *http.Request) {
 	p := PrincipalFrom(r.Context())
 	if !p.ViaToken {
 		writeJSON(w, http.StatusOK, credentialView{Kind: "session", Scopes: []string{}})
 		return
 	}
 	scopes := p.Scopes
+	if p.Assistant {
+		mode, err := s.assistantsMode(r.Context())
+		if err != nil {
+			s.internalError(w, r, err)
+			return
+		}
+		scopes = scopesInMode(scopes, mode)
+	}
 	if scopes == nil {
 		scopes = []string{}
 	}

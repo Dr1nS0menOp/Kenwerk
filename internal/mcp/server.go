@@ -43,7 +43,13 @@ type Options struct {
 	// Scopes are what the connection's credential holds; the server offers only tools it can use.
 	Scopes  []string
 	Version string
+	// ProtocolVersions narrows the revisions the server speaks; empty is every one the SDK knows.
+	ProtocolVersions []string
 }
+
+// HTTPProtocolVersions are the revisions POST /mcp speaks: the latest, and the one before it for
+// clients that have not moved yet (spec 096, D11). Older revisions have no protocol header.
+func HTTPProtocolVersions() []string { return []string{"2026-07-28", "2025-11-25"} }
 
 // changeScopes are the scopes that let a credential change anything.
 var changeScopes = []string{identity.ScopeContentWrite, identity.ScopeContentDelete, identity.ScopeContentShare,
@@ -98,7 +104,7 @@ func ToolsFor(scopes []string) []string {
 // NewServer makes the server of one connection.
 func NewServer(o Options) (*sdk.Server, error) {
 	srv := sdk.NewServer(&sdk.Implementation{Name: "kenwerk", Title: "Kenwerk", Version: o.Version},
-		&sdk.ServerOptions{Instructions: serverInstructions})
+		&sdk.ServerOptions{Instructions: serverInstructions, SupportedProtocolVersions: o.ProtocolVersions})
 	s := &session{caller: o.Caller, scopes: o.Scopes}
 	for _, t := range toolsFor(o.Scopes) {
 		h, err := t.handler(s)

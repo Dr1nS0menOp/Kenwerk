@@ -3,12 +3,16 @@
 package httpapi
 
 import (
+	"context"
 	"net/http"
 	"slices"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/kenwerk/kenwerk/internal/identity"
+	"github.com/kenwerk/kenwerk/internal/mcp"
+	"github.com/kenwerk/kenwerk/internal/settings"
 )
 
 // The limits of a credential on top of tokenCallsPerMinute (spec 096, "Rate limits"). Like
@@ -90,8 +94,66 @@ func (s *Server) tokenMayGoOn(w http.ResponseWriter, r *http.Request, a Access, 
 	if p.Spaces != nil && (spaceBoundless[r.Pattern] || identity.IsAdminScope(a.scope)) {
 		return s.refuseToken(w, r, p, a.scope, "token_spaces", "This token is limited to some spaces, and this is not in one.")
 	}
+	if p.Assistant && !s.assistantMayGoOn(w, r) {
+		return false
+	}
 	p.UsesOldWrite = p.HeldThroughOldWrite(a.scope)
 	return true
+}
+
+// assistantMayGoOn applies what holds for every credential of an assistant, whatever its scopes:
+// the instance's switch, and the approval class, which the person approves in Kenwerk (spec 096).
+// Approvals arrive in wave MC5; until then such a route is refused here, so a client that skips
+// the checks of call_api gains nothing. It answers the request when it refuses.
+func (s *Server) assistantMayGoOn(w http.ResponseWriter, r *http.Request) bool {
+	mode, err := s.assistantsMode(r.Context())
+	if err != nil {
+		s.internalError(w, r, err)
+		return false
+	}
+	switch {
+	case mode == settings.AssistantsOff:
+		writeError(w, http.StatusForbidden, "assistants_off", "An administrator turned assistants off.")
+	case mode == settings.AssistantsReadOnly && !isRead(r):
+		writeError(w, http.StatusForbidden, "assistants_read_only", "An administrator set assistants to read only.")
+	case approvalClass()[r.Pattern]:
+		writeError(w, http.StatusForbidden, "approval_required",
+			"This needs the person's approval in Kenwerk, which arrives in a later release; until then the person does this in the browser.")
+	default:
+		return true
+	}
+	return false
+}
+
+// approvalClass holds the routes outside Administration that an assistant reaches only with the
+// person's approval. The list lives beside call_api, which refuses them before sending; it is
+// built once and only read: logically constant data.
+var approvalClass = sync.OnceValue(func() map[string]bool {
+	out := map[string]bool{}
+	for _, pattern := range mcp.ApprovalPatterns() {
+		out[pattern] = true
+	}
+	return out
+})
+
+// assistantsMode is the instance's switch for assistants.
+func (s *Server) assistantsMode(ctx context.Context) (string, error) {
+	a := settings.DefaultAssistants
+	if err := s.deps.Settings.ReadSection(ctx, settings.SectionAssistants, &a); err != nil {
+		return "", err
+	}
+	return a.InForce(), nil
+}
+
+// scopesInMode are the scopes of a credential that the instance's switch for assistants leaves:
+// on a read-only instance only those that read.
+func scopesInMode(scopes []string, mode string) []string {
+	if mode != settings.AssistantsReadOnly {
+		return scopes
+	}
+	return slices.DeleteFunc(slices.Clone(scopes), func(scope string) bool {
+		return changes(scope) || scope == identity.ScopeContentExport
+	})
 }
 
 // refuseToken audits and answers a refusal for scope or spaces, and reports false.

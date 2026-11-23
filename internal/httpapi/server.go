@@ -167,6 +167,9 @@ type Server struct {
 	appearanceCalls *limiter
 	// mailTests limits the test mails of one person (spec 098, D6).
 	mailTests *limiter
+	// inner runs a request a tool of /mcp makes: the router behind the parts of the chain that
+	// belong to each request, after the message itself was authenticated and admitted (spec 096).
+	inner http.Handler
 }
 
 // New builds the API.
@@ -205,6 +208,7 @@ func New(d Deps) (*Server, error) {
 	}
 	s.router = newRouter(s.enforce, routeScopes)
 	s.registerRoutes()
+	s.inner = chain(s.router, withQueryLimit, withPermissionMemo, withReadFreshness, s.withMaintenance)
 
 	cop := http.NewCrossOriginProtection()
 	if err := cop.AddTrustedOrigin(d.Config.PublicOrigin()); err != nil {

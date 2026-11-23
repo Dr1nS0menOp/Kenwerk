@@ -306,7 +306,12 @@ func (s *Server) principalFromToken(r *http.Request) (identity.Principal, error)
 // withAuthentication loads the principal from the session cookie or a token.
 func (s *Server) withAuthentication(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		p, err := s.principalFromCookie(r)
+		p, err := identity.Principal{}, identity.ErrNoSession
+		// /mcp takes a bearer token only: a page on another site must never reach a person's
+		// session through it (spec 096).
+		if r.URL.Path != mcpPath {
+			p, err = s.principalFromCookie(r)
+		}
 		if errors.Is(err, identity.ErrNoSession) {
 			p, err = s.principalFromToken(r)
 		}

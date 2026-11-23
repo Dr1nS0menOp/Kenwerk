@@ -2839,6 +2839,23 @@ mutate "the token follows a redirect" internal/mcp/caller.go \
   's.replace("CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },", "CheckRedirect: nil,")' $mcp -run '^TestTheTokenNeverFollowsARedirect$'
 mutate "kenwerk mcp takes a token that is not for an assistant" cmd/kenwerk/mcp.go \
   's.replace("if credential.Kind != \"token\" || !credential.Assistant {", "if credential.Kind != \"token\" {")' ./cmd/kenwerk/ -run '^TestKenwerkMCPRefusesATokenThatIsNotForAnAssistant$'
+# Spec 096, wave MC4: /mcp over HTTP takes only an assistant's token, and the switch and the approval class hold in the router.
+mutate "/mcp reads the session cookie" internal/httpapi/middleware.go \
+  's.replace("\t\tif r.URL.Path != mcpPath {\n", "\t\tif true {\n")' $app -run '^TestMCPOverHTTPIgnoresTheSessionCookie$'
+mutate "/mcp takes an origin other than the instance's" internal/httpapi/handlers_mcp.go \
+  's.replace("origin != \"\" \x26\x26 origin != s.deps.Config.PublicOrigin()", "origin == \"x\"")' $app -run '^TestMCPOverHTTPRefusesAForeignOrigin$'
+mutate "/mcp takes a token that is not for an assistant" internal/httpapi/handlers_mcp.go \
+  's.replace("\tif !p.Assistant {\n", "\tif false {\n")' $app -run '^TestMCPOverHTTPTakesOnlyATokenForAnAssistant$'
+mutate "/mcp offers the tools of every scope the token holds on a read-only instance" internal/httpapi/handlers_mcp.go \
+  's.replace("Scopes: scopesInMode(p.Scopes, mode),", "Scopes: p.Scopes,")' $app -run '^TestAnAssistantOnAReadOnlyInstanceOnlyReads$'
+mutate "an assistant goes on with assistants off" internal/httpapi/credentials.go \
+  's.replace("\tcase mode == settings.AssistantsOff:\n", "\tcase false:\n")' $app -run '^TestMCPOverHTTPRefusesWhenAssistantsAreOff$'
+mutate "an assistant changes something on a read-only instance" internal/httpapi/credentials.go \
+  's.replace("\tcase mode == settings.AssistantsReadOnly \x26\x26 !isRead(r):\n", "\tcase false:\n")' $app -run '^TestAnAssistantOnAReadOnlyInstanceOnlyReads$'
+mutate "the credential route tells an assistant on a read-only instance its changing scopes" internal/httpapi/credentials.go \
+  's.replace("\tif mode != settings.AssistantsReadOnly {\n", "\tif true {\n")' $app -run '^TestAnAssistantOnAReadOnlyInstanceOnlyReads$'
+mutate "an assistant reaches the approval class" internal/httpapi/credentials.go \
+  's.replace("\tcase approvalClass()[r.Pattern]:\n", "\tcase false:\n")' $app -run '^TestAnAssistantIsRefusedTheApprovalClassByTheServer$'
 # Spec 092: only the holder of a rule changes it, a test runs as its caller, and conditions need a page.
 mutate "someone who does not hold a rule changes it" internal/automation/service.go \
   's.replace("\tcase held:\n\t\treturn s.change(", "\tcase held || true:\n\t\treturn s.change(")' $app -run '^TestSomeoneWhoDoesNotHoldARuleCannotChangeWhatItDoes$'
