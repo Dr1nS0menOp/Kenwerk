@@ -5,10 +5,10 @@ package webui
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -134,6 +134,67 @@ func TestALargeProgramFileIsSentPacked(t *testing.T) {
 	}
 }
 
+// appHandler serves files as the app, answering 404 for what it does not own.
+func appHandler(files fstest.MapFS) http.Handler {
+	return newHandler(files, func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNotFound) }, "", testOrigin)
+}
+
+func TestTheAppAnswersOnlyReadsOutsideTheAPI(t *testing.T) {
+	handler := appHandler(fstest.MapFS{"index.html": {Data: []byte("<html>")}})
+	for _, c := range []struct{ method, path string }{
+		{http.MethodPost, "/spaces"}, {http.MethodGet, "/api/v1/pages"}, {http.MethodGet, "/scim/v2/Users"},
+	} {
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, httptest.NewRequest(c.method, c.path, nil))
+		if rec.Code != http.StatusNotFound {
+			t.Errorf("%s %s: status %d", c.method, c.path, rec.Code)
+		}
+	}
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodHead, "/spaces", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("HEAD of a route of the app: status %d", rec.Code)
+	}
+}
+
+func TestAnAssetIsServedAndAMissingOneIsNotTheAppPage(t *testing.T) {
+	files := fstest.MapFS{
+		"index.html":        {Data: []byte("<html>")},
+		"assets/index-a.js": {Data: []byte("code")},
+		"robots.txt":        {Data: []byte("robots")},
+	}
+	handler := appHandler(files)
+	get := func(name string) *httptest.ResponseRecorder {
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, name, nil))
+		return rec
+	}
+	if rec := get("/assets/index-a.js"); rec.Body.String() != "code" || rec.Header().Get("Cache-Control") != "public, max-age=31536000, immutable" {
+		t.Fatalf("asset: %q, cache %q", rec.Body.String(), rec.Header().Get("Cache-Control"))
+	}
+	if rec := get("/robots.txt"); rec.Body.String() != "robots" || rec.Header().Get("Cache-Control") != "" {
+		t.Fatalf("a file outside assets: %q, cache %q", rec.Body.String(), rec.Header().Get("Cache-Control"))
+	}
+	if rec := get("/assets/gone.js"); rec.Code != http.StatusNotFound {
+		t.Fatalf("a missing asset: status %d", rec.Code)
+	}
+	for _, route := range []string{"/", "/spaces/ab/pages/1", "/assets"} {
+		rec := get(route)
+		if rec.Body.String() != "<html>" || rec.Header().Get("Cache-Control") != "no-store" {
+			t.Errorf("%s: %q, cache %q", route, rec.Body.String(), rec.Header().Get("Cache-Control"))
+		}
+	}
+}
+
+func TestAnAppWithoutItsFrontendSaysSo(t *testing.T) {
+	handler := appHandler(fstest.MapFS{})
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status %d", rec.Code)
+	}
+}
+
 func TestAMissingViewerFileIsNotTheAppPage(t *testing.T) {
 	if rec := serve(t, "/vendor/pdfcraft/none.js"); rec.Code != http.StatusNotFound {
 		t.Fatalf("status %d", rec.Code)
@@ -153,12 +214,13 @@ func TestTheViewerFilesAreThePinnedOnes(t *testing.T) {
 	if len(lines) < 2 {
 		t.Fatalf("too few files: %d", len(lines))
 	}
+	vendor := os.DirFS("../../web/public/vendor")
 	for _, line := range lines {
 		want, name, found := strings.Cut(line, "  ")
 		if !found {
 			t.Fatalf("bad line: %q", line)
 		}
-		data, err := os.ReadFile(filepath.Join("../../web/public/vendor", name))
+		data, err := fs.ReadFile(vendor, name)
 		if err != nil {
 			t.Fatal(err)
 		}

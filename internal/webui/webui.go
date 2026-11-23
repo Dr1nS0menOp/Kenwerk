@@ -114,7 +114,7 @@ func serveViewerFile(w http.ResponseWriter, r *http.Request, root fs.FS, name, p
 	} else if contentType := mime.TypeByExtension(path.Ext(name)); contentType != "" {
 		h.Set("Content-Type", contentType)
 	}
-	_, _ = w.Write(data)
+	_, _ = w.Write(data) // #nosec G705 -- data is a file of the embedded build, not input: the path only picks it, fs.FS refuses "..", and viewerPolicy confines it.
 }
 
 // Handler serves static assets and falls back to index.html, so client-side
@@ -132,8 +132,7 @@ func Handler(notFound http.HandlerFunc, drawingOrigin func() string, publicOrigi
 func newHandler(root fs.FS, notFound http.HandlerFunc, drawingOrigin func() string, publicOrigin string) http.Handler {
 	files := http.FileServerFS(root)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if (r.Method != http.MethodGet && r.Method != http.MethodHead) ||
-			strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/scim/") {
+		if !ownedByApp(r) {
 			notFound(w, r)
 			return
 		}
@@ -147,17 +146,13 @@ func newHandler(root fs.FS, notFound http.HandlerFunc, drawingOrigin func() stri
 			return
 		}
 		if name != "" && name != "index.html" {
-			if f, err := root.Open(name); err == nil {
-				info, statErr := f.Stat()
-				_ = f.Close()
-				if statErr == nil && !info.IsDir() {
-					// Vite puts a content hash in these names, so they never change.
-					if strings.HasPrefix(name, "assets/") {
-						h.Set("Cache-Control", "public, max-age=31536000, immutable")
-					}
-					files.ServeHTTP(w, r)
-					return
+			if isFile(root, name) {
+				// Vite puts a content hash in these names, so they never change.
+				if strings.HasPrefix(name, "assets/") {
+					h.Set("Cache-Control", "public, max-age=31536000, immutable")
 				}
+				files.ServeHTTP(w, r)
+				return
 			}
 			// A missing asset must not turn into the app page.
 			if path.Ext(name) != "" {
@@ -165,13 +160,39 @@ func newHandler(root fs.FS, notFound http.HandlerFunc, drawingOrigin func() stri
 				return
 			}
 		}
-		index, err := fs.ReadFile(root, "index.html")
-		if err != nil {
-			http.Error(w, "The frontend was not built. Run: make web", http.StatusServiceUnavailable)
-			return
-		}
-		h.Set("Content-Type", "text/html; charset=utf-8")
-		h.Set("Cache-Control", "no-store")
-		_, _ = w.Write(index)
+		serveIndex(w, root)
 	})
+}
+
+// ownedByApp reports whether the app answers r: a read outside the API and SCIM.
+func ownedByApp(r *http.Request) bool {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		return false
+	}
+	return !strings.HasPrefix(r.URL.Path, "/api/") && !strings.HasPrefix(r.URL.Path, "/scim/")
+}
+
+// isFile reports whether name is a file in root, not a folder.
+func isFile(root fs.FS, name string) bool {
+	f, err := root.Open(name)
+	if err != nil {
+		return false
+	}
+	info, statErr := f.Stat()
+	_ = f.Close()
+	return statErr == nil && !info.IsDir()
+}
+
+// serveIndex answers with the app page, which is never cached because it names the assets of
+// the current build.
+func serveIndex(w http.ResponseWriter, root fs.FS) {
+	index, err := fs.ReadFile(root, "index.html")
+	if err != nil {
+		http.Error(w, "The frontend was not built. Run: make web", http.StatusServiceUnavailable)
+		return
+	}
+	h := w.Header()
+	h.Set("Content-Type", "text/html; charset=utf-8")
+	h.Set("Cache-Control", "no-store")
+	_, _ = w.Write(index)
 }
