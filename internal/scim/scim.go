@@ -44,7 +44,7 @@ const (
 	schemaSchema  = "urn:ietf:params:scim:schemas:core:2.0:Schema"
 	contentType   = "application/scim+json"
 	maxBody       = 2 << 20
-	tokenPrefix   = "kenwerk_scim_"
+	tokenPrefix   = "kenwerk_scim_" // #nosec G101 -- the public prefix of every token, so a scanner can spot one; no secret.
 
 	// A token always ends: bearer tokens need a lifetime the provider can check.
 	tokenLife    = 365 * 24 * time.Hour
@@ -521,12 +521,18 @@ func (s *Service) applyUser(c identity.Caller, w http.ResponseWriter, r *http.Re
 }
 
 type patchRequest struct {
-	Operations []struct {
-		Op    string          `json:"op"`
-		Path  string          `json:"path"`
-		Value json.RawMessage `json:"value"`
-	} `json:"Operations"`
+	Operations []patchOp `json:"Operations"`
 }
+
+// patchOp is one operation of a PATCH (RFC 7644, 3.5.2).
+type patchOp struct {
+	Op    string          `json:"op"`
+	Path  string          `json:"path"`
+	Value json.RawMessage `json:"value"`
+}
+
+// errBadValue is a value of a PATCH that cannot be read, which the client is told as such.
+var errBadValue = errors.New("scim: a value is not valid")
 
 func patchString(raw json.RawMessage) string {
 	var s string
@@ -553,54 +559,66 @@ func (s *Service) PatchUser(c identity.Caller, w http.ResponseWriter, r *http.Re
 	}
 	e := identity.External{Email: u.Email, DisplayName: u.DisplayName, Username: u.Username, ExternalID: u.ExternalID,
 		Source: identity.SourceSCIM, Active: u.Status == identity.StatusActive}
-	apply := func(path string, value json.RawMessage) error {
-		switch p := strings.ToLower(path); {
-		case p == "active":
-			var b boolish
-			if err := json.Unmarshal(value, &b); err != nil {
-				return err
-			}
-			e.Active = bool(b)
-		case p == "username":
-			e.Username = patchString(value)
-		case p == "displayname" || p == "name.formatted":
-			e.DisplayName = patchString(value)
-		case p == "externalid":
-			e.ExternalID = patchString(value)
-		case strings.HasPrefix(p, "emails"):
-			var list []email
-			if json.Unmarshal(value, &list) == nil && len(list) > 0 {
-				e.Email = list[0].Value
-			} else {
-				e.Email = patchString(value)
-			}
-		}
-		return nil // attributes we do not store are ignored, as RFC 7644 allows
+	if err := patchUser(&e, in.Operations); err != nil {
+		WriteError(w, http.StatusBadRequest, "invalidValue", "A value is not valid.")
+		return
 	}
-	for _, op := range in.Operations {
+	s.applyUser(c, w, r, id, e)
+}
+
+// patchUser applies the operations of a PATCH to e, and fails on a value it cannot read.
+func patchUser(e *identity.External, ops []patchOp) error {
+	for _, op := range ops {
 		if strings.EqualFold(op.Op, "remove") {
 			continue // nothing we store can be removed: every field is required
 		}
 		if op.Path != "" {
-			if err := apply(op.Path, op.Value); err != nil {
-				WriteError(w, http.StatusBadRequest, "invalidValue", "A value is not valid.")
-				return
+			if err := patchUserAttribute(e, op.Path, op.Value); err != nil {
+				return err
 			}
 			continue
 		}
 		var obj map[string]json.RawMessage
 		if err := json.Unmarshal(op.Value, &obj); err != nil {
-			WriteError(w, http.StatusBadRequest, "invalidValue", "A value is not valid.")
-			return
+			return err
 		}
 		for k, v := range obj {
-			if err := apply(k, v); err != nil {
-				WriteError(w, http.StatusBadRequest, "invalidValue", "A value is not valid.")
-				return
+			if err := patchUserAttribute(e, k, v); err != nil {
+				return err
 			}
 		}
 	}
-	s.applyUser(c, w, r, id, e)
+	return nil
+}
+
+// patchUserAttribute sets one attribute of e from a PATCH.
+func patchUserAttribute(e *identity.External, path string, value json.RawMessage) error {
+	switch p := strings.ToLower(path); {
+	case p == "active":
+		var b boolish
+		if err := json.Unmarshal(value, &b); err != nil {
+			return err
+		}
+		e.Active = bool(b)
+	case p == "username":
+		e.Username = patchString(value)
+	case p == "displayname" || p == "name.formatted":
+		e.DisplayName = patchString(value)
+	case p == "externalid":
+		e.ExternalID = patchString(value)
+	case strings.HasPrefix(p, "emails"):
+		e.Email = patchEmail(value)
+	}
+	return nil // attributes we do not store are ignored, as RFC 7644 allows
+}
+
+// patchEmail reads an address from a PATCH: the first of a list of emails, or a plain value.
+func patchEmail(value json.RawMessage) string {
+	var list []email
+	if json.Unmarshal(value, &list) == nil && len(list) > 0 {
+		return list[0].Value
+	}
+	return patchString(value)
 }
 
 // DeleteUser handles DELETE /Users/{id}. Accounts are disabled and not removed:
@@ -662,54 +680,78 @@ func (s *Service) ListGroups(w http.ResponseWriter, r *http.Request) {
 	start, count := paging(r)
 	var groups []identity.Group
 	var total int
-	if raw, ok := filter["id"]; ok {
-		// Entra ID checks membership with: id eq "x" and members.value eq "y".
-		id, err := uuid.Parse(raw)
-		if err == nil {
-			g, err := s.identity.GetGroup(r.Context(), s.pool, id)
-			switch {
-			case err == nil:
-				groups, total = []identity.Group{g}, 1
-			case !apperr.IsNotFound(err):
-				s.fail(w, err)
-				return
-			}
-		}
-		if member, ok := filter["members.value"]; ok && total == 1 {
-			members, err := s.identity.GroupMembers(r.Context(), groups[0].ID)
-			if err != nil {
-				s.fail(w, err)
-				return
-			}
-			found := false
-			for _, m := range members {
-				found = found || m.ID.String() == member
-			}
-			if !found {
-				groups, total = nil, 0
-			}
-		}
+	if _, ok := filter["id"]; ok {
+		groups, total, err = s.groupByID(r.Context(), filter)
 	} else {
-		var err error
 		groups, total, err = s.identity.ListGroups(r.Context(), identity.GroupFilter{Name: filter["displayname"], ExternalID: filter["externalid"],
 			Limit: max(count, 1), Offset: start - 1})
-		if err != nil {
+	}
+	if err != nil {
+		s.fail(w, err)
+		return
+	}
+	out := make([]groupResource, 0, len(groups))
+	if count > 0 {
+		if out, err = s.groupResources(r, groups); err != nil {
 			s.fail(w, err)
 			return
 		}
 	}
-	out := make([]groupResource, 0, len(groups))
-	if count > 0 {
-		for _, g := range groups {
-			res, err := s.groupOut(r.Context(), g, !excludesMembers(r))
-			if err != nil {
-				s.fail(w, err)
-				return
-			}
-			out = append(out, res)
+	writeJSON(w, http.StatusOK, listResponse(out, total, start, len(out)))
+}
+
+// groupByID finds the group a filter names by its id, if it exists. With members.value as
+// well, it finds the group only when that user is a member: Entra ID checks membership with
+// id eq "x" and members.value eq "y". An id that is no id finds nothing.
+func (s *Service) groupByID(ctx context.Context, filter map[string]string) ([]identity.Group, int, error) {
+	var groups []identity.Group
+	var total int
+	id, err := uuid.Parse(filter["id"])
+	if err == nil {
+		g, err := s.identity.GetGroup(ctx, s.pool, id)
+		switch {
+		case err == nil:
+			groups, total = []identity.Group{g}, 1
+		case !apperr.IsNotFound(err):
+			return nil, 0, err
 		}
 	}
-	writeJSON(w, http.StatusOK, listResponse(out, total, start, len(out)))
+	if member, ok := filter["members.value"]; ok && total == 1 {
+		found, err := s.hasMember(ctx, groups[0].ID, member)
+		if err != nil {
+			return nil, 0, err
+		}
+		if !found {
+			groups, total = nil, 0
+		}
+	}
+	return groups, total, nil
+}
+
+// hasMember says whether the user with the id written as member is in the group.
+func (s *Service) hasMember(ctx context.Context, group uuid.UUID, member string) (bool, error) {
+	members, err := s.identity.GroupMembers(ctx, group)
+	if err != nil {
+		return false, err
+	}
+	found := false
+	for _, m := range members {
+		found = found || m.ID.String() == member
+	}
+	return found, nil
+}
+
+// groupResources gives the groups as SCIM resources, with their members unless r excludes them.
+func (s *Service) groupResources(r *http.Request, groups []identity.Group) ([]groupResource, error) {
+	out := make([]groupResource, 0, len(groups))
+	for _, g := range groups {
+		res, err := s.groupOut(r.Context(), g, !excludesMembers(r))
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, res)
+	}
+	return out, nil
 }
 
 // GetGroup handles GET /Groups/{id}.
@@ -809,91 +851,102 @@ func (s *Service) PatchGroup(c identity.Caller, w http.ResponseWriter, r *http.R
 	if !read(w, r, &in) {
 		return
 	}
-	ctx := r.Context()
-	bad := func() { WriteError(w, http.StatusBadRequest, "invalidValue", "A value is not valid.") }
 	for _, op := range in.Operations {
-		kind, path := strings.ToLower(op.Op), strings.TrimSpace(op.Path)
-		var refs []memberRef
-		if strings.EqualFold(path, "members") && len(op.Value) > 0 && json.Unmarshal(op.Value, &refs) != nil {
-			bad()
+		err := s.patchGroup(r.Context(), c, id, op)
+		if errors.Is(err, errBadValue) {
+			WriteError(w, http.StatusBadRequest, "invalidValue", "A value is not valid.")
 			return
 		}
-		members, err := memberIDs(refs)
 		if err != nil {
-			bad()
+			s.fail(w, err)
 			return
-		}
-		switch {
-		case strings.EqualFold(path, "members") && kind == "add":
-			for _, m := range members {
-				if err := s.identity.AddGroupMember(ctx, c, id, m); err != nil {
-					s.fail(w, err)
-					return
-				}
-			}
-		case strings.EqualFold(path, "members") && kind == "replace":
-			if err := s.identity.SetGroupMembers(ctx, c, id, members); err != nil {
-				s.fail(w, err)
-				return
-			}
-		case strings.EqualFold(path, "members") && kind == "remove":
-			if len(op.Value) == 0 {
-				if err := s.identity.SetGroupMembers(ctx, c, id, nil); err != nil {
-					s.fail(w, err)
-					return
-				}
-				continue
-			}
-			for _, m := range members {
-				if err := s.identity.RemoveGroupMember(ctx, c, id, m); err != nil {
-					s.fail(w, err)
-					return
-				}
-			}
-		case memberPath.MatchString(path) && kind == "remove":
-			m, err := uuid.Parse(memberPath.FindStringSubmatch(path)[1])
-			if err != nil {
-				bad()
-				return
-			}
-			if err := s.identity.RemoveGroupMember(ctx, c, id, m); err != nil {
-				s.fail(w, err)
-				return
-			}
-		case strings.EqualFold(path, "displayName"):
-			if err := s.renameGroup(ctx, c, id, patchString(op.Value)); err != nil {
-				s.fail(w, err)
-				return
-			}
-		case path == "":
-			var obj struct {
-				DisplayName string      `json:"displayName"`
-				Members     []memberRef `json:"members"`
-			}
-			if json.Unmarshal(op.Value, &obj) != nil {
-				bad()
-				return
-			}
-			if obj.DisplayName != "" {
-				if err := s.renameGroup(ctx, c, id, obj.DisplayName); err != nil {
-					s.fail(w, err)
-					return
-				}
-			}
-			ids, err := memberIDs(obj.Members)
-			if err != nil {
-				bad()
-				return
-			}
-			for _, m := range ids {
-				if err := s.identity.AddGroupMember(ctx, c, id, m); err != nil {
-					s.fail(w, err)
-					return
-				}
-			}
 		}
 	}
 	s.sendGroup(w, r, id, http.StatusOK)
+}
+
+// patchGroup applies one operation of a PATCH to a group. A value it cannot read is errBadValue.
+func (s *Service) patchGroup(ctx context.Context, c identity.Caller, id uuid.UUID, op patchOp) error {
+	kind, path := strings.ToLower(op.Op), strings.TrimSpace(op.Path)
+	switch {
+	case strings.EqualFold(path, "members"):
+		return s.patchMembers(ctx, c, id, op)
+	case memberPath.MatchString(path) && kind == "remove":
+		m, err := uuid.Parse(memberPath.FindStringSubmatch(path)[1])
+		if err != nil {
+			return errBadValue
+		}
+		return s.identity.RemoveGroupMember(ctx, c, id, m)
+	case strings.EqualFold(path, "displayName"):
+		return s.renameGroup(ctx, c, id, patchString(op.Value))
+	case path == "":
+		return s.patchWholeGroup(ctx, c, id, op.Value)
+	}
+	return nil
+}
+
+// patchMembers adds, replaces or removes members of a group. A remove without a value
+// removes them all.
+func (s *Service) patchMembers(ctx context.Context, c identity.Caller, id uuid.UUID, op patchOp) error {
+	var refs []memberRef
+	if len(op.Value) > 0 && json.Unmarshal(op.Value, &refs) != nil {
+		return errBadValue
+	}
+	members, err := memberIDs(refs)
+	if err != nil {
+		return errBadValue
+	}
+	switch strings.ToLower(op.Op) {
+	case "add":
+		return s.addMembers(ctx, c, id, members)
+	case "replace":
+		return s.identity.SetGroupMembers(ctx, c, id, members)
+	case "remove":
+		if len(op.Value) == 0 {
+			return s.identity.SetGroupMembers(ctx, c, id, nil)
+		}
+		return s.removeMembers(ctx, c, id, members)
+	}
+	return nil
+}
+
+// patchWholeGroup applies a PATCH without a path: a new name, and members to add.
+func (s *Service) patchWholeGroup(ctx context.Context, c identity.Caller, id uuid.UUID, value json.RawMessage) error {
+	var obj struct {
+		DisplayName string      `json:"displayName"`
+		Members     []memberRef `json:"members"`
+	}
+	if json.Unmarshal(value, &obj) != nil {
+		return errBadValue
+	}
+	if obj.DisplayName != "" {
+		if err := s.renameGroup(ctx, c, id, obj.DisplayName); err != nil {
+			return err
+		}
+	}
+	members, err := memberIDs(obj.Members)
+	if err != nil {
+		return errBadValue
+	}
+	return s.addMembers(ctx, c, id, members)
+}
+
+func (s *Service) addMembers(ctx context.Context, c identity.Caller, id uuid.UUID, members []uuid.UUID) error {
+	for _, m := range members {
+		if err := s.identity.AddGroupMember(ctx, c, id, m); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Service) removeMembers(ctx context.Context, c identity.Caller, id uuid.UUID, members []uuid.UUID) error {
+	for _, m := range members {
+		if err := s.identity.RemoveGroupMember(ctx, c, id, m); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Service) renameGroup(ctx context.Context, c identity.Caller, id uuid.UUID, name string) error {
