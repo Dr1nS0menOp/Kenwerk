@@ -146,8 +146,19 @@ type Input struct {
 	UpdateMode    string `json:"update_mode"`
 }
 
+// clean tidies what a person set and fills in the defaults, and refuses what does not fit.
 func (in *Input) clean() error {
 	in.Name, in.Address = strings.TrimSpace(in.Name), strings.TrimRight(strings.TrimSpace(in.Address), "/")
+	if err := in.checkNameAndAddress(); err != nil {
+		return err
+	}
+	if err := in.cleanLook(); err != nil {
+		return err
+	}
+	return in.cleanUpdateMode()
+}
+
+func (in *Input) checkNameAndAddress() error {
 	if in.Name == "" || len([]rune(in.Name)) > maxNameRunes || strings.ContainsAny(in.Name, "\r\n\x00") {
 		return apperr.Invalid("Give the site a name of at most 200 characters.")
 	}
@@ -157,6 +168,11 @@ func (in *Input) clean() error {
 	if in.Address != "" && !strings.HasPrefix(in.Address, "https://") && !strings.HasPrefix(in.Address, "http://") {
 		return apperr.Invalid("The address starts with https://.")
 	}
+	return nil
+}
+
+// cleanLook fills in the default language and accent, and refuses ones we do not know.
+func (in *Input) cleanLook() error {
 	if in.Language == "" {
 		in.Language = "en"
 	}
@@ -169,6 +185,11 @@ func (in *Input) clean() error {
 	if _, ok := Accents[in.Accent]; !ok {
 		return apperr.Invalid("Choose one of the accent colours.")
 	}
+	return nil
+}
+
+// cleanUpdateMode makes an update by hand the default, and refuses a mode we do not know.
+func (in *Input) cleanUpdateMode() error {
 	if in.UpdateMode == "" {
 		in.UpdateMode = UpdateManual
 	}

@@ -253,6 +253,33 @@ func (b *builder) shell(title, body, nav string) string {
 }
 
 func (b *builder) page(ctx context.Context, p sitePage) error {
+	shown, err := b.files(ctx, p)
+	if err != nil {
+		return err
+	}
+	document.Walk(p.doc, func(n document.Node) {
+		if alt, _ := n.Attrs["alt"].(string); n.Type == document.TypeImage && alt == "" {
+			b.report.NoAlt = append(b.report.NoAlt, p.page.Title)
+		}
+	})
+	options := b.htmlOptions(p, shown)
+	p.doc = document.ResolveLinks(p.doc, b.titleOnSite)
+	body := document.ToHTML(p.doc, options)
+	footer := "Updated " + p.updated
+	if b.v.ShowNames && p.author != "" {
+		footer += " by " + p.author
+	}
+	body += `<p class="updated">` + html.EscapeString(footer) + `</p>`
+	b.search = append(b.search, searchEntry{Title: p.page.Title, URL: url.PathEscape(p.file), Text: searchText(p.doc, b.v.ShowNames)})
+	nav := b.nav(p.page.ID)
+	if b.single {
+		nav = ""
+	}
+	return b.write(p.file, b.shell(p.page.Title, body, nav))
+}
+
+// files writes the files a page shows, and returns the name each one has on the site.
+func (b *builder) files(ctx context.Context, p sitePage) (map[uuid.UUID]string, error) {
 	shown := map[uuid.UUID]string{}
 	for _, id := range document.AttachmentIDs(p.doc) {
 		a, ok := p.files[id]
@@ -261,17 +288,19 @@ func (b *builder) page(ctx context.Context, p sitePage) error {
 		}
 		name, err := b.file(ctx, p, a)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if name != "" {
 			shown[id] = name
 		}
 	}
-	document.Walk(p.doc, func(n document.Node) {
-		if alt, _ := n.Attrs["alt"].(string); n.Type == document.TypeImage && alt == "" {
-			b.report.NoAlt = append(b.report.NoAlt, p.page.Title)
-		}
-	})
+	return shown, nil
+}
+
+// htmlOptions points the files of a page to their names on the site and its links to the
+// pages on the site, noting a link that leads nowhere, and keeps names out unless the site
+// shows them.
+func (b *builder) htmlOptions(p sitePage, shown map[uuid.UUID]string) document.HTMLOptions {
 	local := func(id uuid.UUID) (string, bool) {
 		href, ok := shown[id]
 		return href, ok
@@ -287,19 +316,7 @@ func (b *builder) page(ctx context.Context, p sitePage) error {
 	if !b.v.ShowNames {
 		options.Mention = func(document.Node) string { return neutralMention }
 	}
-	p.doc = document.ResolveLinks(p.doc, b.titleOnSite)
-	body := document.ToHTML(p.doc, options)
-	footer := "Updated " + p.updated
-	if b.v.ShowNames && p.author != "" {
-		footer += " by " + p.author
-	}
-	body += `<p class="updated">` + html.EscapeString(footer) + `</p>`
-	b.search = append(b.search, searchEntry{Title: p.page.Title, URL: url.PathEscape(p.file), Text: searchText(p.doc, b.v.ShowNames)})
-	nav := b.nav(p.page.ID)
-	if b.single {
-		nav = ""
-	}
-	return b.write(p.file, b.shell(p.page.Title, body, nav))
+	return options
 }
 
 // titleOnSite names a page on this site. Anything else stays out of a public file (spec 023, D4).
@@ -745,20 +762,8 @@ func (s *Service) Rollback(ctx context.Context, c identity.Caller, id uuid.UUID,
 	if err != nil {
 		return err
 	}
-	var raw []byte
-	var state string
-	err = s.pool.QueryRow(ctx, `SELECT state, report FROM public_site_builds WHERE site_id = $1 AND number = $2`, id, number).Scan(&state, &raw)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return apperr.NotFound()
-	}
+	report, err := s.oldBuildReport(ctx, id, number)
 	if err != nil {
-		return err
-	}
-	if state != "old" {
-		return apperr.Conflict("build_not_old", "Choose an earlier build.")
-	}
-	report := *newReport()
-	if err := json.Unmarshal(raw, &report); err != nil {
 		return err
 	}
 	if err := s.buildStillAllowed(ctx, v, report); err != nil {
@@ -779,6 +784,28 @@ func (s *Service) Rollback(ctx context.Context, c identity.Caller, id uuid.UUID,
 		}
 		return record(ctx, tx, c, "site.changed", v, map[string]any{"rolled_back_to": number})
 	})
+}
+
+// oldBuildReport reads the report of an earlier build of a site, and refuses the live one or
+// one still being made.
+func (s *Service) oldBuildReport(ctx context.Context, id uuid.UUID, number int) (Report, error) {
+	var raw []byte
+	var state string
+	err := s.pool.QueryRow(ctx, `SELECT state, report FROM public_site_builds WHERE site_id = $1 AND number = $2`, id, number).Scan(&state, &raw)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Report{}, apperr.NotFound()
+	}
+	if err != nil {
+		return Report{}, err
+	}
+	if state != "old" {
+		return Report{}, apperr.Conflict("build_not_old", "Choose an earlier build.")
+	}
+	report := *newReport()
+	if err := json.Unmarshal(raw, &report); err != nil {
+		return Report{}, err
+	}
+	return report, nil
 }
 
 func (s *Service) buildStillAllowed(ctx context.Context, v Site, report Report) error {
@@ -818,14 +845,7 @@ func (s *Service) withdraw(ctx context.Context, c identity.Caller, v Site) error
 		return err
 	}
 	root := s.folder(v)
-	dir := filepath.Join(root, buildsFolder, strconv.Itoa(number))
-	if err := os.MkdirAll(dir, folderMode); err != nil {
-		return err
-	}
-	if err := os.WriteFile(filepath.Join(dir, "index.html"), []byte(withdrawnPage), fileMode); err != nil {
-		return err
-	}
-	if err := os.WriteFile(filepath.Join(dir, "robots.txt"), []byte("User-agent: *\nDisallow: /\n"), fileMode); err != nil {
+	if err := writeWithdrawnBuild(filepath.Join(root, buildsFolder, strconv.Itoa(number))); err != nil {
 		return err
 	}
 	if err := switchLive(root, number); err != nil {
@@ -851,6 +871,18 @@ func (s *Service) withdraw(ctx context.Context, c identity.Caller, v Site) error
 		}
 		return record(ctx, tx, c, "site.withdrawn", v, nil)
 	})
+}
+
+// writeWithdrawnBuild writes a build in dir that says the site was withdrawn and asks
+// search engines to forget it.
+func writeWithdrawnBuild(dir string) error {
+	if err := os.MkdirAll(dir, folderMode); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(dir, "index.html"), []byte(withdrawnPage), fileMode); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dir, "robots.txt"), []byte("User-agent: *\nDisallow: /\n"), fileMode)
 }
 
 func removeOtherBuilds(root string, keep int) error {

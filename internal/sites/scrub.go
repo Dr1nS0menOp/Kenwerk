@@ -34,7 +34,7 @@ func (s *Service) scrub(ctx context.Context, dir string) error {
 		host = u.Host
 	}
 	for _, file := range files {
-		data, err := os.ReadFile(file)
+		data, err := os.ReadFile(file) // #nosec G304 -- textFiles lists the build this service just wrote below its own folder.
 		if err != nil {
 			return err
 		}
@@ -57,6 +57,25 @@ func (s *Service) findLeak(ctx context.Context, text, host string) (string, erro
 	if strings.Contains(text, "/api/") {
 		return "an API path", nil
 	}
+	pageID, err := s.holdsPageID(ctx, text)
+	if err != nil {
+		return "", err
+	}
+	if pageID {
+		return "an internal page id", nil
+	}
+	userEmail, err := s.holdsUserEmail(ctx, text)
+	if err != nil {
+		return "", err
+	}
+	if userEmail {
+		return "the e-mail address of a user", nil
+	}
+	return "", nil
+}
+
+// holdsPageID says whether text holds the id of a page of this instance.
+func (s *Service) holdsPageID(ctx context.Context, text string) (bool, error) {
 	for _, found := range uuidPattern.FindAllString(text, -1) {
 		id, err := uuid.Parse(found)
 		if err != nil {
@@ -64,29 +83,31 @@ func (s *Service) findLeak(ctx context.Context, text, host string) (string, erro
 		}
 		var known bool
 		if err := s.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pages WHERE id = $1)`, id).Scan(&known); err != nil {
-			return "", err
+			return false, err
 		}
 		if known {
-			return "an internal page id", nil
+			return true, nil
 		}
 	}
+	return false, nil
+}
+
+// holdsUserEmail says whether text holds the e-mail address of a user, in any case.
+func (s *Service) holdsUserEmail(ctx context.Context, text string) (bool, error) {
 	addresses := emailPattern.FindAllString(text, -1)
 	if len(addresses) == 0 {
-		return "", nil
+		return false, nil
 	}
 	for i := range addresses {
 		addresses[i] = strings.ToLower(addresses[i])
 	}
 	rows, err := s.pool.Query(ctx, `SELECT email FROM users WHERE lower(email) = ANY($1) LIMIT 1`, addresses)
 	if err != nil {
-		return "", err
+		return false, err
 	}
 	found, err := pgx.CollectRows(rows, pgx.RowTo[string])
 	if err != nil {
-		return "", err
+		return false, err
 	}
-	if len(found) > 0 {
-		return "the e-mail address of a user", nil
-	}
-	return "", nil
+	return len(found) > 0, nil
 }
