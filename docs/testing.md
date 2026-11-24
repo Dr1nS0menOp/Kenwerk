@@ -17,7 +17,7 @@ Work comes in waves. Each wave:
 
 ## Every check
 
-"Push" means every push to `main`. CI also runs on every pull request; today the only pull requests are dependency updates from Renovate. "Nightly" is the scheduled run at 03:17 UTC. Local commands run inside the development container: start it with `scripts/dev up`, then prefix a command with `scripts/dev`, as [development.md](development.md) explains. `make check` runs every check marked † in one go.
+"Push" means every push to `main`. CI also runs on every pull request; today the only pull requests are dependency updates from Renovate. "Nightly" is the scheduled run at 03:17 UTC; it is four jobs, `nightly-fuzz`, `nightly-mutation` (six shares on six runners), `nightly-stryker` and `nightly-restore-drill`, and the product owner can start the whole workflow by hand from the Actions tab (`workflow_dispatch`). Local commands run inside the development container: start it with `scripts/dev up`, then prefix a command with `scripts/dev`, as [development.md](development.md) explains. `make check` runs every check marked † in one go.
 
 ### Code quality
 
@@ -89,10 +89,11 @@ Work comes in waves. Each wave:
 
 | What it proves | Tool | When | Run it locally | Defined in |
 |---|---|---|---|---|
-| Eight parsers survive random input: Markdown, normalising a document, Word files, front matter, bundle signatures, HTML import, SCIM filters and the search language, 30 or 60 seconds each | Go native fuzzing | Nightly | `make fuzz` | `Makefile` target `fuzz`, job `nightly` |
-| The tests catch a security rule broken on purpose: each mutation edits a copy of the code and must make a test fail | `scripts/mutation-check.sh` | Nightly (full) | `make mutation`; `MUTATION_CHANGED=<file of changed paths>` runs only what a change can affect | job `nightly` |
-| The frontend tests catch changed code; no file's mutation score may fall below its floor | Stryker 10.1.1, `cmd/ratchet` | Nightly | `make mutation-web` | `web/stryker.config.mjs`, `scripts/stryker-ratchet.txt` |
-| An encrypted backup restores on a clean installation: page, file, search, login, audit chain and database roles come back | `scripts/restore-drill.sh` | Nightly | `bash scripts/restore-drill.sh` | job `nightly` |
+| Every parser and rule with a fuzz target survives random input, all twelve targets: Markdown, normalising a document, Word files, front matter, bundle signatures, HTML import, archives, SCIM filters, the search language, template conditions, the rewriting of released pages and workflows, 30 or 60 seconds each. A target missing from the table fails the run; a target runs again only after Go's own fuzz race (golang/go#75804) | Go native fuzzing, `scripts/fuzz.sh` (its behaviour held by `scripts/fuzz-test.sh`) | Nightly | `make fuzz`; `FUZZ_ONLY=<target>` for one | `scripts/fuzz.sh`, job `nightly-fuzz` |
+| The tests catch a security rule broken on purpose: each mutation edits a copy of the code and must make a test fail | `scripts/mutation-check.sh` | Nightly (full, in six shares) | `make mutation`; `MUTATION_CHANGED=<file of changed paths>` runs only what a change can affect, `MUTATION_SHARD=k/n` one share | job `nightly-mutation` |
+| Every mutation still applies whole to the code, without running a test | `scripts/mutation-check.sh` | Push, pull request | `MUTATION_APPLY_ONLY=1 bash scripts/mutation-check.sh` | job `web` |
+| The frontend tests catch changed code; no file's mutation score may fall below its floor | Stryker 10.1.1, `cmd/ratchet` | Nightly | `make mutation-web`; `STRYKER_ARGS="--concurrency 2"` on a shared machine | `web/stryker.config.mjs`, `scripts/stryker-ratchet.txt`, job `nightly-stryker` |
+| An encrypted backup restores on a clean installation: page, file, search, login, audit chain and database roles come back | `scripts/restore-drill.sh` | Nightly | `bash scripts/restore-drill.sh` | job `nightly-restore-drill` |
 | A real identity provider (Authentik) provisions users and groups through SCIM, and a real browser logs in through it | `scripts/idp-test/run.sh` | By hand | `docker build -t kenwerk:local . && bash scripts/idp-test/run.sh` | the script |
 | How reading, search, saving and the whole app hold under load | k6 (`scripts/load/reading.js`, `scripts/stress/load.js`) and the scripts beside them | By hand, on machines of their own | `scripts/stress/README.md` | `scripts/load/`, `scripts/stress/` |
 | The topology of several nodes, and what happens when parts of it break | `scripts/ha/` | By hand; nothing here runs in CI | `scripts/ha/README.md` | `scripts/ha/`, spec 062 |
@@ -107,13 +108,13 @@ Measured on 2026-11-23, on `main` at `e5e8323`. Each count changes as waves land
 |---|---|---|
 | Go test files | 315 | `git ls-files '*_test.go' \| wc -l` |
 | Go test functions (without `TestMain`) | 1,930 | `git grep -E '^func Test[A-Z_]' -- '*_test.go' \| grep -vc 'func TestMain('` |
-| Go fuzz targets | 12, of which 8 run nightly | `git grep -E '^func Fuzz' -- '*_test.go' \| wc -l`; the nightly ones are in the `fuzz` target of the `Makefile` |
+| Go fuzz targets | 12, all fuzzed nightly | `git grep -E '^func Fuzz' -- '*_test.go' \| wc -l`; the table of times is in `scripts/fuzz.sh` |
 | End-to-end spec files | 43 | `git ls-files 'web/e2e/*.spec.ts' \| wc -l` |
 | End-to-end tests | 699 | `scripts/dev sh -c "cd web && npx playwright test --list" \| tail -1` |
 | Accessibility checks (axe) in end-to-end tests | 326 calls in 39 files | `git grep -c 'checkAccessibility(' -- 'web/e2e/*.spec.ts'` |
 | Vitest files and tests | 58 files, 956 tests | `scripts/dev sh -c "cd web && npx vitest run"` (the last lines) |
 | Tests of the service for editing together | 4 files, 24 tests | `git grep -E '^\s*(test\|it)\(' -- 'collab/*.test.mjs' \| wc -l` |
-| Mutations | 1,495: 1,444 Go, 39 frontend, 12 editing service | `grep -cE '^mutate(_web\|_collab)? ' scripts/mutation-check.sh` |
+| Mutations | 1,542: 1,486 Go, 44 frontend, 12 editing service (2026-11-24); six nightly shares of 257 each | `grep -cE '^mutate(_web\|_collab)? ' scripts/mutation-check.sh` |
 | Frontend files under Stryker, each with a floor | 16 | `grep -vcE '^(#\|$)' scripts/stryker-ratchet.txt` |
 | Approved design pictures | 259 | `git ls-files 'web/e2e/design-baselines/*.png' \| wc -l` |
 | Routes, each with an access rule | 625, of which 30 public | `grep -vc '^#' docs/api/routes.txt`; `grep -c ' public$' docs/api/routes.txt` |
@@ -189,7 +190,7 @@ One line per file in `web/e2e/`. Each file names its spec at the top.
 
 **Deny by default.** No route exists without an access rule (`TestRouteWithoutAccessRulePanics`). A refused administration request is refused and audited (`TestNonAdminIsDeniedAndAudited`). The literal rule in the matrix starts from "no" and grants only what a grant allows. Single sign-on makes no accounts and sign-up is off unless turned on (`TestSingleSignOnMakesNoAccountsByDefault`, `TestSignUpIsOffByDefaultAndOnlyForListedDomains`). An experimental part answers 404 until it is switched on (`TestANewInstallationRefusesEveryExperimentalPart`).
 
-**Mutation lines prove that a test guards each rule.** A test that passes may still prove nothing. `scripts/mutation-check.sh` holds 1,495 deliberate faults, such as dropping a permission check, an audit event or an escape. Each is applied to a copy of the code, and the script fails if the tests stay green. Every new security rule adds a line ([development.md](development.md)). Stryker does the same, without a list, for 16 frontend files.
+**Mutation lines prove that a test guards each rule.** A test that passes may still prove nothing. `scripts/mutation-check.sh` holds 1,542 deliberate faults, such as dropping a permission check, an audit event or an escape. Each is applied to a copy of the code, and the script fails if the tests stay green. Every new security rule adds a line ([development.md](development.md)). Stryker does the same, without a list, for 16 frontend files.
 
 **Self-tests.** The project attacks its own software. It is a self-test, not an independent penetration test, and the reports say so:
 
@@ -242,7 +243,7 @@ The Playwright configuration has no retries (`retries: 0`), so a flaky test show
 
 Decided by the product owner on 2026-11-23: before 1.0 is published, there will be one full public test report. It is one run of every check on this page against the release candidate, with each result. It covers:
 
-- CI: every job of `ci.yml`, the nightly one included;
+- CI: every job of `ci.yml`, the four nightly ones included;
 - the end-to-end suite and the design pictures;
 - the full mutation check and Stryker;
 - fuzzing;
@@ -259,8 +260,7 @@ The results will be kept in `docs/reports/`, naming the commit. Readers can then
 - **No load test in CI.** The k6 scripts run by hand, on machines of their own. No smoke test runs on each push and no 5,000-person run runs at night. Open: the product owner decides whether a load test joins CI.
 - **Tests use one shared PostgreSQL**, not Testcontainers. CI uses a `postgres:16` service container. During development, tests use the database of the Compose development environment. Each test makes its own database in it, so tests do not share data, but they do share one server and its settings. NATS, where a test uses it, is the embedded server of `internal/queue`, in the same process.
 - **No pull requests for waves.** A wave lands as a local squash-merge and a push to `main`. CI runs after the push, not before, and `main` has no branch protection. As a result, the DCO job, which runs only on pull requests, does not check landed commits. Every commit on `main` except the initial one carries a `Signed-off-by` line, which `git log` shows. Open: the product owner decides on pull requests and branch protection. The [beta criteria](beta-criteria.md) ask for branch protection (S7) before outside contributions are invited.
-- **The nightly job has not passed since 12 November 2026.** On most nights the full mutation check failed, or the hosted runner ran out of time or disk during it. The steps after it, Stryker and the restore drill, then did not run. Until the nightly job is green again, the full mutation run proves nothing new. Builders run the mutations their change can affect before they land. See the scheduled runs in the repository's Actions tab.
-- **Four of the twelve fuzz targets** run only their seed inputs, as ordinary tests, and are not fuzzed at night: `FuzzEvaluationIsTotalAndBounded`, `FuzzImportArchive`, `FuzzRewriteLeavesNoDraftID` and `FuzzValidateNeverAcceptsAWorkflowWithoutAWayToApproval`.
+- **The nightly checks have not passed on hosted runners since 12 November 2026.** The single nightly job ran out of disk in the full mutation check, so Stryker and the restore drill never ran. Wave NG1 split it into four jobs and the mutation check into six shares, and proved each step on the build machine, but the full mutation check has not yet run end to end on hosted runners; the first run after NG1, by schedule or started by hand, is that proof. See the scheduled runs in the repository's Actions tab.
 - **Editing together in two browsers** (`collab.spec.ts`, 10 tests) runs only with `E2E_COLLAB=1`. CI does not set it, so CI skips these tests. The service's own tests (`make collab-check`) do run.
-- **CI keeps no pictures of a failed end-to-end run.** Only the annotations of a failure can be read without a login.
+- **The pictures of a failed end-to-end run are kept for 7 days only.** Since wave FX13 the e2e job uploads `web/test-results` (Playwright's actual, expected and diff images and traces) as the artifact `e2e-test-results` when it fails; after that, only the annotations remain.
 - **Outside review is wanted.** The code is written by AI sessions and read by no person ([SEC-1024](blueprint/06-security-and-compliance/11-supply-chain-and-disclosure.md)). There is no budget for paid review (ADR-029), and there is no outside review after every wave (ADR-043). One outside reader is planned before 1.0, for permissions, login and restore. Volunteers are welcome ([blueprint 09](blueprint/09-way-of-working.md)): a penetration tester, or an experienced Go developer who reviews at milestones.

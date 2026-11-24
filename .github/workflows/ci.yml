@@ -9,7 +9,9 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: "17 3 * * *" # nightly: fuzzing, mutation check and restore drill
+    - cron: "17 3 * * *" # nightly: fuzzing, mutation checks and restore drill
+  # By hand from the Actions tab: every job, the nightly ones included.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -88,6 +90,10 @@ jobs:
         working-directory: web
       - name: types, lint, translation strings, unit tests
         run: make web-check
+      # About a minute, no test run: a change that leaves a mutation of the nightly check behind
+      # fails here, not in the night (wave NG1 found 38 that had drifted).
+      - name: every mutation still applies to the code
+        run: MUTATION_APPLY_ONLY=1 bash scripts/mutation-check.sh
       - run: make collab-check
       # Spec 097: every package, development ones too, of the frontend and of the service
       # for editing together. This covers what the shipped-only audit covered before.
@@ -174,7 +180,7 @@ jobs:
       - name: release N and N+1 side by side on one database
         env:
           # The target branch of a pull request, or main before this push. Empty on
-          # a schedule, and then the script takes the commit before.
+          # a schedule or a start by hand, and then the script takes the commit before.
           RELEASE_N: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: bash scripts/upgrade-check.sh "$RELEASE_N"
 
@@ -380,9 +386,40 @@ jobs:
           docker run --rm -v "$PWD/dist:/dist:ro" fedora:41 sh -c \
             'rpm -i /dist/*_amd64.rpm && id kenwerk && test -d /var/lib/kenwerk && kenwerk version'
 
-  nightly:
-    if: github.event_name == 'schedule'
+  # The nightly checks are four jobs, so one that fails or runs long never keeps the others from
+  # running, and each fits a hosted runner's time and disk. They run on the schedule and when
+  # the workflow is started by hand.
+  nightly-fuzz:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: go.mod
+      - name: the fuzz script runs a target again only after Go's own race
+        run: bash scripts/fuzz-test.sh
+      # Every fuzz target in the code, about ten minutes. A failure becomes an annotation.
+      - name: fuzz the parsers
+        run: |
+          status=0
+          make fuzz 2>&1 | tee fuzz.txt || status=$?
+          grep -E '^(FAILED|RETRIED) ' fuzz.txt | head -40 |
+            while IFS= read -r line; do echo "::error title=fuzz::$line"; done || true
+          tail -1 fuzz.txt
+          exit "$status"
+
+  # The full Go mutation check (spec 037) in six shares, one runner each: every mutation runs in
+  # exactly one share. In one job it outgrew a runner, which ran out of disk after three hours.
+  nightly-mutation:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        share: [1, 2, 3, 4, 5, 6]
     services:
       postgres:
         image: postgres:16@sha256:3950ad7c3148ca2175ef1b6c36c9efbf78957ae8fbe8b3a5d7c35af50500382f
@@ -396,17 +433,25 @@ jobs:
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       KENWERK_TEST_DATABASE_URL: postgres://kenwerk:kenwerk@localhost:5432/kenwerk?sslmode=disable
+      # The 6 is the length of the list of shares above.
+      MUTATION_SHARD: ${{ matrix.share }}/6
     steps:
+      # Toolchains this job never uses, for room: every mutation compiles its own variant of
+      # the code into Go's build cache, which the script empties when the disk runs low.
+      - name: room on the disk
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # No cache: saving a build cache of many gigabytes at the end would take time and disk.
       - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: go.mod
+          cache: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
-      - name: fuzz the parsers
-        run: make fuzz
-      # Nine mutations break frontend rules, and their tests need the web dependencies.
+      # The mutations of frontend rules (mutate_web) run tests that need the web dependencies.
       - name: web dependencies
         run: npm ci --no-fund --no-audit
         working-directory: web
@@ -424,9 +469,55 @@ jobs:
             while IFS= read -r line; do echo "::error title=mutation::$line"; done || true
           tail -1 mutation.txt
           exit "$status"
-      # Spec 097: Stryker on the frontend logic; no file's score may fall below its floor.
-      # Nightly, as the Go mutation check: a full run takes over half an hour.
+      - name: free disk at the end
+        if: always()
+        run: df -h /
+
+  # Spec 097: Stryker on the frontend logic; no file's score may fall below its floor. It took
+  # 37.5 minutes with two test processes in the development container, and 192 minutes with two
+  # on a loaded shared build machine; the limit leaves room for a slow runner below GitHub's six hours.
+  nightly-stryker:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: go.mod
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - name: web dependencies
+        run: npm ci --no-fund --no-audit
+        working-directory: web
+      # The ratchet names each file whose score fell; those lines, or the last lines of a run
+      # that failed otherwise, become annotations.
       - name: do the frontend tests catch changed code?
-        run: make mutation-web
+        run: |
+          status=0
+          make mutation-web 2>&1 | tee stryker.txt || status=$?
+          if [ "$status" -ne 0 ]; then
+            { grep -E '^FAIL: ' stryker.txt || tail -5 stryker.txt; } | head -40 |
+              while IFS= read -r line; do echo "::error title=stryker::$line"; done
+          fi
+          tail -1 stryker.txt
+          exit "$status"
+
+  nightly-restore-drill:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # When the drill fails, its last lines become annotations: the line where it stopped and
+      # the request that was refused, or the drill's own message.
       - name: can an encrypted backup be restored on a clean installation?
-        run: bash scripts/restore-drill.sh
+        run: |
+          status=0
+          bash scripts/restore-drill.sh 2>&1 | tee drill.txt || status=$?
+          if [ "$status" -ne 0 ]; then
+            tail -8 drill.txt | while IFS= read -r line; do echo "::error title=restore drill::$line"; done
+          fi
+          tail -1 drill.txt
+          exit "$status"

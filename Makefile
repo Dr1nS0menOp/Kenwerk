@@ -84,24 +84,20 @@ reproducible:
 deploy-check:
 	bash scripts/deploy-check.sh
 
-# Do the tests catch real bugs? Slow, so not part of every check.
+# Do the tests catch real bugs? Slow, so not part of every check. MUTATION_SHARD=k/n runs
+# one of n shares, as the nightly CI jobs do.
 mutation:
 	bash scripts/mutation-check.sh
 
 # The same for the frontend logic, with Stryker; no file's score may fall (spec 097).
+# STRYKER_ARGS passes options to Stryker, such as --concurrency 2 on a shared machine.
 mutation-web:
-	cd web && KENWERK_REPO=$(CURDIR) npx stryker run
+	cd web && KENWERK_REPO=$(CURDIR) npx stryker run $(STRYKER_ARGS)
 	go run ./cmd/ratchet mutation scripts/stryker-ratchet.txt web/reports/mutation/mutation.json
 
+# Every fuzz target, each for its own time; the table is in the script.
 fuzz:
-	go test ./internal/document/ -run '^$$' -fuzz FuzzFromMarkdown -fuzztime 60s
-	go test ./internal/office/ -run '^$$' -fuzz FuzzReadDOCX -fuzztime 60s
-	go test ./internal/exchange/ -run '^$$' -fuzz FuzzFrontMatter -fuzztime 30s
-	go test ./internal/exchange/ -run '^$$' -fuzz FuzzVerifyBundle -fuzztime 60s
-	go test ./internal/document/ -run '^$$' -fuzz FuzzNormalize -fuzztime 60s
-	go test ./internal/exchange/ -run '^$$' -fuzz FuzzHTMLImport -fuzztime 60s
-	go test ./internal/scim/ -run '^$$' -fuzz FuzzParseFilter -fuzztime 30s
-	go test ./internal/search/ -run '^$$' -fuzz FuzzParseQuery -fuzztime 30s
+	bash scripts/fuzz.sh
 
 check: fmt-check vet staticcheck vuln lint secrets audit licenses web-check collab-check test-race
 

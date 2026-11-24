@@ -8,6 +8,15 @@
 # MUTATION_CHANGED names a file that lists changed paths, one per line; then only the
 # mutations those paths can affect run. That mode is for builders: main and CI always
 # run every mutation (spec 037).
+# MUTATION_SHARD=k/n runs only the k-th of n shares: every n-th mutation of this file, from the
+# k-th on. The n shares together hold every mutation exactly once; CI runs them side by side,
+# each on a runner of its own, so each fits a runner's time and disk.
+# MUTATION_APPLY_ONLY=1 runs no test: it checks in about a minute that every mutation still
+# applies to the code as it is, which CI does on every change, so a mutation that a change of
+# the code left behind is found before the nightly run.
+# MUTATION_MIN_FREE_MB (default 4096): when the disk of Go's build cache has less free room
+# than this, the run waits for the mutations under way and empties the cache. Each mutation
+# compiles its own variant of the code into the cache, and a full run filled a runner's disk.
 set -uo pipefail
 
 src=$(pwd)
@@ -21,15 +30,40 @@ if [ -n "$changed_list" ] && [ ! -r "$changed_list" ]; then
   echo "MUTATION_CHANGED names $changed_list, which cannot be read" >&2
   exit 2
 fi
+shard=${MUTATION_SHARD:-1/1}
+shard_index=${shard%/*}
+shard_count=${shard#*/}
+if ! [[ "$shard" =~ ^[1-9][0-9]*/[1-9][0-9]*$ ]] || [ "$shard_index" -gt "$shard_count" ]; then
+  echo "MUTATION_SHARD is $shard; it must be k/n with 1 <= k <= n" >&2
+  exit 2
+fi
+min_free_mb=${MUTATION_MIN_FREE_MB:-4096}
+if ! [[ "$min_free_mb" =~ ^[0-9]+$ ]]; then
+  echo "MUTATION_MIN_FREE_MB is $min_free_mb; it must be a number of megabytes" >&2
+  exit 2
+fi
 count=0
 ran=0
+go_cache=
 declare -a kinds names files exprs argv
 
-# apply <file> <expression on s>: changes a file, and fails when nothing changed.
+# apply <file> <expression on s>: changes a file, and fails when nothing changed or when any
+# text that a replace or replaceAll looks for is not in the file: a chain of replaces of which
+# one no longer matches would otherwise test a weaker mutation without a word.
 apply() {
   node -e '
     const fs = require("fs");
     const [file, expr] = process.argv.slice(1);
+    for (const method of ["replace", "replaceAll"]) {
+      const original = String.prototype[method];
+      String.prototype[method] = function (pattern, ...rest) {
+        if (typeof pattern === "string" && !this.includes(pattern)) {
+          console.error(method + " finds no " + JSON.stringify(pattern.slice(0, 80)));
+          process.exit(3);
+        }
+        return original.call(this, pattern, ...rest);
+      };
+    }
     const s = fs.readFileSync(file, "utf8");
     const out = eval(expr);
     if (out === s) { console.error("mutation did not change the file"); process.exit(3); }
@@ -192,6 +226,54 @@ run_one() {
   mv "$work/result-$i.tmp" "$work/result-$i"
 }
 
+# check_applies: applies every picked mutation to a copy of its file, without a test, and
+# prints a BROKEN line for each that no longer applies. Sets ran and survived.
+check_applies() {
+  local i path
+  ran=0
+  for ((i = 0; i < count; i++)); do
+    if ! in_shard "$i" || ! needed "$i"; then continue; fi
+    ran=$((ran + 1))
+    case "${kinds[i]}" in
+      web) path="$src/web/${files[i]}" ;;
+      collab) path="$src/collab/${files[i]}" ;;
+      *) path="$src/${files[i]}" ;;
+    esac
+    if ! cp "$path" "$work/applies" 2>/dev/null || ! apply "$work/applies" "${exprs[i]}" 2>"$work/why"; then
+      echo "BROKEN  ${names[i]} (the mutation no longer applies; update this script: $(head -c 160 "$work/why"))"
+      survived=$((survived + 1))
+    fi
+  done
+}
+
+# in_shard <index>: whether a mutation belongs to the share MUTATION_SHARD names.
+in_shard() {
+  [ $(($1 % shard_count)) -eq $((shard_index - 1)) ]
+}
+
+# free_mb: the free room, in megabytes, on the disk of Go's build cache.
+free_mb() {
+  df -Pm "$go_cache" | awk 'NR == 2 { print $4 }'
+}
+
+# has_room: whether that disk still has MUTATION_MIN_FREE_MB free.
+has_room() {
+  [ "$(free_mb)" -ge "$min_free_mb" ]
+}
+
+# empty_go_cache: empties Go's build cache while no mutation runs; fails when the disk is still
+# short of room, as then the next mutations would fill it anyway.
+empty_go_cache() {
+  local before
+  before=$(free_mb)
+  go clean -cache
+  echo "running on with Go's build cache emptied: $before MB were free, $(free_mb) MB are now"
+  has_room || {
+    echo "the disk has less than $min_free_mb MB free even with Go's build cache empty" >&2
+    return 1
+  }
+}
+
 # finish_mutations: runs the queued mutations, at most MUTATION_JOBS at once, and prints the
 # results in the order of this file as soon as they are known. Sets survived.
 finish_mutations() {
@@ -199,19 +281,21 @@ finish_mutations() {
   local -a picked=()
   local i
   for ((i = 0; i < count; i++)); do
-    if needed "$i"; then picked+=("$i"); fi
+    if in_shard "$i" && needed "$i"; then picked+=("$i"); fi
   done
   ran=${#picked[@]}
   if [ -n "$changed_list" ]; then
     echo "running $ran of $count mutations for the changed paths in $changed_list"
   fi
+  if [ "$shard_count" -gt 1 ]; then
+    echo "running $ran of $count mutations: share $shard_index of $shard_count"
+  fi
+  if ! go_cache=$(go env GOCACHE) || ! mkdir -p "$go_cache"; then
+    echo "Go's build cache cannot be found" >&2
+    exit 2
+  fi
   take_snapshot
   while [ "$printed" -lt "${#picked[@]}" ]; do
-    while [ "$next" -lt "${#picked[@]}" ] && [ "$running" -lt "$jobs_max" ]; do
-      run_one "${picked[next]}" &
-      next=$((next + 1))
-      running=$((running + 1))
-    done
     while [ "$printed" -lt "${#picked[@]}" ] && [ -f "$work/result-${picked[printed]}" ]; do
       line=$(cat "$work/result-${picked[printed]}")
       echo "$line"
@@ -220,6 +304,19 @@ finish_mutations() {
         *) survived=$((survived + 1)) ;;
       esac
       printed=$((printed + 1))
+    done
+    # Results first, so the lines of the mutations already run are printed even when the disk
+    # cannot be cleared.
+    if [ "$next" -lt "${#picked[@]}" ] && ! has_room; then
+      wait
+      running=0
+      empty_go_cache || exit 2
+      continue
+    fi
+    while [ "$next" -lt "${#picked[@]}" ] && [ "$running" -lt "$jobs_max" ]; do
+      run_one "${picked[next]}" &
+      next=$((next + 1))
+      running=$((running + 1))
     done
     if [ "$running" -gt 0 ] && [ "$printed" -lt "${#picked[@]}" ]; then
       wait -n
@@ -261,13 +358,13 @@ mutate "a replaced font file stays on disk" internal/settings/font.go \
 mutate "publishing skips the check" internal/pages/versions.go \
   's.replace("if err := s.perms.RequirePage(ctx, tx, c.UserID, id, permissions.PageEdit, uuid.Nil); err != nil {\n\t\t\treturn err\n\t\t}\n\t\tp, err := lockPage(ctx, tx, id)\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\thead, err := headVersion(ctx, tx, p)", "p, err := lockPage(ctx, tx, id)\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\thead, err := headVersion(ctx, tx, p)")' $app -run '^(TestADatabaseOnlyOpensForThoseWhoMaySeeIt|TestArchivedPagesAreReadOnlyAndLeaveEveryList|TestEditRestrictionDoesNotInherit|TestEveryObjectRouteIsProtected|TestScheduledPublishingStopsWhenTheRightsAreGone)$'
 mutate "search ignores permissions" internal/search/words.go \
-  's.replace("JOIN (SELECT v.page_id FROM perm_visible_pages(@user) v WHERE v.page_id = ANY(@ids)) v ON v.page_id = o.id", "")' $app -run TestAWrongRowOfTheSearchTableShowsNothing
+  's.replace("JOIN (SELECT v.page_id FROM perm_visible_pages(@user, @credential) v WHERE v.page_id = ANY(@ids)) v ON v.page_id = o.id", "")' $app -run TestAWrongRowOfTheSearchTableShowsNothing
 # Since spec 080 the picking narrows by restrictions and spaces for speed only: the rule in
 # pickedRows is asked about every picked row, the total included. So these take away both.
 mutate "a hidden page counts in a search" internal/search/words.go \
-  's.replace("const notHidden = ` AND w.page_id NOT IN (SELECT unnest(@hidden::uuid[]))`", "const notHidden = ``").replace("JOIN (SELECT v.page_id FROM perm_visible_pages(@user) v WHERE v.page_id = ANY(@ids)) v ON v.page_id = o.id", "")' $app -run TestARestrictionCountsAtOnceInSearch
+  's.replace("const notHidden = ` AND w.page_id NOT IN (SELECT unnest(@hidden::uuid[]))`", "const notHidden = ``").replace("JOIN (SELECT v.page_id FROM perm_visible_pages(@user, @credential) v WHERE v.page_id = ANY(@ids)) v ON v.page_id = o.id", "")' $app -run TestARestrictionCountsAtOnceInSearch
 mutate "a space nobody gave counts in a search" internal/search/words.go \
-  's.replace("FROM perm_spaces(@user, \x27space.view\x27) g JOIN spaces s", "FROM (SELECT id AS space_id FROM spaces) g JOIN spaces s").replace("JOIN (SELECT v.page_id FROM perm_visible_pages(@user) v WHERE v.page_id = ANY(@ids)) v ON v.page_id = o.id", "")' $app -run TestLosingASpaceCountsAtOnceInSearch
+  's.replace("FROM perm_spaces(@user, \x27space.view\x27, @credential) g JOIN spaces s", "FROM (SELECT id AS space_id FROM spaces) g JOIN spaces s").replace("JOIN (SELECT v.page_id FROM perm_visible_pages(@user, @credential) v WHERE v.page_id = ANY(@ids)) v ON v.page_id = o.id", "")' $app -run TestLosingASpaceCountsAtOnceInSearch
 mutate "the search table misses the archive" internal/db/migrations/0028_search_pages.sql \
   's.replace("published = EXCLUDED.published, archived = EXCLUDED.archived,", "published = EXCLUDED.published,")' $app -run TestTheSearchTableFollowsThePage
 mutate "the search table misses the trash" internal/db/migrations/0028_search_pages.sql \
@@ -277,9 +374,9 @@ mutate "a hidden child shows as a branch" internal/pages/branches.go \
 mutate "the tree picks hidden rows and the rule has to stop them" internal/pages/branches.go \
   's.replace("AND ` + alias + `.id NOT IN (SELECT unnest(@hidden::uuid[]))`", "AND @hidden::uuid[] IS NOT NULL`")' $app -run TestAHiddenChildLeavesNoTraceInTheTree
 mutate "the rows of a tree skip the rule" internal/pages/branches.go \
-  's.replace("JOIN (SELECT v.page_id FROM perm_listed_pages(@user) v WHERE v.page_id = ANY(@ids)) v ON v.page_id = p.id", "JOIN (SELECT unnest(@ids::uuid[]) AS page_id) v ON v.page_id = p.id")' $app -run TestAHiddenChildLeavesNoTraceInTheTree
+  's.replace("JOIN (SELECT v.page_id FROM perm_listed_pages(@user, @spaces) v WHERE v.page_id = ANY(@ids)) v ON v.page_id = p.id", "JOIN (SELECT unnest(@ids::uuid[]) AS page_id) v ON v.page_id = p.id")' $app -run TestAHiddenChildLeavesNoTraceInTheTree
 mutate "export ignores permissions" internal/pages/export.go \
-  's.replace("JOIN perm_visible_pages($1) vis ON vis.page_id = p.id\n", "JOIN (SELECT id AS page_id FROM pages, (SELECT $1::uuid) x) vis ON vis.page_id = p.id\n")' $app -run '^(TestExportLeavesOutWhatThePersonCannotSee|TestRestrictionsAcrossTreeSearchFavouritesAndExport)$'
+  's.replace("JOIN perm_visible_pages($1, $4) vis ON vis.page_id = p.id\n", "JOIN (SELECT id AS page_id FROM pages, (SELECT $1::uuid, $4::uuid[]) x) vis ON vis.page_id = p.id\n")' $app -run '^(TestExportLeavesOutWhatThePersonCannotSee|TestRestrictionsAcrossTreeSearchFavouritesAndExport)$'
 mutate "moves can drop restrictions" internal/pages/tree.go \
   's.replace("if !slices.Contains(after, r) {", "if !slices.Contains(after, r) && len(before) < 0 {")' $app -run '^(TestMoveCannotQuietlyDropARestriction)$'
 mutate "moves can create loops" internal/pages/tree.go \
@@ -329,7 +426,7 @@ mutate "disabled users keep their sessions" internal/identity/users.go \
   's.replace("if _, err := tx.Exec(ctx, \"DELETE FROM sessions WHERE user_id = $1\", id); err != nil {\n\t\t\t\treturn err\n\t\t\t}\n\t\t\tif err := s.keepsAnAdministrator", "if err := s.keepsAnAdministrator")' $app -run TestAdminUserManagement
 
 mutate "links reveal hidden pages" internal/pages/details.go \
-  's.replace("refJoins   = `JOIN perm_listed_pages($1) v ON v.page_id = p.id", "refJoins   = `JOIN (SELECT $1::uuid AS u) v ON true")' $app -run TestDetailsNeverRevealHiddenPages
+  's.replace("return `JOIN perm_listed_pages($1, ` + spaces + `) v ON v.page_id = p.id", "return `JOIN (SELECT $1::uuid AS u, ` + spaces + `::uuid[] AS c) v ON true")' $app -run TestDetailsNeverRevealHiddenPages
 mutate "a header can be a file from another page" internal/attachments/attachments.go \
   's.replace("WHERE a.id = $1 AND a.page_id = $2 AND a.status = \x27active\x27`, id, pageID)", "WHERE a.id = $1 AND $2::uuid IS NOT NULL AND a.status = \x27active\x27`, id, pageID)")' $app -run TestPageLook
 mutate "anyone can undo a delete" internal/trash/trash.go \
@@ -345,11 +442,11 @@ mutate "an entry of the sidebar may be named twice" internal/identity/preference
 mutate "a shortcut may go anywhere" internal/spaces/shortcuts.go \
   's.replace("if err != nil || strings.HasPrefix(lower", "if (err != nil && len(lower) < 0) || strings.HasPrefix(lower")' $app -run TestShortcuts
 mutate "the directory counts hidden pages" internal/spaces/directory.go \
-  's.replace("FROM pages p JOIN perm_listed_pages($1) v ON v.page_id = p.id", "FROM pages p")' $app -run TestDirectory
+  's.replace("FROM pages p JOIN perm_listed_pages($1, $8) v ON v.page_id = p.id", "FROM pages p")' $app -run TestDirectory
 mutate "quick search shows people to everyone" internal/httpapi/handlers_reading.go \
   's.replace("if err != nil || !allowed {", "if err != nil || (!allowed && len(text) < 0) {")' $app -run TestQuickSearch
 mutate "quick search shows hidden files" internal/attachments/attachments.go \
-  's.replace("SELECT v.page_id FROM perm_listed_pages($1) v", "SELECT v.id AS page_id FROM pages v")' $app -run TestQuickSearch
+  's.replace("SELECT v.page_id FROM perm_listed_pages($1, ` + spaces + `) v", "SELECT v.page_id FROM (SELECT p.id AS page_id, ` + spaces + `::uuid[] AS c FROM pages p) v")' $app -run TestQuickSearch
 mutate "a row menu counts as a visit" internal/pages/details.go \
   's.replace("out.Can, err = s.capabilities(ctx, c, p)\n\treturn out, err", "s.touchRecent(ctx, c.UserID, p)\n\tout.Can, err = s.capabilities(ctx, c, p)\n\treturn out, err")' $app -run TestOpeningARowMenu
 
@@ -362,7 +459,7 @@ mutate "SQL: lists show archived pages" internal/db/migrations/0008_organising.s
 mutate "SQL: templates show in lists" internal/db/migrations/0051_document_control.sql \
   's.replace("AND p.kind <> \x27template\x27\n", "\n")' $perms
 mutate "a label reveals hidden pages" internal/pages/labels.go \
-  's.replace("JOIN perm_listed_pages($1) v ON v.page_id = l.page_id", "JOIN (SELECT $1::uuid AS u) v ON true")' $app -run TestLabelsAreCleanedAndNeverRevealHiddenPages
+  's.replace("JOIN perm_listed_pages($1, $6) v ON v.page_id = l.page_id", "JOIN (SELECT $1::uuid AS u, $6::uuid[] AS c) v ON true")' $app -run TestLabelsAreCleanedAndNeverRevealHiddenPages
 mutate "a spelling suggestion uses hidden titles" internal/search/search.go \
   's.replace("AND w.page_id NOT IN (SELECT h.page_id FROM perm_hidden_pages($1) h)", "")' $app -run TestSearchFiltersNeverRevealHiddenPages
 mutate "a move skips hidden pages" internal/pages/move.go \
@@ -605,7 +702,7 @@ mutate_web "the form: is not on an empty value is false" src/template-conditions
 mutate_web "the form: a condition tests a later question" src/template-conditions.ts \
   's.replace("if (s.later.has(name)) return \x27later_field\x27;", "")' src/template-conditions.test.ts
 mutate "the link filter tells hidden from gone" internal/pages/content.go \
-  's.replace("AND k.target_id NOT IN (SELECT g.page_id FROM perm_visible_pages($1) g)))", "AND k.target_id NOT IN (SELECT g.id FROM pages g WHERE g.status <> \x27trashed\x27 AND $1::uuid IS NOT NULL)))")' $app -run TestABrokenLinkFilterTreatsHiddenPagesAsGone
+  's.replace("AND k.target_id NOT IN (SELECT g.page_id FROM perm_visible_pages($1, $23) g)))", "AND k.target_id NOT IN (SELECT g.id FROM pages g WHERE g.status <> \x27trashed\x27 AND $1::uuid IS NOT NULL)))")' $app -run TestABrokenLinkFilterTreatsHiddenPagesAsGone
 mutate "reading a round ignores restrictions" internal/permissions/evaluate.go \
   's.replace("for _, level := range p.ViewChain {", "for _, level := range p.ViewChain {\n\t\tif in.Action == ActionApprovalRead {\n\t\t\tbreak\n\t\t}")' $perms -run TestApprovalReadIsViewWithoutTheDraftRule
 # History, origin, search, export and automation of guided templates (spec 074, wave GT5).
@@ -749,9 +846,9 @@ mutate "a rotated token keeps its full life" internal/scim/scim.go \
 mutate "a notification reaches someone who cannot see the page" internal/notify/notify.go \
   's.replace("if err != nil || !allowed {\n\t\treturn err\n\t}\n\tdata, err :=", "if err != nil || (!allowed && len(r.Type) < 0) {\n\t\treturn err\n\t}\n\tdata, err :=")' $app -run TestWatchersHearOnceAndLosingAccessEndsIt
 mutate "the bell shows a page you lost" internal/notify/list.go \
-  's.replaceAll("JOIN (SELECT page_id FROM perm_visible_pages($1) UNION SELECT page_id FROM perm_review_pages($1)\n\t\tUNION SELECT page_id FROM perm_template_notice_pages($1)) v ON v.page_id = n.page_id", "JOIN (SELECT id AS page_id FROM pages, (SELECT $1::uuid) x) v ON v.page_id = n.page_id")' $app -run TestWatchersHearOnceAndLosingAccessEndsIt
+  's.replaceAll("JOIN (SELECT page_id FROM perm_visible_pages($1, ` + spaces + `) UNION SELECT page_id FROM perm_review_pages($1, ` + spaces + `)\n\t\tUNION SELECT page_id FROM perm_template_notice_pages($1, ` + spaces + `)) v ON v.page_id = n.page_id", "JOIN (SELECT id AS page_id FROM pages, (SELECT $1::uuid) x) v ON v.page_id = n.page_id")' $app -run TestWatchersHearOnceAndLosingAccessEndsIt
 mutate "mail about a page you lost still goes out" internal/notify/render.go \
-  's.replace("s.pool.Query(ctx, visibleRows+", "s.pool.Query(ctx, strings.Replace(visibleRows, \"JOIN (SELECT page_id FROM perm_visible_pages($1) UNION SELECT page_id FROM perm_review_pages($1)\\n\\t\\tUNION SELECT page_id FROM perm_template_notice_pages($1)) v ON v.page_id = n.page_id\", \"JOIN (SELECT id AS page_id FROM pages, (SELECT $1::uuid) x) v ON v.page_id = n.page_id\", 1)+")' $app -run TestMailIsWrittenWhenSentAndChecksAccessAgain
+  's.replace("s.pool.Query(ctx, visibleRows(\"$4\")+", "s.pool.Query(ctx, strings.Replace(visibleRows(\"$4\"), \"JOIN (SELECT page_id FROM perm_visible_pages($1, $4) UNION SELECT page_id FROM perm_review_pages($1, $4)\\n\\t\\tUNION SELECT page_id FROM perm_template_notice_pages($1, $4)) v ON v.page_id = n.page_id\", \"JOIN (SELECT id AS page_id FROM pages, (SELECT $1::uuid) x) v ON v.page_id = n.page_id\", 1)+")' $app -run TestMailIsWrittenWhenSentAndChecksAccessAgain
 mutate "people hear about their own actions" internal/notify/notify.go \
   's.replace("(r.UserID == r.ActorID && !choices.NotifyOwn)", "(len(r.Type) < 0 && !choices.NotifyOwn)")' $app -run TestOwnActionsOnlyWhenAskedFor
 mutate "a forged unsubscribe token works" internal/notify/unsubscribe.go \
@@ -818,7 +915,7 @@ mutate "added text in a mail is not escaped" internal/document/changes.go \
 mutate "a mail shows changes without the setting" internal/notify/render.go \
   's.replace("if !allowed || (i.Type != TypePageChanged \x26\x26 i.Type != TypeVersionApproved) || from \x3c 1 {", "if (i.Type != TypePageChanged \x26\x26 i.Type != TypeVersionApproved) || from \x3c 1 {")' $app -run TestAMailShowsNoChanges
 mutate "a mail of changes reads through access" internal/notify/list.go \
-  's.replace("JOIN (SELECT page_id FROM perm_visible_pages($1) UNION SELECT page_id FROM perm_review_pages($1)\n\t\tUNION SELECT page_id FROM perm_template_notice_pages($1)) v ON v.page_id = n.page_id\n\tJOIN pages p", "JOIN (SELECT $1::uuid AS u) v ON true\n\tJOIN pages p")' $app -run TestAMailAboutAChangeGoesNowhere
+  's.replace("JOIN (SELECT page_id FROM perm_visible_pages($1, ` + spaces + `) UNION SELECT page_id FROM perm_review_pages($1, ` + spaces + `)\n\t\tUNION SELECT page_id FROM perm_template_notice_pages($1, ` + spaces + `)) v ON v.page_id = n.page_id\n\tJOIN pages p", "JOIN (SELECT $1::uuid AS u) v ON true\n\tJOIN pages p")' $app -run TestAMailAboutAChangeGoesNowhere
 
 mutate "a move leaves comments behind" internal/pages/move.go \
   's.replace("var tablesWithSpace = []string{\"comments\", ", "var tablesWithSpace = []string{")' $app -run TestAMoveTakesEveryRowOfTheBranchAlong
@@ -840,7 +937,7 @@ mutate "nodes hand out rights at the same time" internal/db/db.go \
   's.replace("pollLock(ctx, tx, \"SELECT pg_try_advisory_xact_lock($1)\")", "pollLock(ctx, tx, \"SELECT $1::bigint IS NOT NULL\")")' ./internal/db/ -count=5 -run TestGrantApp
 
 mutate "an export holds a hidden page" internal/pages/export.go \
-  's.replace("JOIN perm_visible_pages($1) vis ON vis.page_id = p.id", "JOIN (SELECT id AS page_id FROM pages WHERE $1::uuid IS NOT NULL) vis ON vis.page_id = p.id")' $app -run TestExportLeavesOutWhatThePersonCannotSee
+  's.replace("JOIN perm_visible_pages($1, $4) vis ON vis.page_id = p.id", "JOIN (SELECT id AS page_id, $4::uuid[] AS c FROM pages WHERE $1::uuid IS NOT NULL) vis ON vis.page_id = p.id")' $app -run TestExportLeavesOutWhatThePersonCannotSee
 mutate "anyone can fetch an export" internal/exchange/export.go \
   's.replace("FROM export_runs WHERE id = $1 AND created_by = $2`, id, c.UserID", "FROM export_runs WHERE id = $1 AND $2::uuid IS NOT NULL`, id, c.UserID")' $app -run TestOnlyTheOwnerDownloadsAnExport
 mutate "a file stays open after a page is hidden" internal/exchange/export.go \
@@ -882,7 +979,7 @@ mutate "a mention prints a name on a site" internal/sites/build.go \
 mutate "a public link survives a restriction" internal/sites/links.go \
   's.replace("if allowed[l.page] && !gone {", "if true || (allowed[l.page] && !gone) {")' $app -run TestARestrictionWithdrawsAPublicLinkAtOnce
 mutate "a block shows a hidden page" internal/blocks/lists.go \
-  's.replace("JOIN perm_visible_pages($1) v ON v.page_id = p.id\n\tJOIN spaces s ON s.id = p.space_id\n\tLEFT JOIN users u ON u.id = p.updated_by\n\tLEFT JOIN page_tree t", "JOIN (SELECT $1::uuid AS u) v ON true\n\tJOIN spaces s ON s.id = p.space_id\n\tLEFT JOIN users u ON u.id = p.updated_by\n\tLEFT JOIN page_tree t")' $app -run TestNoBlockShowsAHiddenPage
+  's.replace("JOIN perm_visible_pages($1, $21) v ON v.page_id = p.id\n\tJOIN spaces s ON s.id = p.space_id\n\tLEFT JOIN users u ON u.id = p.updated_by\n\tLEFT JOIN page_tree t", "JOIN (SELECT $1::uuid AS u, $21::uuid[] AS c) v ON true\n\tJOIN spaces s ON s.id = p.space_id\n\tLEFT JOIN users u ON u.id = p.updated_by\n\tLEFT JOIN page_tree t")' $app -run TestNoBlockShowsAHiddenPage
 mutate "an include skips the check at a level" internal/blocks/reuse.go \
   's.replace("if ok, err := r.visible(ctx, in.Page); !ok {\n\t\treturn nil, nil, err\n\t}\n", "")' $app -run TestIncludesCheckEveryLevelAndStopOnALoop
 mutate "an include has no depth limit" internal/blocks/reuse.go \
@@ -919,7 +1016,7 @@ mutate "the policy blocks video and audio" internal/webui/webui.go \
 mutate "names survive a stricter mode" internal/analytics/analytics.go \
   's.replace("if v.Mode != ModeNames {", "if len(v.Mode) < 0 {")' $app -run TestLeavingNameModeDeletesNamesForGoodAndIsAudited
 mutate "a report shows a hidden page" internal/analytics/reports.go \
-  's.replace("FROM pages pg JOIN perm_visible_pages($1) v ON v.page_id = pg.id\n\t\tWHERE pg.space_id = $2 AND pg.status = \x27published\x27\n\t\tORDER BY 8", "FROM pages pg, (SELECT $1::uuid) v\n\t\tWHERE pg.space_id = $2 AND pg.status = \x27published\x27\n\t\tORDER BY 8")' $app -run TestReportsLeaveOutHiddenPages
+  's.replace("FROM pages pg JOIN perm_visible_pages($1, $6) v ON v.page_id = pg.id\n\t\tWHERE pg.space_id = $2 AND pg.status = \x27published\x27\n\t\tORDER BY 8", "FROM pages pg, (SELECT $1::uuid, $6::uuid[]) v\n\t\tWHERE pg.space_id = $2 AND pg.status = \x27published\x27\n\t\tORDER BY 8")' $app -run TestReportsLeaveOutHiddenPages
 mutate "own views are counted" internal/analytics/analytics.go \
   's.replace("|| f.owner == c.UserID {", "{")' $app -run TestOwnPageIsNotCountedAndAPersonCountsOncePerHalfHour
 mutate "a rule skips the check of its account" internal/automation/run.go \
@@ -931,13 +1028,13 @@ mutate "a chain runs on" internal/automation/match.go \
 mutate "a redirect is followed" internal/outward/outward.go \
   's.replace("CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },", "")' ./internal/outward/ -run TestARedirectIsNotFollowed
 mutate "a private address is allowed" internal/outward/outward.go \
-  's.replace("if err != nil || (!o.AllowPrivate && !isPublic(a)) {", "if err != nil || (!o.AllowPrivate && len(a.String()) < 0) {")' ./internal/outward/ -run TestAConnectionToAPrivateAddressIsRefusedAtConnectTime
+  's.replace("{ return o.AllowPrivate || isPublic(a) }", "{ return o.AllowPrivate || a.IsValid() }")' ./internal/outward/ -run TestAConnectionToAPrivateAddressIsRefusedAtConnectTime
 mutate "a delivery goes unsigned" internal/webhooks/webhooks.go \
   's.replace("\"webhook-signature\": signature", "\"webhook-signature\": \"\"+signature[:0]")' $app -run TestAWebhookIsSignedAndHoldsNoText
 mutate "a hook token is not checked" internal/automation/match.go \
   's.replace("WHERE token_hash = $1\", hashToken(token)", "WHERE token_hash <> $1\", hashToken(token)")' $app -run TestAnIncomingHookNeedsItsToken
-mutate "a scope is not checked" internal/httpapi/server.go \
-  's.replace("if slices.Contains(p.Scopes, scope) {", "if len(p.Scopes) >= 0 {")' $app -run TestAScopeLimitsATokenAndATokenNeverExceedsItsOwner
+mutate "a scope is not checked" internal/httpapi/credentials.go \
+  's.replace("if a.scope != identity.ScopeAny && !slices.Contains(p.Scopes, a.scope) {", "if a.scope != identity.ScopeAny && len(p.Scopes) < 0 {")' $app -run TestAScopeLimitsATokenAndATokenNeverExceedsItsOwner
 mutate "a CSV cell goes unguarded" internal/csvout/csvout.go \
   's.replace("safe[i] = Cell(c)", "safe[i] = c")' ./internal/csvout/ -run TestRowsAreGuardedAndQuoted
 mutate "a message reaches someone who cannot see the page" internal/automation/actions.go \
@@ -983,7 +1080,7 @@ mutate "a program named as a picture gets through" internal/attachments/kinds.go
 mutate "a rename gets around a blocked type" internal/attachments/versions.go \
   's.replace("if isBlocked(blocked, name, \"\", nil) {", "if isBlocked(blocked, name, \"\", nil) && len(name) < 0 {")' $app -run TestRenamingCannotGetAroundABlockedType
 mutate "a hidden page counts as reachable" internal/pages/details.go \
-  's.replace("SELECT v.page_id FROM perm_visible_pages($1) v WHERE v.page_id = ANY($2)", "SELECT p.id FROM pages p WHERE $1::uuid IS NOT NULL AND p.id = ANY($2) AND p.status = \x27published\x27")' $app -run TestAHiddenPageAndADeletedPageLookTheSameToAReader
+  's.replace("SELECT v.page_id FROM perm_visible_pages($1, $3) v WHERE v.page_id = ANY($2)", "SELECT p.id FROM pages p WHERE $1::uuid IS NOT NULL AND ($3::uuid[] IS NULL OR true) AND p.id = ANY($2) AND p.status = \x27published\x27")' $app -run TestAHiddenPageAndADeletedPageLookTheSameToAReader
 mutate "the document format is open to strangers" internal/httpapi/handlers_organising.go \
   's.replace("\"GET /api/v1/document/format\", me,", "\"GET /api/v1/document/format\", Public,")' $app -run TestTheDocumentFormatIsReadableThroughTheAPI
 mutate "pasted Markdown has no limit" internal/httpapi/handlers_organising.go \
@@ -1023,9 +1120,9 @@ mutate "the console shows the page title" internal/sharing/invitations.go \
 mutate "two answers on a page share a line" internal/notify/notify.go \
   's.replace("if r.Type == TypeInvitationAnswer {", "if r.Type == \"\" {")' $app -run TestTheRequesterHearsTheAnswerAndTheReason
 mutate "link facts show a hidden page" internal/pages/links.go \
-  's.replace("JOIN perm_visible_pages($1) v ON v.page_id = p.id\n\t\tJOIN spaces sp", "JOIN perm_visible_pages($1) v ON true\n\t\tJOIN spaces sp")' $app -run TestLinkFactsLeaveOutWhatTheReaderMayNotSee
+  's.replace("JOIN perm_visible_pages($1, $3) v ON v.page_id = p.id\n\t\tJOIN spaces sp", "JOIN perm_visible_pages($1, $3) v ON true\n\t\tJOIN spaces sp")' $app -run TestLinkFactsLeaveOutWhatTheReaderMayNotSee
 mutate "a placeholder leads to a page the reader may not see" internal/pages/links.go \
-  's.replace("JOIN perm_visible_pages($1) v ON v.page_id = h.target_id", "JOIN perm_visible_pages($1) v ON true")' $app -run TestAPlaceholderOnlyLeadsToAPageTheReaderMaySee
+  's.replace("JOIN perm_visible_pages($1, $3) v ON v.page_id = h.target_id", "JOIN perm_visible_pages($1, $3) v ON true")' $app -run TestAPlaceholderOnlyLeadsToAPageTheReaderMaySee
 mutate "following a placeholder needs no right to create" internal/pages/links.go \
   's.replace("if err := s.checkParent(ctx, tx, c, placement{spaceID: p.SpaceID, parent: source, kind: KindPage}); err != nil {", "if err := s.checkParent(ctx, tx, c, placement{spaceID: p.SpaceID, parent: source, kind: KindPage}); err != nil \x26\x26 title == \"\" {")' $app -run TestFollowingAPlaceholderNeedsTheRightToCreate
 mutate "following gives the id of a page someone may not see" internal/pages/links.go \
@@ -1033,7 +1130,7 @@ mutate "following gives the id of a page someone may not see" internal/pages/lin
 mutate "any title on a page can be followed" internal/pages/links.go \
   's.replace("if errors.Is(err, pgx.ErrNoRows) {\n\t\t\treturn apperr.NotFound()\n\t\t}\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\tif target != nil {", "if err != nil \x26\x26 !errors.Is(err, pgx.ErrNoRows) {\n\t\t\treturn err\n\t\t}\n\t\tif target != nil {")' $app -run TestOnlyAPlaceholderOnThePageCanBeFollowed
 mutate "the placeholder list shows a hidden page" internal/pages/links.go \
-  's.replace("JOIN pages p ON p.id = h.source_id `+refJoins+`", "JOIN pages p ON p.id = h.source_id JOIN spaces s ON s.id = p.space_id CROSS JOIN (SELECT $1::uuid) AS caller")' $app -run TestThePlaceholderListSkipsAPageTheAdministratorMayNotSee
+  's.replace("JOIN pages p ON p.id = h.source_id `+refJoins(\"$4\")+`", "JOIN pages p ON p.id = h.source_id JOIN spaces s ON s.id = p.space_id CROSS JOIN (SELECT $1::uuid, $4::uuid[]) AS caller")' $app -run TestThePlaceholderListSkipsAPageTheAdministratorMayNotSee
 mutate "an export names a hidden page" internal/pages/links.go \
   's.replace("facts, err := s.LinkFacts(ctx, c, document.LinkedPages(doc))", "facts, err := s.LinkFacts(ctx, identity.Caller{UserID: s.anyOwner(ctx, doc)}, document.LinkedPages(doc))\n\t_ = c").concat("\nfunc (s *Service) anyOwner(ctx context.Context, doc document.Node) uuid.UUID {\n\tvar id uuid.UUID\n\tfor _, p := range document.LinkedPages(doc) {\n\t\t_ = s.pool.QueryRow(ctx, \"SELECT created_by FROM pages WHERE id = $1\", p).Scan(\x26id)\n\t}\n\treturn id\n}\n")' $app -run TestAnExportNamesOnlyWhatTheExporterMaySee
 mutate "resolving keeps the id of a hidden page" internal/document/links.go \
@@ -1041,7 +1138,7 @@ mutate "resolving keeps the id of a hidden page" internal/document/links.go \
 mutate "a site names a page that is not on it" internal/sites/build.go \
   's.replace("if _, ok := b.links[id]; !ok {\n\t\treturn \"\", false\n\t}\n\tfor _, p := range b.list {\n\t\tif p.page.ID == id {\n\t\t\treturn p.page.Title, true\n\t\t}\n\t}\n\treturn \"\", false", "var title string\n\t_ = b.s.pool.QueryRow(context.Background(), \"SELECT title FROM pages WHERE id = $1\", id).Scan(\x26title)\n\treturn title, true")' $app -run TestALinkThatFollowsItsPageNamesOnlyPagesOnTheSite
 mutate "a linked title is stored in the search index" internal/document/document.go \
-  's.replace("TypePlaceholderLink: \"title\"}[n.Type]", "TypePlaceholderLink: \"title\", TypePageLink: \"page_id\"}[n.Type]")' ./internal/document/
+  's.replace("\tTypePlaceholderLink: {own: \"title\"},\n", "\tTypePlaceholderLink: {own: \"title\"},\n\tTypePageLink: {own: \"page_id\"},\n")' ./internal/document/
 mutate "a fragment may hold markup" internal/document/links.go \
   's.replace("len(fragment) <= maxFragmentBytes \x26\x26 fragmentPattern.MatchString(fragment)", "fragment != \"\"")' ./internal/document/
 mutate "a table may stay inside a table" internal/document/document.go \
@@ -1057,7 +1154,7 @@ mutate "search finds a page by the label of a trashed file" internal/search/word
 mutate "a filter alone finds a page by the label of a trashed file" internal/search/search.go \
   's.replace("fa.status = \x27active\x27 AND ", "")' $app -run TestSearchFindsAPageByTheLabelOfItsFileAndOnlyWhatMayBeSeen
 mutate "the Files screen shows what is hidden" internal/attachments/versions.go \
-  's.replace("JOIN perm_visible_pages($1) vp ON vp.page_id = a.page_id", "JOIN (SELECT $1::uuid AS u) vp ON true")' $app -run TestTheFilesScreenFiltersAndOffersOnlyWhatMayBeSeen
+  's.replace("JOIN perm_visible_pages($1, NULL) vp ON vp.page_id = a.page_id", "JOIN (SELECT $1::uuid AS u) vp ON true")' $app -run TestTheFilesScreenFiltersAndOffersOnlyWhatMayBeSeen
 mutate "anyone deletes files in bulk" internal/attachments/details.go \
   's.replace("permissions.SpaceAdminister); err != nil {\n\t\treturn Outcome{}, err", "permissions.SpaceAdminister); err != nil \x26\x26 len(list) < 0 {\n\t\treturn Outcome{}, err")' $app -run TestBulkDeleteTakesOnlyWhatTheAdministratorMayReachInThatSpace
 mutate "bulk delete ignores the page" internal/attachments/details.go \
@@ -1087,11 +1184,11 @@ mutate "the history of files needs no access" internal/attachments/details.go \
 mutate "the history names the page a file went to" internal/attachments/moves.go \
   's.replace("addEvent(ctx, tx, c, a.PageID, id, a.Filename, eventMovedAway)", "addEvent(ctx, tx, c, a.PageID, id, a.Filename+\" \"+target.String(), eventMovedAway)")' $app -run TestThePageHistoryTellsWhatHappenedToItsFiles
 mutate "a label counts through a hidden page" internal/blocks/labels.go \
-  's.replace("JOIN perm_visible_pages($1) v ON v.page_id = l.page_id", "JOIN perm_visible_pages($1) v ON true")' $app -run 'TestLabelBlocksCountOnlyWhatAReaderMaySee|TestNoNewBlockShowsAHiddenPage'
+  's.replace("JOIN perm_visible_pages($1, $4) v ON v.page_id = l.page_id", "JOIN perm_visible_pages($1, $4) v ON true")' $app -run 'TestLabelBlocksCountOnlyWhatAReaderMaySee|TestNoNewBlockShowsAHiddenPage'
 mutate "a related label reads a hidden page" internal/blocks/labels.go \
   's.replace("func relatedLabels(ctx context.Context, r reader) (Answer, error) {\n\tid := r.target()\n\tif ok, err := r.visible(ctx, id); !ok {\n\t\treturn Answer{}, err\n\t}", "func relatedLabels(ctx context.Context, r reader) (Answer, error) {\n\tid := r.target()")' $app -run TestLabelBlocksCountOnlyWhatAReaderMaySee
 mutate "a file of a hidden page shows in a block" internal/blocks/files.go \
-  's.replace("JOIN perm_visible_pages($1) v ON v.page_id = p.id", "JOIN perm_visible_pages($1) v ON true")' $app -run TestSpaceFilesWalkPastARestriction
+  's.replace("JOIN perm_visible_pages($1, $6) v ON v.page_id = p.id", "JOIN perm_visible_pages($1, $6) v ON true")' $app -run TestSpaceFilesWalkPastARestriction
 mutate "everyone sees who watches a page" internal/blocks/people.go \
   's.replace("\tif d.Allowed {\n\t\treturn kinds, nil\n\t}", "\tif d.Allowed || len(kinds) > 0 {\n\t\treturn kinds, nil\n\t}")' $app -run TestWatchersShowOnlyToThoseWhoMaySeeThem
 mutate "a comment for editors makes a contributor" internal/blocks/people.go \
@@ -1099,17 +1196,17 @@ mutate "a comment for editors makes a contributor" internal/blocks/people.go \
 mutate "a comment for editors counts in the table" internal/blocks/people.go \
   's.replace("WHERE NOT c.editors_only AND NOT c.purged", "WHERE NOT c.purged")' $app -run TestCommentsForEditorsDoNotCountForReaders
 mutate "the contribution table shows a hidden page" internal/blocks/people.go \
-  's.replace("JOIN perm_visible_pages($1) v ON v.page_id = t.descendant_id", "JOIN perm_visible_pages($1) v ON true")' $app -run TestNoNewBlockShowsAHiddenPage
+  's.replace("JOIN perm_visible_pages($1, $4) v ON v.page_id = t.descendant_id", "JOIN perm_visible_pages($1, $4) v ON true")' $app -run TestNoNewBlockShowsAHiddenPage
 mutate "a person card goes around the directory rule" internal/blocks/people.go \
   's.replace("if errors.As(err, &refused) && refused.Kind == apperr.KindNotFound {\n\t\treturn Person{}, false, nil\n\t}", "if errors.As(err, &refused) && refused.Kind == apperr.KindNotFound {\n\t\treturn Person{ID: id, Name: \"stranger\"}, true, nil\n\t}")' $app -run TestAPersonCardShowsWhatTheDirectoryShows
 mutate "popular pages show while analytics is off" internal/analytics/reports.go \
   's.replace("\tif err != nil || !st.Enabled {\n\t\treturn []LinkCount{}, err\n\t}", "\tif err != nil {\n\t\treturn []LinkCount{}, err\n\t}\n\t_ = st")' $app -run TestPopularPagesStayQuietWhileAnalyticsIsOff
 mutate "popular pages count a hidden page" internal/analytics/reports.go \
-  's.replace("sum(d.views)::int, pg.space_id FROM page_view_days d\n\t\tJOIN pages pg ON pg.id = d.page_id JOIN perm_visible_pages($1) v ON v.page_id = pg.id", "sum(d.views)::int, pg.space_id FROM page_view_days d\n\t\tJOIN pages pg ON pg.id = d.page_id JOIN perm_visible_pages($1) v ON true")' $app -run TestPopularPagesStayQuietWhileAnalyticsIsOff
+  's.replace("sum(d.views)::int, pg.space_id FROM page_view_days d\n\t\tJOIN pages pg ON pg.id = d.page_id JOIN perm_visible_pages($1, $5) v ON v.page_id = pg.id", "sum(d.views)::int, pg.space_id FROM page_view_days d\n\t\tJOIN pages pg ON pg.id = d.page_id JOIN perm_visible_pages($1, $5) v ON true")' $app -run TestPopularPagesStayQuietWhileAnalyticsIsOff
 mutate "a synced block offers everyone its source" internal/blocks/reuse.go \
   's.replace("source.CanEdit = d.Allowed", "source.CanEdit = d.Allowed || true")' $app -run TestASyncedBlockSaysWhetherTheReaderMayEditItsSource
 mutate "a filter by text finds a hidden page" internal/blocks/lists.go \
-  's.replace("JOIN perm_visible_pages($1) v ON v.page_id = p.id\n\tJOIN spaces s ON s.id = p.space_id\n\tLEFT JOIN users u ON u.id = p.updated_by\n\tLEFT JOIN page_tree t", "JOIN perm_visible_pages($1) v ON true\n\tJOIN spaces s ON s.id = p.space_id\n\tLEFT JOIN users u ON u.id = p.updated_by\n\tLEFT JOIN page_tree t")' $app -run TestFilterListFindsByTextPeopleAndDate
+  's.replace("JOIN perm_visible_pages($1, $21) v ON v.page_id = p.id\n\tJOIN spaces s ON s.id = p.space_id\n\tLEFT JOIN users u ON u.id = p.updated_by\n\tLEFT JOIN page_tree t", "JOIN perm_visible_pages($1, $21) v ON true\n\tJOIN spaces s ON s.id = p.space_id\n\tLEFT JOIN users u ON u.id = p.updated_by\n\tLEFT JOIN page_tree t")' $app -run TestFilterListFindsByTextPeopleAndDate
 mutate "wrong passwords lock the person out everywhere" internal/httpapi/handlers.go \
   's.replace("accKey := allAddressesKey + \"|\" + addressKey(meta.IP)", "accKey := allAddressesKey")' $app -run TestWrongPasswordsFromOneAddressDoNotLockOutThePerson
 mutate "guesses from many addresses have no limit" internal/httpapi/handlers.go \
@@ -1452,8 +1549,8 @@ mutate "promote drops the old key" internal/keys/rotate.go \
 mutate "a second key change starts while the first is unfinished" internal/keys/rotate.go \
   's.replace("\tif _, err := os.Stat(path + PreviousSuffix); err == nil {\n\t\treturn \"\", ErrPreviousPresent\n\t}", "")' ./internal/keys/ -run TestANewChangeWaitsUntilTheLastOneIsFinished
 # Spec 035: blueprints 05 and 06.
-mutate "the PDF helper gets no password" internal/exchange/pdf.go \
-  's.replace("\t\treq.SetBasicAuth(helperUser, s.pdfPassword)\n", "")' $app -run TestThePDFHelperGetsItsPasswordAndRefusesWithoutIt
+mutate "the PDF helper gets no password" internal/exchange/helpers.go \
+  's.replace("\t\treq.SetBasicAuth(helperUser, h.PDFPassword)\n", "")' $app -run TestThePDFHelperGetsItsPasswordAndRefusesWithoutIt
 mutate "a password is hashed as typed, not as NFC" internal/identity/password.go \
   's.replace("func HashPassword(ctx context.Context, pw string, p Params) (string, error) {\n\tpw = norm.NFC.String(pw)\n", "func HashPassword(ctx context.Context, pw string, p Params) (string, error) {\n")' ./internal/identity/ -run TestAPasswordIsTheSameComposedOrDecomposed
 mutate "a password may hold the product name" internal/identity/lifecycle.go \
@@ -1892,13 +1989,13 @@ mutate "a request on a full pool is not told busy" internal/httpapi/server.go \
 mutate "the feed shows an older version of a page" internal/feed/feed.go \
   's.replace("AND NOT EXISTS (SELECT 1 FROM page_versions n WHERE n.page_id = v.page_id AND n.number > v.number AND NOT n.silent", "AND NOT EXISTS (SELECT 1 FROM page_versions n WHERE false")' $app -run TestTheFeedGivesWhatTheFormerQueryGave
 mutate "the feed shows pages the reader may not see" internal/feed/feed.go \
-  's.replace("AND ` + visible(\"v.page_id\") + `", "AND true")' $app -run TestTheFeedGivesWhatTheFormerQueryGave
+  's.replace("AND ` + visible(\"v.page_id\", \"$8\") + `", "AND ($8::uuid[] IS NULL OR true)")' $app -run TestTheFeedGivesWhatTheFormerQueryGave
 mutate "popular leaves out pages with only reactions" internal/feed/feed.go \
   's.replace("WHERE r.target_type = \x27page\x27 AND r.created_at", "WHERE r.target_type = \x27none\x27 AND r.created_at")' $app -run TestTheFeedGivesWhatTheFormerQueryGave
 mutate "popular shows pages the reader may not see" internal/feed/feed.go \
-  's.replace("FROM counted v\n\t\tWHERE ` + visible(\"v.page_id\") + `", "FROM counted v\n\t\tWHERE true")' $app -run TestTheFeedGivesWhatTheFormerQueryGave
+  's.replace("FROM counted v\n\t\tWHERE ` + visible(\"v.page_id\", \"$6\") + `", "FROM counted v\n\t\tWHERE ($6::uuid[] IS NULL OR true)")' $app -run TestTheFeedGivesWhatTheFormerQueryGave
 mutate "the bell counts rows about hidden pages" internal/notify/list.go \
-  's.replace("SELECT v.page_id FROM perm_visible_pages($1) v\n", "SELECT v.id AS page_id FROM pages v\n")' $app -run TestWatchersHearOnceAndLosingAccessEndsIt
+  's.replace("SELECT v.page_id FROM perm_visible_pages($1, $2) v\n", "SELECT v.page_id FROM (SELECT id AS page_id FROM pages) v\n")' $app -run TestWatchersHearOnceAndLosingAccessEndsIt
 mutate "an IP address is taken as the public address" internal/config/config.go \
   's.replace("case isAddress(u.Hostname()):", "case false && isAddress(u.Hostname()):")' ./internal/config/ -run TestAnIPAddressIsRefusedAsThePublicAddress
 
@@ -2464,7 +2561,7 @@ mutate "a file the approved version shows is taken away" internal/attachments/pi
 mutate "the Files screen lists a file waiting for review" internal/attachments/versions.go \
   's.replace(" AND a.id NOT IN (SELECT x.attachment_id FROM perm_unpinned_files($1) x)`", "`")' $app -run TestAFileOnlyTheWorkingVersionHoldsStaysWithItsAuthors
 mutate "search lets a reader match the working entry" internal/search/words.go \
-  's.replace("FROM perm_editable_pages(@user) e WHERE e.page_id = ANY (ARRAY(\n\tSELECT x.page_id FROM search_working x", "FROM (SELECT y.page_id FROM search_working y WHERE @user::uuid IS NOT NULL) e WHERE e.page_id = ANY (ARRAY(\n\tSELECT x.page_id FROM search_working x")' $app -run TestAWordOnlyInTheWorkingVersionIsNeverFoundByAReader
+  's.replace("FROM perm_editable_pages(@user, @credential) e WHERE e.page_id = ANY (ARRAY(\n\tSELECT x.page_id FROM search_working x", "FROM (SELECT y.page_id FROM search_working y WHERE @user::uuid IS NOT NULL) e WHERE e.page_id = ANY (ARRAY(\n\tSELECT x.page_id FROM search_working x")' $app -run TestAWordOnlyInTheWorkingVersionIsNeverFoundByAReader
 mutate "SQL: readers find a file by a name waiting for review" internal/db/migrations/0063_content_around_controlled_pages.sql \
   's.replace("SELECT CASE WHEN reader_pinned_at(page) IS NOT NULL THEN", "SELECT CASE WHEN false THEN")' $app -run TestAWordOnlyInTheWorkingVersionIsNeverFoundByAReader
 mutate "an export gives a reader the working version" internal/pages/export.go \
@@ -2689,7 +2786,7 @@ mutate "with mail the reset link shows too" internal/identity/lifecycle.go \
 mutate "a reset link from an administrator leaves no trace" internal/identity/lifecycle.go \
   's.replace("\"auth.reset_link_sent\"", "\"auth.reset_link_made\"")' $app -run TestAnAdministratorSendsAResetLinkAndNeverChoosesThePassword
 mutate "a silent provider holds a login for ever" internal/sso/sso.go \
-  's.replace("client := \x26http.Client{Timeout: p.discoveryTimeout}", "client := \x26http.Client{}")' ./internal/sso/ -run TestAProviderThatNeverAnswersDoesNotHoldLoginsForEver
+  's.replace("client = \x26http.Client{Timeout: p.discoveryTimeout}", "client = \x26http.Client{}")' ./internal/sso/ -run TestAProviderThatNeverAnswersDoesNotHoldLoginsForEver
 mutate "every login asks the provider again at once" internal/sso/sso.go \
   's.replace("\t\tcase p.inFlight != nil:", "\t\tcase false:")' ./internal/sso/ -run TestOneSlowDiscoveryDoesNotQueueEveryLoginBehindIt
 mutate "a failed discovery is not remembered" internal/sso/sso.go \
@@ -2754,7 +2851,7 @@ mutate "a route of Administration without a method takes a token" internal/httpa
   's.replace("\t\tmethod, path = \"\", pattern\n", "\t\treturn a\n")' ./internal/httpapi/ -run '^TestAnAdministrationChangeIsSessionOnlyWhateverRuleItWasGiven$'
 # Spec 096, wave MC2: a credential never does more than its scopes, its spaces and its person.
 mutate "the scope check of a token is skipped" internal/httpapi/credentials.go \
-  's.replace("if !slices.Contains(p.Scopes, a.scope) {", "if false {")' $app -run 'TestTokens|TestATokenReachesOnlyWhatItsScopesAndSpacesAllow|TestANewWriteTokenNeitherSharesNorChangesAccess'
+  's.replace("if a.scope != identity.ScopeAny && !slices.Contains(p.Scopes, a.scope) {", "if false {")' $app -run 'TestTokens|TestATokenReachesOnlyWhatItsScopesAndSpacesAllow|TestANewWriteTokenNeitherSharesNorChangesAccess'
 mutate "every route needs only content:read" internal/httpapi/router.go \
   's.replace("\ta.scope = scope\n", "\ta.scope = identity.ScopeContentRead\n")' $app -run 'TestATokenReachesOnlyWhatItsScopesAndSpacesAllow|TestTheWriteScopeNoLongerCoversWhatReachesOutside'
 mutate "a route without a scope starts" internal/httpapi/router.go \
@@ -2995,7 +3092,7 @@ mutate "a failed backup can be restored" internal/backups/readiness.go \
 mutate "a node that left still holds up a restore" internal/restore/restore.go \
   's.replace("\"DELETE FROM ops.nodes WHERE node_id = $1\"", "\"SELECT $1::uuid\"")' ./internal/restore/ -run TestALeavingNodeNoLongerCountsAsBusy
 mutate "a stored choice of another module is not read" internal/settings/settings.go \
-  's.replace("\treturn json.Unmarshal(raw, v)\n}\n\n// Store", "\treturn nil\n}\n\n// Store")' ./internal/settings/ -run TestLoadFillsAStoredValueAndLeavesAMissingOneAlone
+  's.replace("\treturn json.Unmarshal(raw, v)\n}\n\n// LoadEach", "\treturn nil\n}\n\n// LoadEach")' ./internal/settings/ -run TestLoadFillsAStoredValueAndLeavesAMissingOneAlone
 mutate_collab "every recheck runs at once, beside the one in flight" access.mjs \
   's.replace("    if (!running) {\n", "    if (true) {\n")' access.test.mjs
 mutate_collab "rechecks asked for during a run are dropped" access.mjs \
@@ -3117,7 +3214,7 @@ mutate "a form sets a shorter retention itself" internal/settings/guard.go \
 mutate "the prune command takes a shorter retention before its time" internal/settings/guard.go \
   's.replace("if r.Lowering == nil || at.Before(r.Lowering.From) {", "if r.Lowering == nil {")' $app -run TestAShorterAuditRetentionNeedsAConfirmedChangeAndAReason
 mutate "the console forms start from the defaults" internal/settings/sections.go \
-  's.replace("\tif err := s.ReadSection(ctx, name, v); err != nil {\n\t\treturn nil, err\n\t}\n\treturn settle(", "\tif err := s.Read(ctx, name, v); err != nil {\n\t\treturn nil, err\n\t}\n\treturn settle(")' $app -run TestAWeakerRuleForLoggingInNeedsAConfirmedChange
+  's.replace("\tif err := s.ReadSection(ctx, name, v); err != nil {\n\t\treturn nil, err\n\t}\n\tif look, ok", "\tif err := s.Read(ctx, name, v); err != nil {\n\t\treturn nil, err\n\t}\n\tif look, ok")' $app -run TestAWeakerRuleForLoggingInNeedsAConfirmedChange
 mutate "a confirmed change takes no second factor" internal/httpapi/handlers_console.go \
   's.replace("\tif !s.confirmSecondFactor(w, r, in.Code) {\n\t\treturn\n\t}\n\tc := s.caller(r)", "\tc := s.caller(r)")' $app -run 'TestKeepingFewerBackupsNeedsAFreshLoginAndASecondFactor|TestAWeakerRuleForLoggingInNeedsAConfirmedChange'
 mutate "a confirmed change needs no system administrator" internal/httpapi/handlers_console.go \
@@ -3290,7 +3387,7 @@ mutate_web "a file in the box has no mark of its kind" src/components/quick-sear
 # Spec 086, wave SR2: a task follows the rule of its page, people are found by the start of a
 # word and only where the reader may see them, and the marks of the other tabs.
 mutate "a task on a page the reader may not see is found" internal/search/search.go \
-  's.replace("JOIN perm_visible_pages($1) v ON v.page_id = t.page_id", "JOIN pages v ON v.id = t.page_id AND $1::uuid IS NOT NULL")' $app -run '^TestTaskSearchFollowsThePageOfTheTask$'
+  's.replace("JOIN perm_visible_pages($1, $6) v ON v.page_id = t.page_id", "JOIN pages v ON v.id = t.page_id AND $1::uuid IS NOT NULL AND ($6::uuid[] IS NULL OR true)")' $app -run '^TestTaskSearchFollowsThePageOfTheTask$'
 mutate "a task on an archived page is found" internal/search/search.go \
   's.replace("AND ($4::boolean OR (s.status = \x27active\x27 AND p.archived_at IS NULL))", "AND ($4::boolean OR true)")' $app -run '^TestTaskSearchFollowsThePageOfTheTask$'
 mutate "a guest is offered people outside the space" internal/sharing/sharing.go \
@@ -3482,6 +3579,19 @@ mutate "a guest with an end date still counts as without one" internal/identity/
   's.replace("type = \x27guest\x27 AND expires_at IS NULL", "type = \x27guest\x27")' $app -run '^TestTheSecurityOverviewFollowsTheInstallation$'
 mutate_web "the overview shows the steps that are done while they should hide" src/views/security-overview-model.ts \
   's.replace("step.state !== \x27done\x27", "true")' src/views/security-overview-model.test.ts
+if [ -n "${MUTATION_APPLY_ONLY:-}" ]; then
+  check_applies
+  if [ "$survived" -gt 0 ]; then
+    echo "$survived of $ran mutation(s) no longer apply"
+    exit 1
+  fi
+  if [ "$ran" -eq 0 ]; then
+    echo "no mutation was checked for the changed paths or the share"
+    exit 2
+  fi
+  echo "all $ran mutations still apply"
+  exit 0
+fi
 finish_mutations
 if [ "$survived" -gt 0 ]; then
   echo "$survived mutation(s) were not caught"
@@ -3489,7 +3599,7 @@ if [ "$survived" -gt 0 ]; then
 fi
 # Nothing run is not a pass: say so, so a builder never reads it as one.
 if [ "$ran" -eq 0 ]; then
-  echo "no mutation ran for the changed paths"
+  echo "no mutation ran for the changed paths or the share"
   exit 2
 fi
 echo "all mutations were caught ($ran run)"

@@ -3,7 +3,10 @@
 # The restore drill (blueprint 07): install, add content, make an encrypted backup, wipe everything,
 # restore on a clean installation, and prove that all of it came back. Uses its own
 # compose projects and port, and removes them afterwards.
-set -euo pipefail
+set -Eeuo pipefail
+# Most output goes to /dev/null, so a failure names the line where the drill stopped; the
+# nightly CI job turns these lines into annotations, which can be read without the log.
+trap 'echo "the restore drill stopped at line $LINENO: $BASH_COMMAND (lines of the calls: ${BASH_LINENO[*]})" >&2' ERR
 src=$(cd "$(dirname "$0")/.." && pwd)
 work=$(mktemp -d)
 port=18095
@@ -32,7 +35,8 @@ noted() {
 }
 trap cleanup EXIT
 jar=$work/jar
-api() { curl -sf -b "$jar" -c "$jar" -H 'Content-Type: application/json' "$@"; }
+# -S: a refused request names its status on standard error.
+api() { curl -sSf -b "$jar" -c "$jar" -H 'Content-Type: application/json' "$@"; }
 first_id() { grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4; }
 
 echo "1. a real installation with content"

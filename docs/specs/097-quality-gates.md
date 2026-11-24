@@ -122,7 +122,7 @@ Taken on the product owner's behalf on 22 November 2026, within the decisions of
 | gitleaks, tree | `secrets` job, `make check` | 8 s, plus 20 s to build the tool the first time |
 | gitleaks, history | `secrets` job | 6 s for 371 commits; it grows with the history |
 | npm audit, `web/` and `collab/` | `web` job, `make check` | a few seconds, one request each |
-| Stryker, 16 files | `nightly` job | 37.5 minutes with two processes locally; not yet measured on a hosted runner |
+| Stryker, 16 files | `nightly-stryker` job (its own job since wave NG1) | 37.5 minutes with two processes locally; not yet measured on a hosted runner |
 
 ## Follow-up waves
 
