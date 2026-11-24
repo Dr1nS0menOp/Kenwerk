@@ -20,8 +20,8 @@ root=$PWD
 tools=$root/bin/deploy-tools
 mkdir -p "$tools"
 
-HELM_VERSION=v4.3.1
-HELM_SHA256=0403a88ae20913d11b10a2467b50087721fea7581736da6b9d3992f5357fe54b
+HELM_VERSION=v4.3.2
+HELM_SHA256=d1c0278d46beab79582d7e50f5b3dc206944ba8e577cde618513fd07daa53983
 KUBECONFORM_VERSION=v0.8.0
 KUBECONFORM_SHA256=9bc2bffbf71f261128533edaf912153948b7ff238f9a531ae6d34466ec287883
 TOFU_VERSION=1.13.8
@@ -34,7 +34,7 @@ BICEP_SHA256=b09ec25a9d376c1f8e33ede6ed22b587f915ad68488d5db77a6f9541748c7f6e
 # cfn-lint runs in this image, from the hash-pinned list in scripts/deploy-check/cfn-lint.txt.
 PYTHON_IMAGE=python:3.13-slim@sha256:e48f59cdba69a3cbd9ed2cf0f348d90d45a8d350d98134cf1070bc106ee9ed90
 # The same PostgreSQL as compose.yaml, which is also the base of the backup image.
-POSTGRES_IMAGE=postgres:16@sha256:63e83b5a3dc36a917dccb76fe1bd2ac51f1ec9c1deb47ff20d4f04233bf6eae9
+POSTGRES_IMAGE=postgres:16@sha256:3950ad7c3148ca2175ef1b6c36c9efbf78957ae8fbe8b3a5d7c35af50500382f
 # The Kubernetes release whose schemas the chart's objects must match.
 KUBERNETES_VERSION=1.33.0
 

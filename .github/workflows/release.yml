@@ -26,9 +26,9 @@ jobs:
       id-token: write # keyless signing and attestations
       attestations: write
     env:
-      GORELEASER_VERSION: v2.20.1
+      GORELEASER_VERSION: v2.20.3
       COSIGN_VERSION: v3.1.4
-      SYFT_VERSION: v1.57.1
+      SYFT_VERSION: v1.57.2
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -42,7 +42,7 @@ jobs:
           git merge-base --is-ancestor "$GITHUB_SHA" origin/main ||
             { echo "::error::$GITHUB_REF_NAME is not on main"; exit 1; }
 
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: go.mod
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0

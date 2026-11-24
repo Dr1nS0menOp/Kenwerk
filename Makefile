@@ -4,7 +4,7 @@ BUILD_DATE ?= $(shell git log -1 --format=%cs 2>/dev/null)
 LDFLAGS := -s -w -X github.com/kenwerk/kenwerk/internal/version.Version=$(VERSION) \
 	-X github.com/kenwerk/kenwerk/internal/version.Date=$(BUILD_DATE)
 STATICCHECK := honnef.co/go/tools/cmd/staticcheck@v0.8.2
-GOVULNCHECK := golang.org/x/vuln/cmd/govulncheck@v1.9.0
+GOVULNCHECK := golang.org/x/vuln/cmd/govulncheck@v1.10.0
 # Spec 097. Run as separate programs, never linked into Kenwerk; golangci-lint is GPL-3.0,
 # which blueprint 02 allows for a tool called as a separate process.
 GOLANGCI_LINT := github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0

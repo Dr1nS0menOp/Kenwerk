@@ -1,14 +1,14 @@
 # SPDX-License-Identifier: Apache-2.0
 # Base images are pinned by digest, with the tag kept for reading; Renovate moves the
 # digests (OPS-096).
-FROM node:22-bookworm-slim@sha256:18052396bf1d0c6e0a8c58181b5c1457da19409efbd5032a3f4d86974e74d13c AS web
+FROM node:22-bookworm-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee AS web
 WORKDIR /src/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci --no-fund --no-audit
 COPY web/ ./
 RUN npx vite build
 
-FROM golang:1.26@sha256:5ebd6e7dc13f9e273ed9470679eb295d8b6e7de3b6379c8a5e17a9e6c3eabd38 AS build
+FROM golang:1.26@sha256:4165ee6bf3b7811fd7b40373290405c83d0167dcb87ee5f29c427cdcef45ff8f AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
@@ -26,7 +26,7 @@ RUN mkdir -p /out/data
 # The backup service of compose.yaml (spec 054): pg_dump of the same major version as the
 # database, gpg to encrypt, and the kenwerk binary of this build to note each backup.
 # docker build . skips this stage; compose.yaml builds it with target: backup.
-FROM postgres:16@sha256:63e83b5a3dc36a917dccb76fe1bd2ac51f1ec9c1deb47ff20d4f04233bf6eae9 AS backup
+FROM postgres:16@sha256:3950ad7c3148ca2175ef1b6c36c9efbf78957ae8fbe8b3a5d7c35af50500382f AS backup
 # The base is pinned by digest, so Debian's security updates since then come in here. gosu
 # serves the entrypoint of the postgres image, which this stage replaces, so it goes (spec 067).
 # ca-certificates lets pg_dump check a managed database's certificate with sslrootcert=system

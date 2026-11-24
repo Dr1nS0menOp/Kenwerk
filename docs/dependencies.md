@@ -10,19 +10,19 @@ Every direct dependency is listed with its licence and the reason it exists. Lic
 
 | Module | Licence | Why | Approved |
 |---|---|---|---|
-| `jackc/pgx` | MIT | PostgreSQL driver | Blueprint 04 |
-| `nats-io/nats.go`, `nats-server` | Apache-2.0 | Message queue, embedded for small installs | Blueprint 04 |
+| `jackc/pgx/v5` 5.13.0 | MIT | PostgreSQL driver. Brings its pool `jackc/puddle/v2` 2.2.4 (MIT) | Blueprint 04 |
+| `nats-io/nats.go` 1.56.0, `nats-server/v2` 2.15.3 | Apache-2.0 | Message queue, embedded for small installs. Brings `nats-io/jwt/v2` 2.8.3, `nats-io/nkeys` 0.4.17 (Apache-2.0) and `klauspost/compress` 1.20.5 (BSD-3, Apache-2.0 and MIT for its parts) | Blueprint 04 |
 | `google/uuid` | BSD-3 | UUIDv7 ids | Blueprint 05 |
-| `golang.org/x/crypto` | BSD-3 | Argon2id password hashing | Blueprint 06 |
-| `coreos/go-oidc`, `golang.org/x/oauth2` | Apache-2.0, BSD-3 | OIDC login. Token verification must not be hand-written. | Blueprint 04 |
-| `go-webauthn/webauthn` | BSD-3 | Passkeys. Far too intricate to write ourselves. | Blueprint 04 |
-| `pquerna/otp` | Apache-2.0 | TOTP codes and the QR code for enrolment. Replaced the planned hand-written TOTP and the frontend QR library. | The product owner, 2026-11-04 |
+| `golang.org/x/crypto` 0.59.0 | BSD-3 | Argon2id password hashing | Blueprint 06 |
+| `coreos/go-oidc`, `golang.org/x/oauth2` 0.38.0 | Apache-2.0, BSD-3 | OIDC login. Token verification must not be hand-written. Brings `go-jose/go-jose/v4` 4.1.9 (Apache-2.0, with BSD-3 for its JSON package) | Blueprint 04 |
+| `go-webauthn/webauthn` | BSD-3 | Passkeys. Far too intricate to write ourselves. Brings `fxamacker/cbor/v2` 2.10.0 (MIT) and `tinylib/msgp` 1.6.5 with `philhofer/fwd` 1.2.1 (MIT) | Blueprint 04 |
+| `pquerna/otp` | Apache-2.0 | TOTP codes and the QR code for enrolment, drawn by `boombuler/barcode` 1.1.1 (MIT), which it brings. Replaced the planned hand-written TOTP and the frontend QR library. | The product owner, 2026-11-04 |
 | `yuin/goldmark` | MIT | Markdown parser, no dependencies of its own | The product owner, 2026-11-04 |
-| `golang.org/x/net/html` | BSD-3 | HTML import. Parsing hostile HTML must not be hand-written. | The product owner, ADR-026 |
+| `golang.org/x/net/html` 0.63.0 | BSD-3 | HTML import. Parsing hostile HTML must not be hand-written. | The product owner, ADR-026 |
 | `go.yaml.in/yaml/v3` 3.0.6 | MIT and Apache-2.0, read from its `LICENSE` and `NOTICE` | The configuration file (spec 056). Parsing YAML must not be hand-written. The maintained successor of the archived `gopkg.in/yaml.v3`; it needs no other module, and was already in the build through a test library | The product owner, ADR-040; spec 048 D4 |
-| `go.opentelemetry.io/otel`, `otel/trace`, `otel/sdk`, `otel/exporters/otlp/otlptrace/otlptracehttp` 1.47.0 | Apache-2.0, read from each module's `LICENSE` | Traces over OTLP (spec 060), off by default. The official SDK: the wire format and batching must not be hand-written. No contrib modules (`otelhttp`, `otelpgx`): the middleware, query tracer and NATS headers are our own few lines, so no attribute is added that spec 060 D6 forbids. They bring `go.opentelemetry.io/otel/metric`, `otel/log`, `otel/exporters/otlp/otlptrace`, `go.opentelemetry.io/auto/sdk` (Apache-2.0), `go.opentelemetry.io/proto/otlp` (Apache-2.0), `google.golang.org/protobuf` (BSD-3), `google.golang.org/grpc` and `google.golang.org/genproto/googleapis/api` and `/rpc` (Apache-2.0), `grpc-ecosystem/grpc-gateway/v2` (BSD-3), `go-logr/logr` and `go-logr/stdr` (Apache-2.0), `cenkalti/backoff/v5` (MIT), `cespare/xxhash/v2` (MIT): the OTLP protocol package links its gRPC stubs even for HTTP. Each licence read from the module's own file | The product owner, ADR-040; spec 048 D5 |
+| `go.opentelemetry.io/otel`, `otel/trace`, `otel/sdk`, `otel/exporters/otlp/otlptrace/otlptracehttp` 1.47.0 | Apache-2.0, read from each module's `LICENSE` | Traces over OTLP (spec 060), off by default. The official SDK: the wire format and batching must not be hand-written. No contrib modules (`otelhttp`, `otelpgx`): the middleware, query tracer and NATS headers are our own few lines, so no attribute is added that spec 060 D6 forbids. They bring `go.opentelemetry.io/otel/metric`, `otel/log`, `otel/exporters/otlp/otlptrace`, `go.opentelemetry.io/auto/sdk` 1.2.2 (Apache-2.0), `go.opentelemetry.io/proto/otlp` 1.11.1 (Apache-2.0), `google.golang.org/protobuf` (BSD-3), `google.golang.org/grpc` 1.85.0 and `google.golang.org/genproto/googleapis/api` and `/rpc` of 2026-11-23 (Apache-2.0), `grpc-ecosystem/grpc-gateway/v2` 2.34.0 (BSD-3), `go-logr/logr` and `go-logr/stdr` (Apache-2.0), `cenkalti/backoff/v5` (MIT), `cespare/xxhash/v2` (MIT): the OTLP protocol package links its gRPC stubs even for HTTP. Each licence read from the module's own file | The product owner, ADR-040; spec 048 D5 |
 | `modelcontextprotocol/go-sdk` 1.8.0 | MIT for its existing code, Apache-2.0 for new contributions, read from its `LICENSE` | The Model Context Protocol for `kenwerk mcp` (spec 096, wave MC3): the official SDK, which speaks revision 2026-07-28 and the older ones. The protocol's framing, versions and life cycle are not ours to keep up with by hand. It brings `google/jsonschema-go` 0.4.3 (MIT), which also checks the arguments of every tool against its schema, `yosida95/uritemplate/v3` (BSD-3), and `segmentio/encoding` and `segmentio/asm` (MIT); and it links `golang-jwt/jwt/v5` (MIT), which was already in the module graph, for its OAuth helpers. Each licence read from the module's own file | The product owner, 2026-11-22 (spec 096, question 2) |
-| `golang.org/x/text/unicode/norm` | BSD-3 | Unicode NFC for passwords (SEC-107). It was already in the build through other modules; only its listing is new. Unicode tables must not be hand-written. | Spec 035 |
+| `golang.org/x/text/unicode/norm` 0.44.0 | BSD-3 | Unicode NFC for passwords (SEC-107). It was already in the build through other modules; only its listing is new. Unicode tables must not be hand-written. | Spec 035 |
 
 ## Data
 
@@ -51,8 +51,8 @@ Only in the `collab` container, and only where an operator installs it. Pinned i
 
 | Package | Licence | Why | Decided |
 |---|---|---|---|
-| `@hocuspocus/server` 4.8.0, `@hocuspocus/common` 4.8.0 | MIT, read from each package | The WebSocket server for Yjs | ADR-026 |
-| `yjs` 13.6.33, `y-protocols` 1.0.7, `lib0` 0.2.119 | MIT | The shared document | ADR-026 |
+| `@hocuspocus/server` 4.9.0, `@hocuspocus/common` 4.9.0 | MIT, read from each package | The WebSocket server for Yjs | ADR-026 |
+| `yjs` 13.6.33, `y-protocols` 1.0.7, `lib0` 0.2.120 | MIT | The shared document | ADR-026 |
 | `crossws` 0.4.17, `async-mutex` 0.5.0, `isomorphic.js` 0.2.5, `kleur` 4.1.5 | MIT | Come with Hocuspocus | ADR-026 |
 | `tslib` 2.9.1 | 0BSD | Comes with `async-mutex` | ADR-026 |
 
@@ -62,9 +62,9 @@ They build, list and sign a release in `.github/workflows/release.yml` and the C
 
 | Tool | Licence | Why | Approved |
 |---|---|---|---|
-| GoReleaser 2.20.1 (OSS), with nFPM | MIT, read from its `LICENSE.md` | Archives, `.deb` and `.rpm`, checksums | The product owner, ADR-040 |
+| GoReleaser 2.20.3 (OSS), with nFPM | MIT, read from its `LICENSE.md` | Archives, `.deb` and `.rpm`, checksums | The product owner, ADR-040 |
 | cosign 3.1.4 | Apache-2.0 | Keyless Sigstore signatures of `checksums.txt` and the image | Spec 048 D7 |
-| syft 1.57.1 | Apache-2.0 | The SBOMs in SPDX and CycloneDX | Spec 048, OPS-094 |
+| syft 1.57.2 | Apache-2.0 | The SBOMs in SPDX and CycloneDX | Spec 048, OPS-094 |
 | `actions/attest-build-provenance` 4.2.2 | MIT | SLSA provenance through GitHub | Spec 048, OPS-094 |
 
 ## Deployment checks (CI only, never in the product)
@@ -73,12 +73,13 @@ They check the deployment templates in `scripts/deploy-check.sh` and the CI job 
 
 | Tool | Licence | Why | Approved |
 |---|---|---|---|
-| Helm 4.3.1 | Apache-2.0 | `helm lint`, `helm template`, and packaging and pushing the chart | Spec 099 D15 |
+| Helm 4.3.2 | Apache-2.0 | `helm lint`, `helm template`, and packaging and pushing the chart | Spec 099 D15 |
 | kubeconform 0.8.0 | Apache-2.0 | The rendered chart against the schemas of Kubernetes 1.33 | Spec 099 D15 |
 | Bicep 0.48.1 | MIT | `bicep lint`, and building `azuredeploy.json` | Spec 099 D15 |
 | OpenTofu 1.13.8 | MPL-2.0 | `tofu validate` and `fmt` of the module and examples | The coordinator allowed MPL-2.0 for these CLIs; spec 099 D16 |
 | Terraform 1.5.7 | MPL-2.0 | The same with Terraform. The last MPL-2.0 release: later ones are BUSL-1.1, which is not allowed | As above |
 | `hashicorp/helm`, `kubernetes`, `random`, `google` providers | MPL-2.0 | Downloaded by `init` so `validate` can check the module and examples | Decided on the product owner's behalf, spec 099 D16, may be overruled |
+| `python:3.13-slim`, pinned by digest in the script | PSF-2.0 for Python, with the licences of its Debian packages | The image cfn-lint runs in, so no Python is installed on the runner | As above |
 | cfn-lint 1.60.0, with jsonpatch, jsonpointer, networkx (BSD-3-Clause), mpmath, sympy (BSD), PyYAML (MIT), regex (Apache-2.0 and CNRI-Python), typing_extensions (PSF-2.0) | MIT-0 | The CloudFormation template, with warnings as failures | As above: MIT-0 and PSF-2.0 are permissive, but not on the list |
 
 ## Deliberately not a dependency
@@ -94,6 +95,7 @@ They check the deployment templates in `scripts/deploy-check.sh` and the CI job 
 | TipTap colour, highlight and alignment packages | Own marks | They store free values, and our documents only allow names from a list (spec 008). Each mark is a few lines. |
 | TipTap drag handle | Own code | Ours moves top-level blocks and is small. Yjs is here now, so it could be looked at again. |
 | Emoji data | Own list | About 150 common emoji with our own keywords in `emoji.json`. The characters come from the system font, so nothing else ships. |
+| Routing (`@tanstack/react-router`, in blueprint 04) | Own code | `web/src/router.tsx`, a small router over the browser's history. About a dozen screens did not justify a dependency. |
 | Message bus for jobs | PostgreSQL | Imports and periodic tasks use a table with `SKIP LOCKED`. One moving part fewer than a second NATS consumer. Events still go through the outbox and NATS. |
 
 ## Frontend (npm)
@@ -103,17 +105,16 @@ See `web/package.json`. The list and its reasons are below, and `scripts/check-l
 | Package | Licence | Why | Approved |
 |---|---|---|---|
 | `react`, `react-dom` | MIT | UI | Blueprint 04 |
-| `@tanstack/react-query` | MIT | Server state and caching | Blueprint 04 |
-| `@tanstack/react-router` | MIT | Routing | Blueprint 04 |
-| `@tiptap/*` | MIT | Editor, on ProseMirror (MIT) | Blueprint 04 |
+| `@tanstack/react-query` 5.108.4 | MIT | Server state and caching | Blueprint 04 |
+| `@tiptap/*` 3.35.0 | MIT | Editor, on ProseMirror (MIT): `prosemirror-model` 1.25.13, `-transform` 1.12.7 and the rest at their newest, apart from `prosemirror-view`, held at 1.42.9 by `overrides` in `web/package.json`: 1.43.0 (2026-11-19) moved mouse selection from the browser into the library, and with it a click on a file tile no longer selects the tile, so its tools never show (`file-details.spec.ts`). 1.42.9 has no known advisory; move on once a later release passes the end-to-end tests | Blueprint 04 |
 | `yjs` 13.6.33 | MIT | The shared document that merges by itself | ADR-026 |
-| `@tiptap/extension-collaboration` 3.32.2, `@tiptap/extension-collaboration-caret` 3.32.2, `@tiptap/y-tiptap` 3.2.0 | MIT, read from each package | Connect the editor to Yjs, with cursors and an undo per person. Pinned together with TipTap | ADR-026 |
-| `@hocuspocus/provider` 4.8.0 | MIT, read from the package | Talks to the service | ADR-026 |
+| `@tiptap/extension-collaboration` 3.35.0, `@tiptap/extension-collaboration-caret` 3.35.0, `@tiptap/y-tiptap` 3.3.1 | MIT, read from each package | Connect the editor to Yjs, with cursors and an undo per person. Pinned together with TipTap | ADR-026 |
+| `@hocuspocus/provider` 4.9.0 | MIT, read from the package | Talks to the service | ADR-026 |
 | `y-indexeddb` 9.0.12 | MIT | Keeps typing safe offline | ADR-026 |
-| `y-protocols` 1.0.7, `lib0` 0.2.119 | MIT | Come with Yjs | ADR-026 |
+| `y-protocols` 1.0.7, `lib0` 0.2.120 | MIT | Come with Yjs | ADR-026 |
 | `@tiptap/suggestion` | MIT | The menus at the cursor for `/` and `:`. Its helper for placing a popup, `@floating-ui/dom`, was already there through `@tiptap/react`. | The product owner, 2026-11-05 |
-| `i18next`, `react-i18next` | MIT | Translation framework | Blueprint 04 |
-| `lowlight`, `highlight.js` | MIT, BSD-3 | Colours in code blocks | The product owner, 2026-11-04 |
+| `i18next` 26.7.2, `react-i18next` 17.1.13 | MIT | Translation framework | Blueprint 04 |
+| `lowlight` 3.3.0, `highlight.js` 11.12.0 | MIT, BSD-3 | Colours in code blocks. lowlight asks for highlight.js 11.11, so `overrides` in `web/package.json` gives it 11.12.0, the one copy in the tree: 11.12.0 bounds two grammars that could take very long on crafted text, and changes no API that lowlight uses | The product owner, 2026-11-04 |
 
 Development only: `vite`, `typescript`, `vitest`, `eslint`, `prettier`, `@playwright/test`, `@axe-core/playwright`, all named in blueprint 09.
 
@@ -129,6 +130,62 @@ Run as separate programs with `go run module@version`, so the Go checksum databa
 |---|---|---|---|
 | golangci-lint 2.15.0 | GPL-3.0, read from its `LICENSE` | Runs gocyclo (BSD-3), funlen (MIT), dupl (MIT) and gosec (Apache-2.0) with one configuration, `.golangci.yml`, and one JSON report for the ratchet. A GPL tool called as a separate process is allowed by blueprint 02; it never touches our code's licence | The product owner, 2026-11-21 (wave QG1) |
 | gitleaks 8.30.1 | MIT, read from its `LICENSE` | The secret scan of the working tree and of every commit, with `.gitleaks.toml` | The product owner, 2026-11-21 (wave QG1) |
+| govulncheck 1.10.0 | BSD-3 | Known vulnerabilities in the Go code and every module it requires (`make vuln`) | Blueprint 09 |
+| Semgrep 1.186.0, the `semgrep/semgrep` image pinned by digest | LGPL-2.1, read from its `LICENSE` | The scan with the Go, TypeScript, React and secrets rules in CI. Runs in its own container, never linked into Kenwerk | ADR-038 |
+
+## Versions of the security-relevant dependencies
+
+The product owner's rule (2026-11-23): what matters for security is kept maintained and patched quickly. This table holds the version in use, the date that version was released, and the licence, for every security-relevant dependency that wave DU1 moved. Change it with every update. The base images are pinned by digest in the `Dockerfile`, `collab/Dockerfile`, `compose.yaml` and CI; the date is when the digest was refreshed.
+
+| Dependency | Version | Released | Licence |
+|---|---|---|---|
+| `golang.org/x/crypto` | 0.59.0 | 2026-11-11 | BSD-3 |
+| `golang.org/x/net` | 0.63.0 | 2026-11-17 | BSD-3 |
+| `golang.org/x/oauth2` | 0.38.0 | 2026-11-06 | BSD-3 |
+| `golang.org/x/text` | 0.44.0 | 2026-11-09 | BSD-3 |
+| `golang.org/x/sys` | 0.50.0 | 2026-11-06 | BSD-3 |
+| `golang.org/x/sync` | 0.25.0 | 2026-10-15 | BSD-3 |
+| `go-jose/go-jose/v4` | 4.1.9 | 2026-11-05 | Apache-2.0, BSD-3 |
+| `jackc/pgx/v5` | 5.13.0 | 2026-11-11 | MIT |
+| `jackc/puddle/v2` | 2.2.4 | 2026-11-16 | MIT |
+| `nats-io/nats-server/v2` | 2.15.3 | 2026-11-11 | Apache-2.0 |
+| `nats-io/nats.go` | 1.56.0 | 2026-11-17 | Apache-2.0 |
+| `nats-io/jwt/v2` | 2.8.3 | 2026-11-06 | Apache-2.0 |
+| `nats-io/nkeys` | 0.4.17 | 2026-11-05 | Apache-2.0 |
+| `klauspost/compress` | 1.20.5 | 2026-11-19 | BSD-3, Apache-2.0, MIT |
+| `google.golang.org/grpc` | 1.85.0 | 2026-10-27 | Apache-2.0 |
+| `grpc-ecosystem/grpc-gateway/v2` | 2.34.0 | 2026-11-16 | BSD-3 |
+| `google.golang.org/genproto/googleapis/api`, `/rpc` | commit `1e707ab9fbc2` | 2026-11-23 | Apache-2.0 |
+| `go.opentelemetry.io/auto/sdk` | 1.2.2 | 2026-11-20 | Apache-2.0 |
+| `go.opentelemetry.io/proto/otlp` | 1.11.1 | 2026-09-30 | Apache-2.0 |
+| `fxamacker/cbor/v2` | 2.10.0 | 2026-10-28 | MIT |
+| `tinylib/msgp` | 1.6.5 | 2026-09-30 | MIT |
+| `philhofer/fwd` | 1.2.1 | 2026-10-16 | MIT |
+| `boombuler/barcode` | 1.1.1 | 2026-11-22 | MIT |
+| `@tiptap/*` | 3.35.0 | 2026-11-20 | MIT |
+| `@tiptap/y-tiptap` | 3.3.1 | 2026-11-20 | MIT |
+| `@hocuspocus/provider`, `/server`, `/common` | 4.9.0 | 2026-11-20 | MIT |
+| `@tanstack/react-query` | 5.108.4 | 2026-11-23 | MIT |
+| `i18next` | 26.7.2 | 2026-11-05 | MIT |
+| `react-i18next` | 17.1.13 | 2026-11-05 | MIT |
+| `prosemirror-model` | 1.25.13 | 2026-11-08 | MIT |
+| `prosemirror-view` (held, see `@tiptap/*` above) | 1.42.9 | 2026-10-31 | MIT |
+| `prosemirror-transform` | 1.12.7 | 2026-11-19 | MIT |
+| `prosemirror-history`, `-inputrules`, `-schema-list` | 1.5.2, 1.7.0, 1.6.1 | 2026-11-19 | MIT |
+| `lib0` | 0.2.120 | 2026-11-09 | MIT |
+| `highlight.js` | 11.12.0 | 2026-08-12 | BSD-3 |
+| `eslint` (development only) | 10.15.0 | 2026-11-13 | MIT |
+| `typescript-eslint` (development only) | 8.74.0 | 2026-11-23 | MIT |
+| `golang:1.26` (build stage; Go 1.26.11) | digest `4165ee6bf3b7` | 2026-11-23 | BSD-3 (Go) |
+| `postgres:16` (database, backup image; PostgreSQL 16.16) | digest `3950ad7c3148` | 2026-11-23 | PostgreSQL |
+| `node:22-bookworm-slim` (web build stage) | digest `e9f565d32859`, the same image as `collab`'s `node:22-slim` | 2026-11-23 | MIT (Node.js) |
+| `actions/setup-go` | 7.1.0 | 2026-11-17 | MIT |
+| `github/codeql-action` | 4.39.4 | 2026-11-20 | MIT |
+| govulncheck | 1.10.0 | 2026-11-17 | BSD-3 |
+| GoReleaser | 2.20.3 | 2026-11-20 | MIT |
+| syft | 1.57.2 | 2026-11-16 | Apache-2.0 |
+| Helm | 4.3.2 | 2026-11-13 | Apache-2.0 |
+| Semgrep | 1.186.0 | 2026-11-18 | LGPL-2.1 |
 
 ## Wanted, waiting for the product owner
 
