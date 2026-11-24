@@ -15,11 +15,13 @@ require (
 	github.com/nats-io/nats.go v1.56.0
 	github.com/pquerna/otp v1.5.0
 	github.com/yuin/goldmark v1.8.7
+	github.com/yuin/goldmark/v2 v2.1.16
 	go.opentelemetry.io/otel v1.47.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.47.0
 	go.opentelemetry.io/otel/sdk v1.47.0
 	go.opentelemetry.io/otel/trace v1.47.0
-	go.yaml.in/yaml/v3 v3.0.6
+	go.yaml.in/yaml/v3 v3.0.5
+	go.yaml.in/yaml/v4 v4.0.0
 	golang.org/x/crypto v0.59.0
 	golang.org/x/net v0.63.0
 	golang.org/x/oauth2 v0.38.0
