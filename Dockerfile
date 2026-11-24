@@ -1,14 +1,14 @@
 # SPDX-License-Identifier: Apache-2.0
 # Base images are pinned by digest, with the tag kept for reading; Renovate moves the
 # digests (OPS-096).
-FROM node:22-bookworm-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee AS web
+FROM node:26-trixie-slim@sha256:615a27817f7b9508f0de73eb1cc8fc8894ab122bee56c1a7a568b72cd1032067 AS web
 WORKDIR /src/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci --no-fund --no-audit
 COPY web/ ./
 RUN npx vite build
 
-FROM golang:1.26@sha256:4165ee6bf3b7811fd7b40373290405c83d0167dcb87ee5f29c427cdcef45ff8f AS build
+FROM golang:1.27@sha256:205c7636d74e0ffbe3d007162df7d74f859f5a8c8322dfb9f907977686c126cf AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
@@ -42,7 +42,7 @@ ENTRYPOINT ["bash", "/usr/local/bin/kenwerk-backup"]
 CMD ["loop"]
 
 # Distroless: no shell, no package manager, runs as non-root.
-FROM gcr.io/distroless/static-debian12:nonroot@sha256:afa5c872c891853ca7fcf1f12c3edb23f7eeef36189728842dd51042ff57f7ab
+FROM gcr.io/distroless/static-debian13:nonroot@sha256:8ce6dd87e9823c5b48dcfb2c8604714ccb351ce59607327bcc4957448da279b5
 COPY --from=build /out/kenwerk /usr/local/bin/kenwerk
 COPY --from=build --chown=nonroot:nonroot /out/data /var/lib/kenwerk
 ENV KENWERK_HTTP_ADDR=:8080 \

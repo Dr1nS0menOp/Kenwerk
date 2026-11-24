@@ -193,9 +193,12 @@ The product owner's rule (2026-11-23): what matters for security is kept maintai
 | `highlight.js` | 11.12.0 | 2026-08-12 | BSD-3 |
 | `eslint` (development only) | 10.15.0 | 2026-11-13 | MIT |
 | `typescript-eslint` (development only) | 8.74.0 | 2026-11-23 | MIT |
-| `golang:1.26` (build stage; Go 1.26.11) | digest `4165ee6bf3b7` | 2026-11-23 | BSD-3 (Go) |
+| Go toolchain (`toolchain` in `go.mod`; `go` 1.27.0) | 1.27.4 | 2026-11-10 | BSD-3 (Go) |
+| `golang:1.27` (build stage and development toolbox; Go 1.27.4, Debian 13) | digest `205c7636d74e` | 2026-11-24 | BSD-3 (Go) |
+| `gcr.io/distroless/static-debian13:nonroot` (runtime of `kenwerk`) | digest `8ce6dd87e982` | 2026-11-24 | Apache-2.0 (Debian packages: various) |
 | `postgres:16` (database, backup image; PostgreSQL 16.16) | digest `3950ad7c3148` | 2026-11-23 | PostgreSQL |
-| `node:22-bookworm-slim` (web build stage) | digest `e9f565d32859`, the same image as `collab`'s `node:22-slim` | 2026-11-23 | MIT (Node.js) |
+| `node:26-trixie-slim` (web build stage; Node 26.13.1, the active LTS, Debian 13) | digest `615a27817f7b` | 2026-11-24 | MIT (Node.js) |
+| `node:22-slim` (`collab`, Debian 12; its move to a distroless Node image waits for the product owner) | digest `e9f565d32859` | 2026-11-23 | MIT (Node.js) |
 | `actions/setup-go` | 7.1.0 | 2026-11-17 | MIT |
 | `github/codeql-action` | 4.39.4 | 2026-11-20 | MIT |
 | govulncheck | 1.10.0 | 2026-11-17 | BSD-3 |

@@ -405,7 +405,8 @@ jobs:
           go-version-file: go.mod
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 22
+          # As release.yml: the Node of the web build stage in the Dockerfile.
+          node-version: 26
       - name: the binary and the web assets reproduce
         run: bash scripts/reproducible.sh
       - name: web assets, embedded in the binary

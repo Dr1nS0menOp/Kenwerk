@@ -93,7 +93,7 @@ function repoOverride(name) {
 
 // The licence of the software an image carries, not of each operating system package in it.
 const IMAGE_FACTS = {
-  'gcr.io/distroless/static-debian12': { licence: 'Apache-2.0 (Debian packages: various)', repo: 'GoogleContainerTools/distroless' },
+  'gcr.io/distroless/static-debian13': { licence: 'Apache-2.0 (Debian packages: various)', repo: 'GoogleContainerTools/distroless' },
   node: { licence: 'MIT (Node.js; Debian packages: various)', repo: 'nodejs/docker-node', hub: 'library/node' },
   golang: { licence: 'BSD-3-Clause (Go; Debian packages: various)', repo: 'docker-library/golang', hub: 'library/golang' },
   postgres: { licence: 'PostgreSQL (Debian packages: various)', repo: 'docker-library/postgres', hub: 'library/postgres' },
@@ -104,7 +104,7 @@ const IMAGE_FACTS = {
   'semgrep/semgrep': { licence: 'LGPL-2.1', repo: 'semgrep/semgrep', hub: 'semgrep/semgrep' },
 };
 const CRITICAL_IMAGES = {
-  'gcr.io/distroless/static-debian12': 'security, architecture',
+  'gcr.io/distroless/static-debian13': 'security, architecture',
   node: 'security, architecture',
   postgres: 'security, architecture',
   'gotenberg/gotenberg': 'security',

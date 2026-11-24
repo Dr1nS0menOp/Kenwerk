@@ -6,9 +6,12 @@
 # FUZZ_ONLY names one target to run alone, such as FuzzFromMarkdown.
 #
 # Go's fuzz coordinator can report "context deadline exceeded" when the time of a target runs
-# out although the target never failed (golang/go#75804, not fixed in Go 1.26.11). Such a
-# failure writes no failing input, so a target that failed with that message and wrote nothing
-# runs once more. A failure with an input, any other failure, or the same message twice fails.
+# out although the target never failed (golang/go#75804). Go 1.27.0 and later carry the fix
+# (commit 184ce15 on the Go 1.27 release branch), so with the toolchain of go.mod the retry
+# below should no longer fire; it stays as a narrow guard, and a RETRIED line in a nightly log
+# now means the race is back. Such a failure writes no failing input, so a target that failed
+# with that message and wrote nothing runs once more. A failure with an input, any other
+# failure, or the same message twice fails.
 set -uo pipefail
 
 # Package, target and seconds of each target. Every fuzz target in the code must be listed:

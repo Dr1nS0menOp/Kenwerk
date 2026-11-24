@@ -2,4 +2,4 @@
 // code, and "go test ./..." would otherwise build what is in node_modules.
 module github.com/kenwerk/kenwerk/web
 
-go 1.26.0
+go 1.27.0
