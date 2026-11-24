@@ -43,8 +43,15 @@ export KENWERK_PUBLIC_URL=$base_url KENWERK_HTTP_ADDR=":$port" KENWERK_DATA_DIR=
 export KENWERK_LOG_LEVEL=warn KENWERK_SHUTDOWN_DELAY=1s
 server=
 
+# stop_all ends the server and drops the database. When the run failed, at any step, the
+# server's own lines come first, since a log needs a login to read and the cause is there.
 # shellcheck disable=SC2329 # called by the trap below
 stop_all() {
+  local status=$1
+  if [ "$status" -ne 0 ] && [ -s "$work/server.log" ]; then
+    echo "--- the server's warnings and errors"
+    grep -E '"level":"(WARN|ERROR)"' "$work/server.log" | tail -30 || tail -30 "$work/server.log"
+  fi
   if [ -n "$server" ]; then
     kill -TERM "$server" 2>/dev/null || true
     wait "$server" 2>/dev/null || true
@@ -52,7 +59,7 @@ stop_all() {
   psql "$KENWERK_TEST_DATABASE_URL" -q -c "DROP DATABASE IF EXISTS $db WITH (FORCE)" || true
   rm -rf "$work"
 }
-trap stop_all EXIT
+trap 'stop_all $?' EXIT
 
 # fetch_k6 downloads the pinned k6 once, and refuses it unless its sha256 is the pinned one.
 fetch_k6() {
@@ -99,12 +106,13 @@ started=$SECONDS
 SEED_ADMIN_PASSWORD=$admin_password python3 -I "$here/scripts/stress/seed.py" --base "$base_url" \
   --admin-email admin@example.test --out "$work/seeded.json" --workers 8 \
   --people "$SEED_PEOPLE" --groups "$SEED_GROUPS" --spaces "$SEED_SPACES" --pages "$SEED_PAGES" \
-  --comments 0 --commenters 0 --files "$SEED_FILES" --labels "$SEED_LABELS" | tee "$work/seed.log"
+  --comments 0 --commenters 0 --files "$SEED_FILES" --labels "$SEED_LABELS" 2>&1 | tee "$work/seed.log"
 # seed.py counts a failed item and goes on; here every item must exist, or the run measures
 # a smaller organisation than it says. (Its page plan rounds each space down, so it makes a
 # few pages fewer than asked: 1,993 of 2,000.)
 if grep -qE ', [1-9][0-9]* failed' "$work/seed.log"; then
-  echo "seeding failed for some items: the run would measure a smaller organisation" >&2
+  grep -E ', [1-9][0-9]* failed|answered' "$work/seed.log" | sed -n '1,10p' |
+    while IFS= read -r line; do echo "::error title=load smoke seeding::$line"; done
   exit 1
 fi
 echo "seeded in $((SECONDS - started))s"
@@ -124,7 +132,5 @@ status=0
   "$here/scripts/load/smoke.js" || status=$?
 if [ "$status" -ne 0 ]; then
   echo "::error title=load smoke::k6 exited $status: a read crossed its budget, or requests failed"
-  echo "--- server log"
-  tail -30 "$work/server.log"
 fi
 exit "$status"

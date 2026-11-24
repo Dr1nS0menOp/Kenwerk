@@ -27,8 +27,10 @@ const serverErrors = new Counter("server_errors");
 
 // The p95 budget of each main read, in milliseconds: the one place they are set. Each is the
 // design target named beside it, and lies far above what was measured, so a slow shared runner
-// stays inside it and only a real regression crosses it. What this test itself measured is in
-// docs/reports/2026-11-24-wave-lt1.md.
+// stays inside it and only a real regression crosses it. On a GitHub hosted runner (4 CPUs,
+// PostgreSQL with fsync, CI run 45437555924) this test measured p95: page 15.4 ms, bell 12.0,
+// quick 42.0, search 52.2, tree 15.1, feed 20.1. Every budget is 8 to 33 times that, and a read
+// slowed by 150 ms crosses the bell's (docs/reports/2026-11-24-wave-lt2.md).
 const budgets = {
   // Blueprint 01: pages under 300 ms at p95. Measured: 109 ms p95 with 20 people on the 2012
   // server (stress test of 10 November), 19 to 31 ms at the model (operations/limits.md).
@@ -56,6 +58,10 @@ const budgets = {
 // so a slow server cannot slow the test down and hide itself.
 const rates = { page: 6, bell: 6, quick: 4, search: 1, tree: 1, feed: 1 };
 const duration = __ENV.DURATION || "150s";
+// The first seconds are not measured: each simulated person logs in (a password hash, on
+// purpose slow) and the server's and PostgreSQL's caches fill. Their requests carry the route
+// "warmup", which no budget reads; their errors still count.
+const warmupSeconds = 15;
 
 const scenarios = {};
 const thresholds = {
@@ -74,7 +80,7 @@ for (const [route, rate] of Object.entries(rates)) {
     exec: route,
     rate,
     timeUnit: "1s",
-    duration,
+    duration: `${warmupSeconds + parseInt(duration, 10)}s`,
     preAllocatedVUs: rate * 2,
     maxVUs: rate * 10,
   };
@@ -106,8 +112,9 @@ function loginOnce() {
   check(r, { "logged in": (x) => x.status === 200 });
 }
 
-function get(path, route) {
+function get(path, read) {
   loginOnce();
+  const route = exec.instance.currentTestRunDuration < warmupSeconds * 1000 ? "warmup" : read;
   // The name tag groups every address of a route, so k6 keeps one series per route.
   const r = http.get(`${base}${path}`, { tags: { route, name: route } });
   if (r.status >= 500) serverErrors.add(1, { route });

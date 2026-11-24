@@ -2195,6 +2195,9 @@ mutate "a file without a transaction runs in one" internal/db/migrate.go \
   's.replace("\t\tif m.NoTransaction {\n\t\t\terr = applyAlone", "\t\tif false {\n\t\t\terr = applyAlone")' $db -run TestAConcurrentIndexIsBuiltOutsideATransaction
 mutate "an index left invalid passes" internal/db/migrate.go \
   's.replace("\tif len(invalid) > 0 {", "\tif false {")' $db -run TestAnIndexLeftInvalidIsNamed
+# Wave LT2: two transactions making the same new role take turns.
+mutate "SQL: two makers of one new role race" internal/db/migrations/0081_role_for_one_at_a_time.sql \
+  's.replace("    PERFORM pg_advisory_xact_lock(hashtext(", "    PERFORM (")' $db -run TestTwoTransactionsAskingForTheSameNewRoleGetOneRole
 mutate "a file without a transaction may hold two statements" internal/db/migrate.go \
   's.replace("statementCount(m.SQL) != 1", "statementCount(m.SQL) < 1")' $db -run TestHeadersThatMakeNoSenseAreRefused
 mutate "any word after transaction means none" internal/db/migrate.go \
