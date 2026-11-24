@@ -8,7 +8,7 @@ RUN npm ci --no-fund --no-audit
 COPY web/ ./
 RUN npx vite build
 
-FROM golang:1.26@sha256:4165ee6bf3b7811fd7b40373290405c83d0167dcb87ee5f29c427cdcef45ff8f AS build
+FROM golang:1.27@sha256:87f49b77a7b6a99ad7dc656be010ae453322459dd2ed902ac177649a302bc101 AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
