@@ -3,6 +3,9 @@
 Plain-language notes per release. Every entry has an "Upgrade impact" line.
 
 ## Unreleased
+### Changed: addresses of image links and spotlight buttons, checked on every save and when rendered (wave SV1)
+- Addresses of image links and spotlight buttons are now checked on every save and when rendered
+- Upgrade impact: none. No migration, route, setting, dependency or design picture changed. An image link or a button with an http, https or mailto address, or an address inside the installation, is shown as before
 ### Changed: pasting HTML, held by tests (wave PS1)
 - Lists pasted from Word are now made in the document the editor parses the paste into, and their kind, bulleted or numbered, comes from the words of Word's marker. Before, a regular expression took the marker's tags away, which code scanning flagged. Word's markers in either of its two spellings are recognised
 - The editor's schema is the allow-list of pasted HTML, and tests now hold it: every parse rule of the page editor and of the header and footer is given an element full of event handlers, style expressions and `javascript:` addresses, and none comes out as content. The address of an image link and of a spotlight button is checked when it is read, as links already were

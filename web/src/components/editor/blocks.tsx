@@ -108,12 +108,14 @@ function SpotlightView({ node, editor }: ReactNodeViewProps) {
   const {
     color,
     button_text: text,
-    button_href: href,
+    button_href: storedHref,
   } = node.attrs as {
     color: string | null;
     button_text: string | null;
     button_href: string | null;
   };
+  // Checked again when shown, so a stored address that runs code never becomes a button.
+  const href = safeAddressOrNull(storedHref);
   return (
     <NodeViewWrapper
       className={color ? `spotlight mark-${color}` : 'spotlight'}

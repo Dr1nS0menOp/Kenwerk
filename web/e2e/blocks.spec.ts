@@ -364,6 +364,68 @@ test.describe('hostile pasted HTML', () => {
   });
 });
 
+test('an image link or a button that runs code is refused, and never a link for a reader', async ({
+  page,
+}) => {
+  const space = await newSpace(page, unique('Addresses '));
+  const created = await page.request.post('/api/v1/pages', {
+    data: { space_id: space.id, parent_id: null, title: 'Addresses' },
+  });
+  const { id } = (await created.json()) as { id: string };
+  const uploaded = await page.request.post(`/api/v1/pages/${id}/attachments?filename=a.png`, { data: PNG });
+  expect(uploaded.status(), await uploaded.text()).toBe(201);
+  const { id: picture } = (await uploaded.json()) as { id: string };
+  const linked = (imageHref: string, buttonHref: string) => ({
+    type: 'doc',
+    content: [
+      { type: 'image', attrs: { attachment_id: picture, alt: 'Picture', href: imageHref } },
+      {
+        type: 'spotlight',
+        attrs: { button_text: 'Go on', button_href: buttonHref },
+        content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Read this' }] }],
+      },
+    ],
+  });
+  const publishWith = (imageHref: string, buttonHref: string) =>
+    page.request.post(`/api/v1/pages/${id}/publish`, {
+      data: { title: 'Addresses', base_version: 0, document: linked(imageHref, buttonHref) },
+    });
+
+  for (const bad of [
+    'JaVaScRiPt:alert(1)',
+    ' javascript:alert(1)',
+    'data:text/html,x',
+    'vbscript:msgbox(1)',
+  ]) {
+    const refused = await publishWith(bad, 'https://example.org/b');
+    expect(refused.status(), bad).toBe(400);
+    expect(await refused.text(), bad).toContain('links must use http, https or mailto');
+    const button = await publishWith('https://example.org/a', bad);
+    expect(button.status(), bad).toBe(400);
+  }
+  const done = await publishWith('https://example.org/a', 'https://example.org/b');
+  expect(done.ok(), await done.text()).toBeTruthy();
+
+  const reading = page.locator('.prose');
+  await page.goto(`/pages/${id}`);
+  await expect(reading.locator('a.image-link')).toHaveAttribute('href', 'https://example.org/a');
+  await expect(reading.locator('a.spotlight-button')).toHaveAttribute('href', 'https://example.org/b');
+
+  // A value stored past the gate, as a restored backup could hold, reaches the reader as it is.
+  await page.route(`**/api/v1/pages/${id}`, async (route) => {
+    const response = await route.fetch();
+    const text = (await response.text())
+      .replaceAll('https://example.org/a', 'JaVaScRiPt:alert(1)')
+      .replaceAll('https://example.org/b', ' data:text/html,x');
+    await route.fulfill({ response, body: text });
+  });
+  await page.reload();
+  await expect(reading.getByText('Read this')).toBeVisible();
+  await expect(reading.locator('.doc-image img')).toBeVisible();
+  await expect(reading.locator('a.image-link, a.spotlight-button')).toHaveCount(0);
+  await expect(reading.locator('a[href*="script:" i], a[href*="data:" i]')).toHaveCount(0);
+});
+
 test.describe('lists pasted from Word', () => {
   // Word writes its sign in a conditional comment, in either of its two spellings, and its markup
   // names a font size, whose digits must not make a bulleted list numbered.

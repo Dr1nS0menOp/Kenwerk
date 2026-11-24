@@ -109,8 +109,10 @@ function ImageView({ node, editor, extension, updateAttributes, selected }: Reac
     wrap,
     border,
     border_color: borderColor,
-    href,
+    href: storedHref,
   } = node.attrs as ImageAttrs;
+  // Checked again when shown, so a stored address that runs code never becomes a link.
+  const href = safeAddressOrNull(storedHref);
   const { fileAddress } = extension.options as { fileAddress: FileAddress };
   const [isMissing, setIsMissing] = useState(false);
   if (isMissing) {

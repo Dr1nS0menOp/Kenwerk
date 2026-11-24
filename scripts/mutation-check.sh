@@ -1483,6 +1483,21 @@ mutate "a panel emoji takes markup" internal/document/attrs.go \
   's.replace("if !isEmoji(emoji) {\n\t\treturn errors.New(\"a panel takes one emoji\")\n\t}\n", "")' ./internal/document/
 mutate "an unknown block reaches an export" internal/document/html.go \
   's.replace("w.b.WriteString(`<p class=\"unknown-block\">Block not shown: ` + esc(name) + `</p>`)", "orig, _ := n.Attrs[\"original\"].(string)\n\t\tw.b.WriteString(name + orig)")' ./internal/document/
+# Wave SV1: addresses of image links and spotlight buttons, on every save and when rendered.
+mutate "an API writer takes an image link that runs code" internal/document/attrs.go \
+  's.replace("safe, err := SafeHref(href)\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}\n\t\tout[\"href\"] = address.KeyFree(safe)", "out[\"href\"] = href")' $app -run '^TestEveryWriterRefusesAnImageLinkOrButtonThatRunsCode$'
+mutate "an API writer takes a button that runs code" internal/document/attrs.go \
+  's.replace("safe, err := SafeHref(href)\n\tif err != nil {\n\t\treturn err\n\t}\n\tkeepText(in, out, \"button_text\", maxButtonBytes)", "safe := href\n\tkeepText(in, out, \"button_text\", maxButtonBytes)")' $app -run '^TestEveryWriterRefusesAnImageLinkOrButtonThatRunsCode$'
+mutate "a bundle stores an address that runs code" internal/pages/imported.go \
+  's.replace("doc, err := document.Normalize(v.Document)\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}", "doc, err := document.Parse(v.Document)\n\t\tif err != nil {\n\t\t\treturn err\n\t\t}")' $app -run '^TestABundleWithAStoredImageLinkOrButtonThatRunsCodeIsRefused$'
+mutate "a stored image link that runs code reaches an export" internal/document/html.go \
+  's.replace("href, err := SafeHref(stored)\n\thasLink := err == nil", "href := stored\n\thasLink := href != \"\"")' ./internal/document/ -run '^TestAStoredImageLinkOrButtonThatRunsCodeIsNoLinkInAnExport$'
+mutate "a stored button that runs code reaches an export" internal/document/html.go \
+  's.replace("href, err := SafeHref(stored)\n\tif text != \"\" && (err != nil || strings.HasPrefix(href, \"/\")) {", "href := stored\n\tif text != \"\" && strings.HasPrefix(href, \"/\") {")' ./internal/document/ -run '^TestAStoredImageLinkOrButtonThatRunsCodeIsNoLinkInAnExport$'
+mutate "a stored button that runs code reaches Markdown" internal/document/markdown.go \
+  's.replace("if href, err := SafeHref(stored); err == nil {", "if href := stored; href != \"\" {")' ./internal/document/ -run '^TestAStoredButtonThatRunsCodeIsNoLinkInMarkdown$'
+mutate "a button address ends its link in Markdown" internal/document/markdown.go \
+  's.replace("\"](\"+markdownAddress(href)+\")\")", "\"](\"+href+\")\")")' ./internal/document/ -run '^TestAButtonAddressCannotEndItsLinkInMarkdown$'
 # Wave U (spec 030).
 mutate "the user list names spaces a guest cannot open" internal/identity/users.go \
   's.replace("FROM perm_spaces(u.id, '"'"'space.view'"'"', NULL) ps JOIN spaces s ON s.id = ps.space_id", "FROM spaces s")' $app -run TestTheUserListNamesTheSpacesOfAGuestOnly

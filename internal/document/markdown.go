@@ -543,8 +543,13 @@ func (w *mdWriter) block(n Node, prefix string) {
 	case TypeSpotlight:
 		w.blocks(n.Content, prefix)
 		if text, _ := n.Attrs["button_text"].(string); text != "" {
-			href, _ := n.Attrs["button_href"].(string)
-			w.line(prefix, "["+escapeInline(text)+"]("+href+")")
+			stored, _ := n.Attrs["button_href"].(string)
+			// Checked again, so a stored value that never passed the gate is no link.
+			if href, err := SafeHref(stored); err == nil {
+				w.line(prefix, "["+escapeInline(text)+"]("+markdownAddress(href)+")")
+			} else {
+				w.line(prefix, escapeInline(text))
+			}
 		}
 	case TypeUnknownBlock:
 		name, _ := n.Attrs["name"].(string)
@@ -696,6 +701,10 @@ func longestBacktickRun(s string) int {
 
 func hrefOf(m Mark) string {
 	href, _ := m.Attrs["href"].(string)
-	href = strings.NewReplacer("(", "%28", ")", "%29", " ", "%20").Replace(href)
-	return href
+	return markdownAddress(href)
+}
+
+// markdownAddress writes an address so that it cannot end the link early and start another.
+func markdownAddress(href string) string {
+	return strings.NewReplacer("(", "%28", ")", "%29", " ", "%20").Replace(href)
 }

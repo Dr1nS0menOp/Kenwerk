@@ -297,7 +297,11 @@ func (w *htmlWriter) image(n Node) {
 		return
 	}
 	w.b.WriteString(`<figure class="` + esc(imageClasses(n)) + `">`)
-	href, hasLink := n.Attrs["href"].(string)
+	// The address is checked again here, so a stored value that never passed the gate, such
+	// as one from a restored backup, cannot become a link.
+	stored, _ := n.Attrs["href"].(string)
+	href, err := SafeHref(stored)
+	hasLink := err == nil
 	if hasLink {
 		w.b.WriteString(`<a href="` + esc(href) + `" rel="noopener noreferrer">`)
 	}
@@ -353,9 +357,11 @@ func (w *htmlWriter) spotlight(n Node) {
 	w.b.WriteString(`<aside class="` + esc(class) + `">`)
 	w.children(n)
 	text, _ := n.Attrs["button_text"].(string)
-	href, _ := n.Attrs["button_href"].(string)
-	// An address inside the instance means nothing in a file, so the words stay alone.
-	if text != "" && strings.HasPrefix(href, "/") {
+	stored, _ := n.Attrs["button_href"].(string)
+	// An address inside the instance means nothing in a file, and one that fails the check
+	// again leads nowhere safe: either way the words stay alone.
+	href, err := SafeHref(stored)
+	if text != "" && (err != nil || strings.HasPrefix(href, "/")) {
 		w.b.WriteString(`<p>` + esc(text) + `</p>`)
 	} else if text != "" {
 		w.b.WriteString(`<a class="button" href="` + esc(href) + `" rel="noopener noreferrer">` + esc(text) + `</a>`)
