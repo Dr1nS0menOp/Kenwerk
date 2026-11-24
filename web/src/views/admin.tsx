@@ -43,6 +43,7 @@ import { SpacesTab, SpacesTrashTab } from './admin-spaces';
 import { SettingsSearch, SummaryTab } from './admin-summary';
 import { HealthBand, HealthChecks } from './admin-health';
 import { BackupsTab, ConfigurationTab, SessionsTab } from './admin-running';
+import { SecurityOverviewTab } from './admin-security';
 import {
   AuditSignatures,
   DiskThresholds,
@@ -1471,6 +1472,8 @@ function SectionContent({ id, me }: { id: string; me: Me }) {
       return <TemplatesTab />;
     case 'control':
       return <ControlTab />;
+    case 'security-overview':
+      return <SecurityOverviewTab />;
     case 'login':
       return <LoginTab me={me} />;
     case 'sessions':

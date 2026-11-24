@@ -117,6 +117,7 @@ var routeScopes = map[string]string{
 	"GET /api/v1/admin/roles/{id}/holders":                      identity.ScopeAdminRead,
 	"GET /api/v1/admin/rules":                                   identity.ScopeAdminRead,
 	"GET /api/v1/admin/scim-tokens":                             identity.ScopeAdminRead,
+	"GET /api/v1/admin/security-overview":                       identity.ScopeAdminRead,
 	"GET /api/v1/admin/sessions/count":                          identity.ScopeAdminRead,
 	"GET /api/v1/admin/settings":                                identity.ScopeAdminRead,
 	"GET /api/v1/admin/settings/{section}":                      identity.ScopeAdminRead,

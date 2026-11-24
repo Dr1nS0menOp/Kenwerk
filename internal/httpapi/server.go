@@ -32,6 +32,7 @@ import (
 	"github.com/kenwerk/kenwerk/internal/failures"
 	"github.com/kenwerk/kenwerk/internal/features"
 	"github.com/kenwerk/kenwerk/internal/feed"
+	"github.com/kenwerk/kenwerk/internal/hardening"
 	"github.com/kenwerk/kenwerk/internal/headerfooter"
 	"github.com/kenwerk/kenwerk/internal/health"
 	"github.com/kenwerk/kenwerk/internal/identity"
@@ -127,6 +128,9 @@ type Deps struct {
 	// ReadyNotes are what /readyz adds while this node is ready but not at its best, such
 	// as a nearly full disk. Nil means none.
 	ReadyNotes func(ctx context.Context) []string
+	// SecurityOverview judges the steps that make the installation safer, for an administrator
+	// (spec 088). It reads, never writes. Nil answers not found, so a test server needs none.
+	SecurityOverview func(ctx context.Context, c identity.Caller) (hardening.Overview, error)
 	// Installation is what the console's areas of the running installation read (spec 075).
 	Installation Installation
 

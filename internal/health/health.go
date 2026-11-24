@@ -295,15 +295,15 @@ func backup(f Facts) Check {
 	case f.RestoreCheckFailed:
 		return check("backup", Warn, "restore_check_failed", values)
 	}
-	if age > backupWarnAfter(f.BackupInterval) {
+	if age > BackupDueWithin(f.BackupInterval) {
 		return check("backup", Warn, "backup_old", values)
 	}
 	return check("backup", OK, "backup_ok", values)
 }
 
-// backupWarnAfter is how old the newest backup may be: its interval and BackupLateBy, or
-// BackupWarnAfter while no schedule is known.
-func backupWarnAfter(interval time.Duration) time.Duration {
+// BackupDueWithin is how old the newest backup may be: its interval and BackupLateBy, or
+// BackupWarnAfter while no schedule is known. The security overview holds to the same age.
+func BackupDueWithin(interval time.Duration) time.Duration {
 	if interval <= 0 {
 		return BackupWarnAfter
 	}

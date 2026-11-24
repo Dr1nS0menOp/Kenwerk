@@ -42,7 +42,10 @@ export type AdminGroupId =
 export type AdminWidth = 'column' | 'full';
 
 /** The experimental parts that hide a section while they are off (spec 069, D8). */
-type ExperimentalPart = keyof Pick<Capabilities, 'automation' | 'bundles' | 'header_footer'>;
+type ExperimentalPart = keyof Pick<
+  Capabilities,
+  'automation' | 'bundles' | 'header_footer' | 'security_overview'
+>;
 
 export type AdminIcon = (props: { size?: number }) => ReactElement;
 
@@ -101,6 +104,13 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   { id: 'mail', group: 'admin-instance', width: 'column' },
   { id: 'templates', group: 'admin-instance', width: 'column', doc: 'operations/templates.md' },
   { id: 'control', group: 'admin-instance', width: 'column', doc: REGULATED },
+  {
+    id: 'security-overview',
+    group: 'admin-security',
+    width: 'column',
+    experimental: 'security_overview',
+    doc: 'operations/security-overview.md',
+  },
   { id: 'login', group: 'admin-security', width: 'column', doc: IDENTITY },
   { id: 'sessions', group: 'admin-security', width: 'column', doc: 'operations/incidents.md' },
   { id: 'scim', group: 'admin-security', width: 'column', doc: IDENTITY },

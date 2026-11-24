@@ -38,6 +38,7 @@ import (
 	"github.com/kenwerk/kenwerk/internal/failures"
 	"github.com/kenwerk/kenwerk/internal/features"
 	"github.com/kenwerk/kenwerk/internal/feed"
+	"github.com/kenwerk/kenwerk/internal/hardening"
 	"github.com/kenwerk/kenwerk/internal/headerfooter"
 	"github.com/kenwerk/kenwerk/internal/httpapi"
 	"github.com/kenwerk/kenwerk/internal/identity"
@@ -137,6 +138,8 @@ type App struct {
 	draining    atomic.Bool
 	// healthCache keeps the facts of the health checks for 30 seconds (spec 051).
 	healthCache healthCache
+	// security keeps the security overview as long as the health facts it rests on (spec 088).
+	security hardening.Cache
 	// runtime is the log level for a while and the disk thresholds, reread every few seconds.
 	runtime runtimeState
 	// headerFooter is the installation's header and footer (spec 089).
@@ -148,7 +151,8 @@ type App struct {
 
 // New connects to the database and queue and builds the modules.
 func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error) {
-	a := &App{cfg: cfg, log: log, witness: slog.New(alwaysEnabled{log.Handler()})}
+	a := &App{cfg: cfg, log: log, witness: slog.New(alwaysEnabled{log.Handler()}),
+		security: hardening.Cache{FreshFor: healthFreshFor}}
 	a.runtime.running.Store(int64(cfg.LogLevel))
 	// The list is what this process read now; its problems already stopped a start, or
 	// show on the Configuration page, which reads them again.
@@ -319,7 +323,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 			Sharing: a.sharing, SavedBlocks: savedblocks.NewService(a.pool), Feed: a.feed, Features: a.features, Templates: a.templates,
 			Analytics: a.analytics, Presence: a.presence, Outward: a.outward, Automation: a.automation, Webhooks: a.webhooks, Collab: a.collab,
 			SystemStatus: a.SystemStatus, HelpersDown: a.HelpersDown, CheckAudit: a.CheckAudit, Gauges: a.Gauges, Failures: a.failures,
-			HealthChecks: a.HealthChecks, ReadyNotes: a.ReadyNotes, Backups: a.backups,
+			HealthChecks: a.HealthChecks, ReadyNotes: a.ReadyNotes, Backups: a.backups, SecurityOverview: a.SecurityOverview,
 			Installation: httpapi.Installation{Upgrades: a.UpgradeStatus, Events: a.EventsStatus, Audit: a.AuditOverview,
 				LogLevel: a.LogLevelState, StartedWith: a.startedWith, LastProbe: a.lastProbe},
 			Setup: a.setup, InstanceID: a.instanceID, Log: log, Ready: a.Ready})

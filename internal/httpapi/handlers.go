@@ -66,6 +66,7 @@ func (s *Server) registerRoutes() {
 	s.registerExchangeRoutes()
 	s.registerSiteRoutes()
 	s.registerConsoleRoutes()
+	s.registerSecurityRoutes()
 	s.registerRoleRoutes()
 	s.registerInsightRoutes()
 	s.registerRuleRoutes()
@@ -215,17 +216,18 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 	// because the screen would offer what fails (ARC-071, ARC-072). An experimental part
 	// that is off is not offered at all (spec 069).
 	writeJSON(w, http.StatusOK, map[string]any{
-		"pdf_export":       s.deps.Exchange.PDFAvailable() && !down["pdf"],
-		"office_preview":   s.deps.Exchange.OfficeAvailable() && !down["office"],
-		"drawing":          s.drawingOrigin() != "",
-		"collaboration":    s.deps.Config.CollabURL != "" && !down["collaboration"],
-		"automation":       slices.Contains(experimental.On, features.ExperimentalAutomation),
-		"databases":        slices.Contains(experimental.On, features.ExperimentalDatabases),
-		"bundles":          slices.Contains(experimental.On, features.ExperimentalBundles),
-		"console_restore":  slices.Contains(experimental.On, features.ExperimentalConsoleRestore),
-		"publishing":       slices.Contains(experimental.On, features.ExperimentalPublishing),
-		"guided_templates": slices.Contains(experimental.On, features.ExperimentalGuidedTemplates),
-		"header_footer":    slices.Contains(experimental.On, features.ExperimentalHeaderFooter),
+		"pdf_export":        s.deps.Exchange.PDFAvailable() && !down["pdf"],
+		"office_preview":    s.deps.Exchange.OfficeAvailable() && !down["office"],
+		"drawing":           s.drawingOrigin() != "",
+		"collaboration":     s.deps.Config.CollabURL != "" && !down["collaboration"],
+		"automation":        slices.Contains(experimental.On, features.ExperimentalAutomation),
+		"databases":         slices.Contains(experimental.On, features.ExperimentalDatabases),
+		"bundles":           slices.Contains(experimental.On, features.ExperimentalBundles),
+		"console_restore":   slices.Contains(experimental.On, features.ExperimentalConsoleRestore),
+		"publishing":        slices.Contains(experimental.On, features.ExperimentalPublishing),
+		"guided_templates":  slices.Contains(experimental.On, features.ExperimentalGuidedTemplates),
+		"security_overview": slices.Contains(experimental.On, features.ExperimentalSecurityOverview),
+		"header_footer":     slices.Contains(experimental.On, features.ExperimentalHeaderFooter),
 	})
 }
 

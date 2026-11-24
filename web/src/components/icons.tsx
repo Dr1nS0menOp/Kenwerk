@@ -213,6 +213,8 @@ export function Logo({ size = 28 }: { size?: number }) {
 
 export const IconFolder = line('M3 6h6l2 3h10v10H3z');
 export const IconTick = line('M5 13l4 4L19 7');
+/** An open circle: a step not taken yet (ADM-128). */
+export const IconOpenCircle = line('M12 19a7 7 0 1 0 0-14 7 7 0 0 0 0 14z');
 export const IconSheet = line('M4 4h16v16H4zM4 10h16M4 15h16M10 4v16');
 export const IconArchive = line('M4 5h16v4H4zM6 9v10h12V9M10 13h4');
 export const IconVerified = line('M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM8 12l3 3 5-6');

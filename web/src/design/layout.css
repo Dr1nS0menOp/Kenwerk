@@ -2340,6 +2340,187 @@ a.byline-part:hover {
   font-size: var(--text-ui);
 }
 
+/* The security overview (ADM-128, ADM-191): a heading with the switch at its end, groups under
+   small bold headings with more room above them than between rows, each step a full-width row
+   with a quiet outline that is one link, and equal cards after the groups. */
+.security-steps-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-block-end: var(--space-2);
+}
+
+.security-steps-head > h2 {
+  margin: 0;
+}
+
+.security-group > h3 {
+  margin-block: var(--space-6) var(--space-2);
+  color: var(--color-strong);
+  font-size: var(--text-ui);
+  font-weight: var(--weight-strong);
+}
+
+.security-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.security-step {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+  color: var(--color-ink);
+  text-decoration: none;
+}
+
+.security-step:hover {
+  background: var(--color-side);
+}
+
+.security-tile {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--size-badge);
+  block-size: var(--size-badge);
+  border-radius: var(--radius);
+}
+
+.security-tile-done {
+  background: var(--color-ok-tint);
+  color: var(--color-text-green);
+}
+
+.security-tile-attention {
+  background: var(--color-lozenge);
+  color: var(--color-on-lozenge);
+}
+
+.security-tile-not_started {
+  background: var(--color-subtle);
+  color: var(--color-muted);
+}
+
+/* On a narrow screen the count wraps under the text, so the title keeps its room. */
+.security-step-text {
+  display: flex;
+  flex: 1 1 var(--size-tile);
+  flex-direction: column;
+  gap: var(--space-0-5);
+  min-inline-size: 0;
+}
+
+.security-step-title {
+  color: var(--color-strong);
+  font-weight: var(--weight-strong);
+}
+
+.security-step-why,
+.security-step-figures {
+  color: var(--color-muted);
+  font-size: var(--text-small);
+}
+
+.security-substeps {
+  display: flex;
+  flex-direction: column;
+  margin-block-start: var(--space-1);
+  font-size: var(--text-small);
+}
+
+.security-substep {
+  display: list-item;
+  margin-inline-start: var(--space-5);
+  list-style-type: disc;
+}
+
+.security-substep-state {
+  margin-inline-start: var(--space-1);
+  color: var(--color-muted);
+}
+
+.security-substep-attention > .security-substep-state {
+  color: var(--color-ink);
+  font-weight: var(--weight-strong);
+}
+
+.security-substep-done > .security-substep-state,
+.security-substep-not_started > .security-substep-state {
+  font-weight: var(--weight-regular);
+}
+
+.security-count {
+  flex: none;
+  padding: var(--space-0-5) var(--space-2);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-pill);
+  color: var(--color-ink);
+  font-size: var(--text-small);
+  white-space: nowrap;
+}
+
+.security-step-arrow {
+  display: flex;
+  flex: none;
+  padding-block-start: var(--space-1);
+  color: var(--color-muted);
+}
+
+:dir(rtl) .security-step-arrow svg {
+  transform: scaleX(-1);
+}
+
+.security-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--size-card)), 1fr));
+  gap: var(--space-3);
+  margin-block-start: var(--space-8);
+}
+
+.security-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+}
+
+.security-card > h3,
+.security-card > p {
+  margin: 0;
+}
+
+.security-card > p {
+  flex: 1;
+  color: var(--color-muted);
+  font-size: var(--text-small);
+}
+
+.security-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--size-badge-large);
+  block-size: var(--size-badge-large);
+  border-radius: var(--radius);
+  background: var(--color-side);
+  color: var(--color-ink);
+}
+
 /* An action section: what it does, then one button at its foot (SPC-153). */
 .action-section {
   display: flex;

@@ -102,6 +102,8 @@ Afterwards, look under Administration, Organising, Experimental parts, and turn 
 
 Three experimental parts came later and leave no trace before they exist, so they are off after the upgrade that brings them: draft and published spaces (`publishing`, spec 073), guided templates (`guided_templates`, spec 074) and the header and footer of the installation (`header_footer`, spec 089, [header-and-footer.md](header-and-footer.md)). Guided templates cannot be turned on while a node of the previous release still runs: finish the upgrade of every node first.
 
+The security overview (`security_overview`, spec 088) came later still and starts off in the same way. It stores nothing and may be turned on during an upgrade; saving the experimental parts on a node of the previous release turns it off again, and turning it on once more afterwards is all it takes.
+
 ## Draft and published spaces during an upgrade
 
 Draft and published spaces (`publishing`, spec 073) stay off after an upgrade until an administrator turns them on; [published-spaces.md](published-spaces.md) is the operator guide. What an upgrade must take care of once pairs exist:

@@ -99,6 +99,7 @@ GET /api/v1/admin/role-assignments                             session-only perm
 GET /api/v1/admin/roles/{id}/holders                           permission:administrator scope:admin:read
 GET /api/v1/admin/rules                                        permission:administrator scope:admin:read
 GET /api/v1/admin/scim-tokens                                  session-only permission:administrator scope:admin:read
+GET /api/v1/admin/security-overview                            permission:administrator scope:admin:read
 GET /api/v1/admin/sessions/count                               session-only permission:administrator scope:admin:read
 GET /api/v1/admin/settings                                     session-only permission:administrator scope:admin:read
 GET /api/v1/admin/settings/{section}                           session-only permission:administrator scope:admin:read

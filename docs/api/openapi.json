@@ -2235,6 +2235,25 @@
         "x-scope": "admin:write"
       }
     },
+    "/api/v1/admin/security-overview": {
+      "get": {
+        "operationId": "get /api/v1/admin/security-overview",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Done. Most routes answer with JSON."
+          },
+          "default": {
+            "description": "An error, as {\"error\": {\"code\", \"message\"}}."
+          }
+        },
+        "tags": [
+          "admin"
+        ],
+        "x-access": "permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
+      }
+    },
     "/api/v1/admin/service-accounts": {
       "post": {
         "operationId": "post /api/v1/admin/service-accounts",

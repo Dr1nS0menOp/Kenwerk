@@ -20,6 +20,8 @@ export interface Capabilities {
   guided_templates: boolean;
   /** The installation's header and footer (spec 089). */
   header_footer: boolean;
+  /** The security overview of the administration (spec 088). */
+  security_overview: boolean;
 }
 
 /** Until the answer is there, nothing is offered: better a moment late than a broken button. */
@@ -35,6 +37,7 @@ export const NOTHING_ON: Capabilities = {
   publishing: false,
   guided_templates: false,
   header_footer: false,
+  security_overview: false,
 };
 
 const CAPABILITIES_STALE_MS = 60_000;

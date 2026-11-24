@@ -116,6 +116,10 @@ func (s *Server) handleAttention(w http.ResponseWriter, r *http.Request) {
 		s.fail(w, r, err)
 		return
 	}
+	if list, err = s.withSecuritySteps(r, list); err != nil {
+		s.fail(w, r, err)
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": list, "unmanaged_spaces": unmanaged, "orphaned_pages": orphaned})
 }
 

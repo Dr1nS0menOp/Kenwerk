@@ -25,13 +25,15 @@ const (
 	// ExperimentalPublishing is draft and published spaces (spec 073, PUB-1415).
 	ExperimentalPublishing      = "publishing"
 	ExperimentalGuidedTemplates = "guided_templates"
+	// ExperimentalSecurityOverview is the security overview of the administration (spec 088).
+	ExperimentalSecurityOverview = "security_overview"
 	// ExperimentalHeaderFooter is the installation's header and footer (spec 089).
 	ExperimentalHeaderFooter = "header_footer"
 )
 
 // ExperimentalParts lists every part that the experimental switch covers.
 var ExperimentalParts = []string{ExperimentalAutomation, ExperimentalDatabases, ExperimentalBundles, ExperimentalConsoleRestore,
-	ExperimentalPublishing, ExperimentalGuidedTemplates, ExperimentalHeaderFooter}
+	ExperimentalPublishing, ExperimentalGuidedTemplates, ExperimentalSecurityOverview, ExperimentalHeaderFooter}
 
 // partsHeldForOlderReleases are parts that a previous release, still running beside this
 // one during an upgrade, would damage: it drops what it does not know of a guided template

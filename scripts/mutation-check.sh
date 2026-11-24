@@ -1918,7 +1918,7 @@ mutate "growth that is not known warns" internal/health/health.go \
 mutate "no backup noted is fine" internal/health/health.go \
   's.replace("if f.LastBackup.IsZero() {\n\t\treturn check(\"backup\", Warn", "if false {\n\t\treturn check(\"backup\", Warn")' $health -run TestNoBackupNotedWarns
 mutate "a backup of exactly 26 hours warns" internal/health/health.go \
-  's.replace("if age > backupWarnAfter(f.BackupInterval) {", "if age >= backupWarnAfter(f.BackupInterval) {")' $health -run TestABackupOfTwentySixHoursIsStillFine
+  's.replace("if age > BackupDueWithin(f.BackupInterval) {", "if age >= BackupDueWithin(f.BackupInterval) {")' $health -run TestABackupOfTwentySixHoursIsStillFine
 mutate "a contract migration of exactly a day warns" internal/health/health.go \
   's.replace("f.Now.Sub(f.LastMigrationAt) > f.ContractGrace+ContractWaitWarnAfter", "f.Now.Sub(f.LastMigrationAt) >= f.ContractGrace+ContractWaitWarnAfter")' $health -run TestAContractMigrationWaitingMoreThanADayWarns
 mutate "an event stuck in the outbox is only a warning" internal/health/health.go \
@@ -3446,6 +3446,42 @@ mutate_web "the band shows a node it does not know" src/components/instance-note
   's.replace("if (block.type !== \x27paragraph\x27) return null;", "")' src/components/instance-note.test.tsx
 mutate_web "the field of the band offers headings" src/components/header-footer-field.tsx \
   's.replace("      heading: false,\n", "")' src/components/header-footer-field.test.ts
+# Spec 088, wave SO1: the security overview judges each step by its weight, holds to the ages of
+# System health, is read once per half minute, only for an administrator, and nothing of it is
+# read while its part is off.
+hard=./internal/hardening/
+mutate "a step not started counts for the summary" internal/hardening/hardening.go \
+  's.replace("\t\t\tif s.State == Attention {", "\t\t\tif s.State != Done {")' $hard -run '^TestTheAttentionNumberCountsOnlyStepsThatNeedAttention$'
+mutate "a critical sub-step that fails is only not started" internal/hardening/hardening.go \
+  's.replace("\tcase w == critical:\n", "\tcase false:\n")' $hard -run '^TestABackupFollowsTheAgeOfSystemHealth$'
+mutate "one administrator counts as two" internal/hardening/hardening.go \
+  's.replace("f.Administrators >= 2", "f.Administrators >= 1")' $hard -run '^TestOneAdministratorIsAStepNotTakenAndTwoAreDone$'
+mutate "an administrator without a passkey is fine" internal/hardening/hardening.go \
+  's.replace("sub(\"admin_passkey\", f.LocalAdminsWithoutPasskey == 0, critical)", "sub(\"admin_passkey\", true, critical)")' $hard -run '^TestAnAdministratorWithoutAPasskeyOrSecondFactorNeedsAttention$'
+mutate "the grace of the second factor lasts for ever" internal/hardening/hardening.go \
+  's.replace("f.Now.Sub(f.InstanceCreated) < settings.SecondFactorGrace", "f.Now.Sub(f.InstanceCreated) < 1000*settings.SecondFactorGrace")' $hard -run '^TestTheSecondFactorFollowsTheRuleInForce$'
+mutate "plain http on this machine alone needs attention" internal/hardening/hardening.go \
+  's.replace("\tw := advisory\n\tif f.PlainToOthers {", "\tw := critical\n\tif f.PlainToOthers {")' $hard -run '^TestHTTPS$'
+mutate "the application role owning a table is fine" internal/hardening/hardening.go \
+  's.replace("!f.RoleSuperuser \x26\x26 !f.RoleOwnsTables", "!f.RoleSuperuser")' $hard -run '^TestTheDatabaseRoles$'
+mutate "a backup at its limit needs attention" internal/hardening/hardening.go \
+  's.replace("now.Sub(at) <= limit", "now.Sub(at) < limit")' $hard -run '^TestABackupFollowsTheAgeOfSystemHealth$'
+mutate "a failed witness report is done" internal/hardening/hardening.go \
+  's.replace("sub(id, ok \x26\x26 within(now, at, limit), w)", "sub(id, within(now, at, limit), w)")' $hard -run '^TestTheWitnessReport$'
+mutate "an old look at the export rules still counts" internal/hardening/hardening.go \
+  's.replace("within(f.Now, f.ExportRulesSaved, SharingReviewWithin)", "!f.ExportRulesSaved.IsZero()")' $hard -run '^TestPublicSharingIsDoneWhenClosedOrLookedAtLately$'
+mutate "the overview never goes stale" internal/hardening/cache.go \
+  's.replace("now.Sub(c.readAt) < c.FreshFor", "now.Sub(c.readAt) >= 0")' $hard -run '^TestTheOverviewIsReadOncePerHalfMinute$'
+mutate "the overview answers anyone the route lets through" internal/app/security_overview.go \
+  's.replace("\tif !allowed {\n\t\treturn hardening.Overview{}, apperr.Forbidden()", "\tif false \x26\x26 !allowed {\n\t\treturn hardening.Overview{}, apperr.Forbidden()")' $app -run '^TestOnlyAnAdministratorSeesTheSecurityOverview$'
+mutate "the overview answers while its part is off" internal/httpapi/handlers_security.go \
+  's.replace("s.experimental(features.ExperimentalSecurityOverview, s.handleSecurityOverview)", "s.handleSecurityOverview")' $app -run '^TestTheSecurityOverviewIsOffOnANewInstallation$'
+mutate "the summary reads the overview while its part is off" internal/httpapi/handlers_security.go \
+  's.replace("\tif err != nil || !on {\n\t\treturn list, err", "\tif err != nil || (false \x26\x26 !on) {\n\t\treturn list, err")' $app -run '^(TestNothingOfTheOverviewIsReadWhileItIsOff|TestTheSecurityOverviewIsOffOnANewInstallation)$'
+mutate "a guest with an end date still counts as without one" internal/identity/security_counts.go \
+  's.replace("type = \x27guest\x27 AND expires_at IS NULL", "type = \x27guest\x27")' $app -run '^TestTheSecurityOverviewFollowsTheInstallation$'
+mutate_web "the overview shows the steps that are done while they should hide" src/views/security-overview-model.ts \
+  's.replace("step.state !== \x27done\x27", "true")' src/views/security-overview-model.test.ts
 finish_mutations
 if [ "$survived" -gt 0 ]; then
   echo "$survived mutation(s) were not caught"

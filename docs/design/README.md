@@ -247,6 +247,7 @@ Use these. Reuse beats a new variant.
 | The head of a section of the settings | `SettingsSection` in `components/settings-section.tsx`: title, introduction with its guide link, notices; the content puts its primary action in the title row with `SectionActions` |
 | Save and Reset changes of a unit | `SaveReset` in `components/save-reset.tsx`, inactive until the unit changed |
 | A section with nothing in it yet | `EmptyState` in `components/empty-state.tsx`, and `TableEmpty` for the one row of an empty table |
+| A step of the security overview | `SecurityStep` in `components/security-step.tsx`: a full-width outlined row that is one link, a square state tile (tick, warning mark or open circle, said in words to screen readers), a bold title, a softer line, sub-steps as bullets with their state in words, an outlined count and an arrow (ADM-128, spec 088) |
 | A short message, maybe with Undo | `useToast`, and `useCopy` for copying |
 | A time | `RelativeTime` |
 | Switching between lists | `Tabs`, which brings the arrow keys; on the start screen, pills (`.pill` with `aria-pressed`) |

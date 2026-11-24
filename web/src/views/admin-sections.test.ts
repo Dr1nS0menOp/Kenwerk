@@ -60,6 +60,8 @@ const ADDED_IN_SC4 = [
 const ADDED_IN_MC4 = ['assistants'];
 // Spec 089: the installation's header and footer, an experimental part.
 const ADDED_IN_HF1 = ['header-footer'];
+/** The sections of the new parts before 1.0, each behind its own experimental switch (ADR-043). */
+const ADDED_LATER = ['security-overview'];
 
 const ALL_ON: Capabilities = Object.fromEntries(
   Object.keys(NOTHING_ON).map((name) => [name, true]),
@@ -74,7 +76,7 @@ describe('the sections of the administration', () => {
   });
 
   it('still answers every address of before, and the new ones', () => {
-    const added = [...ADDED_IN_SC4, ...ADDED_IN_MC4, ...ADDED_IN_HF1];
+    const added = [...ADDED_IN_SC4, ...ADDED_IN_MC4, ...ADDED_IN_HF1, ...ADDED_LATER];
     for (const id of [...ADDRESSES_BEFORE_SC4, ...added]) expect(adminSection(id)?.id).toBe(id);
     expect(ADMIN_SECTIONS).toHaveLength(ADDRESSES_BEFORE_SC4.length + added.length);
   });
@@ -119,6 +121,7 @@ describe('the sections of the administration', () => {
       'control',
     ]);
     expect(inGroup('admin-security')).toEqual([
+      'security-overview',
       'login',
       'sessions',
       'scim',
@@ -150,6 +153,7 @@ describe('the sections of the administration', () => {
     expect(off).not.toContain('automation');
     expect(off).not.toContain('import-space');
     expect(off).not.toContain('header-footer');
+    expect(off).not.toContain('security-overview');
     expect(off).toContain('summary');
     const on = sectionsShown(ALL_ON).map((s) => s.id);
     expect(on).toContain('automation');

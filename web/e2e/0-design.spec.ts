@@ -3672,6 +3672,177 @@ test.describe('the administration as blueprint 03 arranges it', () => {
   });
 });
 
+// Spec 088, wave SO1: the security overview, on a fixed answer with every state, sub-steps,
+// counts, a count not known yet and figures, so the pictures do not follow what other tests made.
+test.describe('the security overview', () => {
+  const TALL_SCREEN = { width: 1280, height: 2000 };
+  type State = 'done' | 'attention' | 'not_started';
+  const step = (
+    id: string,
+    state: State,
+    substeps: [string, State][],
+    extra: Record<string, unknown> = {},
+  ) => ({
+    id,
+    state,
+    substeps: substeps.map(([sub, subState]) => ({ id: sub, state: subState })),
+    link: { section: 'login' },
+    node_fact: false,
+    ...extra,
+  });
+  const FIXED = {
+    as_of: '2026-11-23T09:00:00Z',
+    attention: 2,
+    groups: [
+      {
+        id: 'sign_in',
+        steps: [
+          step(
+            'identity_provider',
+            'not_started',
+            [
+              ['provider', 'not_started'],
+              ['provisioning', 'not_started'],
+            ],
+            {
+              node_fact: true,
+            },
+          ),
+          step(
+            'second_factor',
+            'done',
+            [
+              ['rule_administrators', 'done'],
+              ['rule_members', 'done'],
+            ],
+            {
+              count: { value: 3, unit: 'accounts' },
+            },
+          ),
+          step('two_administrators', 'done', [['two_active', 'done']], {
+            count: { value: 2, unit: 'administrators' },
+          }),
+          step(
+            'administrator_factors',
+            'attention',
+            [
+              ['admin_second_factor', 'done'],
+              ['admin_passkey', 'attention'],
+            ],
+            {
+              count: { value: 1, unit: 'administrators_without_passkey' },
+            },
+          ),
+        ],
+      },
+      {
+        id: 'access',
+        steps: [
+          step(
+            'tokens',
+            'not_started',
+            [
+              ['admin_tokens_in_use', 'done'],
+              ['tokens_in_use', 'not_started'],
+            ],
+            {
+              count: { value: 4, unit: 'tokens' },
+              figures: { administration: 1, writing: 2, assistant: 1, spaces_limited: 0, unused: 1 },
+            },
+          ),
+        ],
+      },
+      {
+        id: 'backups_audit',
+        steps: [
+          step('backup_recent', 'attention', [['backup_recent', 'attention']], {
+            count: { value: null, unit: 'hours' },
+          }),
+          step('restore_tested', 'done', [['restore_tested', 'done']], { count: { value: 2, unit: 'days' } }),
+        ],
+      },
+    ],
+  };
+  const ALL_DONE = {
+    ...FIXED,
+    attention: 0,
+    groups: FIXED.groups.map((g) => ({
+      ...g,
+      steps: g.steps.map((s) => ({
+        ...s,
+        state: 'done',
+        substeps: s.substeps.map((x) => ({ ...x, state: 'done' })),
+      })),
+    })),
+  };
+
+  async function overviewPage(
+    browser: Browser,
+    answer: unknown,
+    colorScheme: 'light' | 'dark' = 'light',
+  ): Promise<Page> {
+    const email = `${unique('security')}@example.com`;
+    await createUser(browser, email, 'member', ['use_product', 'administrator']);
+    const page = await (
+      await browser.newContext({ baseURL: 'http://localhost:8080', colorScheme })
+    ).newPage();
+    // The band of every section follows the health of the installation; the pictures show none.
+    await page.route('**/api/v1/admin/health', (route) => route.fulfill({ json: { checks: [] } }));
+    await page.route('**/api/v1/admin/security-overview', (route) => route.fulfill({ json: answer }));
+    await login(page, email, PASSWORD);
+    return page;
+  }
+
+  async function opened(page: Page, address = '/admin/security-overview') {
+    await page.goto(address);
+    await expect(page.getByRole('heading', { name: 'Security overview', level: 1 })).toBeVisible();
+    await page.mouse.move(0, 0);
+  }
+
+  for (const colorScheme of ['light', 'dark'] as const) {
+    test(`AdminView: the security overview with every state, ${colorScheme}`, async ({ browser }) => {
+      const page = await overviewPage(browser, FIXED, colorScheme);
+      await page.setViewportSize(TALL_SCREEN);
+      await opened(page);
+      await expect(page.getByText('Protect every administrator')).toBeVisible();
+      await picture(page, `admin-security-overview-${colorScheme}`);
+      await checkAccessibility(page);
+      await page.context().close();
+    });
+  }
+
+  test('AdminView: the security overview with the steps that are done hidden', async ({ browser }) => {
+    const page = await overviewPage(browser, FIXED);
+    await page.setViewportSize(TALL_SCREEN);
+    await opened(page, '/admin/security-overview?done=hidden');
+    await expect(page.getByText('Have two administrators')).toHaveCount(0);
+    await picture(page, 'admin-security-overview-done-hidden');
+    await page.context().close();
+  });
+
+  test('AdminView: the security overview with every step done and hidden', async ({ browser }) => {
+    const page = await overviewPage(browser, ALL_DONE);
+    await opened(page, '/admin/security-overview?done=hidden');
+    await expect(page.getByText('Every step is done.')).toBeVisible();
+    await picture(page, 'admin-security-overview-all-done');
+    await checkAccessibility(page);
+    await page.context().close();
+  });
+
+  test('AdminView: the security overview narrow and right to left', async ({ browser }) => {
+    const page = await overviewPage(browser, FIXED);
+    await page.setViewportSize(NARROW_SCREEN);
+    await opened(page);
+    // A narrow screen stacks the sidebar above the section: the picture is of the steps.
+    await page.getByRole('heading', { name: 'Steps', level: 2 }).scrollIntoViewIfNeeded();
+    await picture(page, 'admin-security-overview-narrow');
+    await page.setViewportSize(TALL_SCREEN);
+    await page.evaluate(() => document.documentElement.setAttribute('dir', 'rtl'));
+    await picture(page, 'admin-security-overview-rtl');
+    await page.context().close();
+  });
+});
+
 // Spec 094: what a person without access sees, as the space chose, and where it is chosen.
 test.describe('the screen of someone without access', () => {
   test('NoAccess: a page someone may not see, with and without asking, wide and narrow', async ({

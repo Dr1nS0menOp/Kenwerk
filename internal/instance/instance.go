@@ -6,6 +6,7 @@ package instance
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -24,4 +25,11 @@ func Ensure(ctx context.Context, q db.Querier, name string) (uuid.UUID, error) {
 	var id uuid.UUID
 	err := q.QueryRow(ctx, "SELECT id FROM instance").Scan(&id)
 	return id, err
+}
+
+// CreatedAt is when this installation first started, which is also when its first key was made.
+func CreatedAt(ctx context.Context, q db.Querier) (time.Time, error) {
+	var at time.Time
+	err := q.QueryRow(ctx, "SELECT created_at FROM instance").Scan(&at)
+	return at, err
 }

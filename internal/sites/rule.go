@@ -64,6 +64,15 @@ func LiveInSpace(ctx context.Context, q db.Querier, spaceID uuid.UUID) (sites, l
 	return sites, links, err
 }
 
+// LiveEverywhere counts the live sites and the public links of the whole installation, for the
+// security overview (spec 088). Both lists stay short: each is what people chose to make public.
+func LiveEverywhere(ctx context.Context, q db.Querier) (sites, links int, err error) {
+	err = q.QueryRow(ctx, `SELECT
+		(SELECT count(*) FROM public_sites WHERE live_build > 0 AND withdrawn_at IS NULL),
+		(SELECT count(*) FROM public_links WHERE withdrawn_at IS NULL)`).Scan(&sites, &links)
+	return sites, links, err
+}
+
 // versionsGone lists what a build shows of a version that was removed since.
 func (s *Service) versionsGone(ctx context.Context, shown map[uuid.UUID]int) (bool, error) {
 	for page, number := range shown {
