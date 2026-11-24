@@ -392,8 +392,13 @@ async function enrich(row) {
   return row;
 }
 
+// A Markdown table cell: backslashes are escaped first, so a value ending in one cannot
+// unescape the pipe after it, then pipes; a line break would end the row, so it becomes a space.
 function cell(value) {
-  return String(value ?? 'unknown').replace(/\|/g, '\\|');
+  return String(value ?? 'unknown')
+    .replace(/\\/g, '\\\\')
+    .replace(/\|/g, '\\|')
+    .replace(/[\r\n]+/g, ' ');
 }
 
 function table(rows) {
