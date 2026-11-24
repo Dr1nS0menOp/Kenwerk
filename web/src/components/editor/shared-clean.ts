@@ -29,6 +29,11 @@ export function isSafeAddress(value: unknown): boolean {
   return SAFE_SCHEMES.has(`${(scheme[1] ?? '').toLowerCase()}:`);
 }
 
+/** An address read from pasted or loaded HTML, or nothing when it leads somewhere unsafe. */
+export function safeAddressOrNull(value: string | null): string | null {
+  return isSafeAddress(value) ? value : null;
+}
+
 function allowedAttributes(type: NodeType | MarkType): Set<string> {
   return new Set(Object.keys(type.spec.attrs ?? {}));
 }

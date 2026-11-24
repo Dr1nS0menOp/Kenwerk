@@ -3,7 +3,7 @@ import { getSchema } from '@tiptap/core';
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import { documentExtensions } from './extensions';
-import { cleanShared, isSafeAddress, keepSharedClean } from './shared-clean';
+import { cleanShared, isSafeAddress, keepSharedClean, safeAddressOrNull } from './shared-clean';
 
 const schema = getSchema(documentExtensions({ shared: true }));
 
@@ -128,5 +128,12 @@ describe('safe addresses', () => {
     ]) {
       expect(isSafeAddress(good)).toBe(true);
     }
+  });
+
+  it('read from HTML, keep a safe address and drop one that runs code', () => {
+    expect(safeAddressOrNull('https://example.org/')).toBe('https://example.org/');
+    expect(safeAddressOrNull('/pages/1')).toBe('/pages/1');
+    expect(safeAddressOrNull(' JavaScript:alert(1)')).toBeNull();
+    expect(safeAddressOrNull(null)).toBeNull();
   });
 });

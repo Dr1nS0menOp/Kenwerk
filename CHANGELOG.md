@@ -3,6 +3,11 @@
 Plain-language notes per release. Every entry has an "Upgrade impact" line.
 
 ## Unreleased
+### Changed: pasting HTML, held by tests (wave PS1)
+- Lists pasted from Word are now made in the document the editor parses the paste into, and their kind, bulleted or numbered, comes from the words of Word's marker. Before, a regular expression took the marker's tags away, which code scanning flagged. Word's markers in either of its two spellings are recognised
+- The editor's schema is the allow-list of pasted HTML, and tests now hold it: every parse rule of the page editor and of the header and footer is given an element full of event handlers, style expressions and `javascript:` addresses, and none comes out as content. The address of an image link and of a spotlight button is checked when it is read, as links already were
+- End-to-end tests paste hostile HTML into the page editor, the header and footer fields and the comment box, and hold that nothing with an event handler, no script and no `javascript:` address ever reaches the page, that no script runs and no dialog opens, and that the content is clean
+- Upgrade impact: none. No migration, route, setting, dependency or design picture changed. Pasting from Word, Google Docs and web pages works as before
 ### Changed: the office converter's image is built with current security updates and scanned in CI (wave GB1)
 - The helper for PDF files and office previews (`--profile pdf`) now runs Kenwerk's own image, built from `deploy/pdf`: Gotenberg 9.9.3, pinned by digest, with Debian's security updates applied when the image is built. Before, it ran the upstream Gotenberg 8.40.0 image as published, whose packages are those of the day upstream built it
 - Its settings are built into the image, and are stricter: besides fetching no address and running no script in pages, Chromium and LibreOffice now refuse every address, public or private, the macros of office files never run (Gotenberg 9's default, which a test holds), and the routes for changing PDF files, which Kenwerk never calls, are off

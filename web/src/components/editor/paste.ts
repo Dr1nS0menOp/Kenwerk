@@ -50,29 +50,14 @@ export function pastedImages(html: string): { files: File[]; left: number } {
   return { files, left: outside.length - files.length };
 }
 
-const WORD_LIST_ITEM = /<p\b[^>]*class=["']?MsoListParagraph[^>]*>([\s\S]*?)<\/p>/gi;
-const WORD_MARKER = /<!\[if !supportLists\]>([\s\S]*?)<!\[endif\]>/i;
 const GOOGLE_WRAPPER = /<b\b[^>]*id=["']docs-internal-guid[^>]*>([\s\S]*)<\/b>/i;
-const NUMBERED_MARKER = /\d|[a-z][.)]/i;
-const TAGS = /<[^>]+>/g;
 
-/** A run of list paragraphs from Word as one real list. Word marks items with a typed sign. */
-function wordRun(run: string): string {
-  const items = Array.from(run.matchAll(WORD_LIST_ITEM), (match) => match[1] ?? '');
-  // The marker text is only tested for a number, never put into the page, and pasted HTML
-  // passes the editor's schema afterwards anyway.
-  // codeql[js/incomplete-multi-character-sanitization]
-  const marker = (WORD_MARKER.exec(items[0] ?? '')?.[1] ?? '').replace(TAGS, '').trim();
-  const tag = NUMBERED_MARKER.test(marker) ? 'ol' : 'ul';
-  const lines = items.map((item) => `<li>${item.replace(WORD_MARKER, '')}</li>`);
-  return `<${tag}>${lines.join('')}</${tag}>`;
-}
-
-const WORD_LIST_RUN = /(?:<p\b[^>]*class=["']?MsoListParagraph[^>]*>[\s\S]*?<\/p>\s*)+/gi;
-
-/** Word and Google Docs write structure in their own way, and our blocks need the real thing (EDT-138). */
-export function cleanWordHtml(html: string): string {
-  return html.replace(WORD_LIST_RUN, wordRun).replace(GOOGLE_WRAPPER, '$1');
+/**
+ * Google Docs wraps what it copies in a bold element that is not bold (EDT-138). Word's lists are
+ * turned into lists later, in the parsed document (word-lists.ts).
+ */
+export function cleanGoogleDocsHtml(html: string): string {
+  return html.replace(GOOGLE_WRAPPER, '$1');
 }
 
 function replaceWithBlocks(editor: Editor, from: number, to: number, blocks: JSONContent[]) {

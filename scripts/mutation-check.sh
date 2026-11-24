@@ -1012,6 +1012,15 @@ mutate_web "a formula leaves in a CSV" src/components/sheet/csv.ts \
   's.replace("csvField(read(r, c))", "csvField(sheet.rows[r]?.cells[sheet.columns[c]?.id ?? \"\"] ?? \"\")")' src/components/sheet/sheet.test.ts
 mutate "the policy blocks video and audio" internal/webui/webui.go \
   's.replace("media-src \x27self\x27; ", "")' ./internal/webui/ -run TestVideoAndAudioFromOurOwnOriginMayPlay
+# The editor's schema is the allow-list of pasted HTML (wave PS1).
+mutate_web "a pasted image link may run code" src/components/editor/attachments.tsx \
+  's.replace("parseHTML: (el: HTMLElement) => safeAddressOrNull(el.getAttribute(\x27data-href\x27)),", "parseHTML: (el: HTMLElement) => el.getAttribute(\x27data-href\x27),")' src/components/editor/paste-schema.test.ts
+mutate_web "a pasted spotlight button may run code" src/components/editor/blocks.tsx \
+  's.replace("parseHTML: (el: HTMLElement) => safeAddressOrNull(el.getAttribute(\x27data-button_href\x27)),", "parseHTML: (el: HTMLElement) => el.getAttribute(\x27data-button_href\x27),")' src/components/editor/paste-schema.test.ts
+mutate_web "an address read from HTML is never checked" src/components/editor/shared-clean.ts \
+  's.replace("return isSafeAddress(value) ? value : null;", "return value;")' src/components/editor/paste-schema.test.ts
+mutate_web "a pasted link in the header or footer may run code" src/components/header-footer-field.tsx \
+  's.replace("isAllowedUri: (url) => noteLink(url).kind !== \x27refused\x27,", "isAllowedUri: () => true,")' src/components/editor/paste-schema.test.ts
 
 mutate "names survive a stricter mode" internal/analytics/analytics.go \
   's.replace("if v.Mode != ModeNames {", "if len(v.Mode) < 0 {")' $app -run TestLeavingNameModeDeletesNamesForGoodAndIsAudited

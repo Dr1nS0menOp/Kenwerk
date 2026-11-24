@@ -9,6 +9,7 @@ import {
   checkAccessibility,
   createUser,
   expect,
+  expectHostilePasteHarmless,
   login,
   newSpace,
   paragraph,
@@ -209,8 +210,8 @@ test('an outside link shows its host and opens in a new tab; a link inside does 
 });
 
 test.describe('hostile content', () => {
-  // Pasted HTML with an inline handler is parsed by the browser, whose policy blocks the handler
-  // and reports it; that report is expected here. No script runs and no dialog opens.
+  // The policy reports the handlers it blocks while ProseMirror parses the paste; see
+  // expectHostilePasteHarmless, which allows that report and nothing else.
   test.use({ expectViolations: true });
 
   test('script and outside content never reach the band, by paste or by the API', async ({
@@ -227,18 +228,10 @@ test.describe('hostile content', () => {
     await page.goto('/admin/header-footer');
     const header = page.getByRole('textbox', { name: 'Header' });
     await header.click();
-    await page.evaluate(() => {
-      const data = new DataTransfer();
-      data.setData(
-        'text/html',
-        '<h1>Big</h1><img src=x onerror=alert(1)><script>alert(2)</script><a href="javascript:alert(3)">click</a><mark>lit</mark>',
-      );
-      document.activeElement?.dispatchEvent(
-        new ClipboardEvent('paste', { clipboardData: data, bubbles: true }),
-      );
-    });
+    await expectHostilePasteHarmless(page);
     await expect(header).toContainText('Big');
-    await expect(header.locator('img, script, a, h1, mark')).toHaveCount(0);
+    await expect(header).toContainText('bold');
+    await expect(header.locator('img, script, a, h1, mark, [onmouseover], [onerror]')).toHaveCount(0);
     for (const href of ['javascript:alert(1)', 'http://intranet.example/']) {
       const refused = await page.request.put(ADMIN_BAND, { data: { header: null, footer: contact(href) } });
       expect(refused.status()).toBe(400);

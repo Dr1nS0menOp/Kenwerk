@@ -7,8 +7,10 @@ import {
   createUser,
   editorSettled,
   expect,
+  expectHostilePasteHarmless,
   grant,
   login,
+  pasteWatched,
   newSpace,
   publishedPage,
   test,
@@ -328,6 +330,67 @@ test('pasted formatted text arrives as blocks, under the strict policy', async (
   await page.keyboard.press('Control+v');
   await expect(body(page).locator('h2')).toHaveText('Pasted title');
   await expect(body(page).locator('li')).toHaveText('one');
+});
+
+test.describe('hostile pasted HTML', () => {
+  // The policy reports the handlers it blocks while ProseMirror parses the paste; see
+  // expectHostilePasteHarmless, which allows that report and nothing else.
+  test.use({ expectViolations: true });
+
+  test('never reaches the page, runs nothing, and leaves clean content', async ({ page }) => {
+    await editing(page, 'Hostile paste');
+    await page.keyboard.press('Enter');
+    // The raw HTML, as another program can put it on the clipboard; a browser's own copy cleans it.
+    await expectHostilePasteHarmless(page);
+    await expect(body(page)).toContainText('Big');
+    await expect(body(page).locator('strong, b').filter({ hasText: 'bold' })).toHaveCount(1);
+    await expect(body(page)).toContainText('click');
+    await expect(
+      body(page).locator('script, [onerror], [onmouseover], a[href^="javascript:" i]'),
+    ).toHaveCount(0);
+    expect(await body(page).innerHTML()).not.toMatch(/\son\w+=|javascript:|<script/i);
+  });
+
+  test('pasted into a comment, never reaches the page either', async ({ page }) => {
+    const space = await newSpace(page, unique('Hostile comment '));
+    await page.goto(`/pages/${await publishedPage(page, space.id, 'Comment paste', 'Some text.')}`);
+    const box = page.locator('.comment-box .comment-input');
+    await box.click();
+    await expect(box).toBeFocused();
+    await expectHostilePasteHarmless(page);
+    await expect(box).toContainText('bold');
+    await expect(box.locator('script, [onerror], [onmouseover], a[href^="javascript:" i]')).toHaveCount(0);
+    expect(await box.innerHTML()).not.toMatch(/\son\w+=|javascript:|<script/i);
+  });
+});
+
+test.describe('lists pasted from Word', () => {
+  // Word writes its sign in a conditional comment, in either of its two spellings, and its markup
+  // names a font size, whose digits must not make a bulleted list numbered.
+  const item = (marker: string, text: string, comment = false) =>
+    `<p class=MsoListParagraphCxSpMiddle style='mso-list:l0 level1 lfo1'>` +
+    (comment ? '<!--[if !supportLists]-->' : '<![if !supportLists]>') +
+    `<span style='mso-list:Ignore'>${marker}<span style='font:7.0pt "Times New Roman"'>&nbsp;&nbsp;</span></span>` +
+    (comment ? '<!--[endif]-->' : '<![endif]>') +
+    `${text}</p>`;
+
+  test('become one bulleted list per run, and a numbered one for numbers', async ({ page }) => {
+    await editing(page, 'Word lists');
+    await page.keyboard.press('Enter');
+    const html = `${item('·', 'One')}\n${item('·', 'Two', true)}<p>Between</p>${item('1.', 'First')}${item('2.', 'Second')}`;
+    expect((await pasteWatched(page, html)).attached).toEqual([]);
+    await expect(body(page).locator('ul > li')).toHaveText(['One', 'Two']);
+    await expect(body(page).locator('ol > li')).toHaveText(['First', 'Second']);
+    await expect(body(page)).toContainText('Between');
+    await expect(body(page)).not.toContainText('·');
+  });
+
+  test('of letters are numbered', async ({ page }) => {
+    await editing(page, 'Word letters');
+    await page.keyboard.press('Enter');
+    await pasteWatched(page, item('a)', 'Alpha'));
+    await expect(body(page).locator('ol > li')).toHaveText(['Alpha']);
+  });
 });
 
 test('the block menu turns a line into another block', async ({ page }) => {

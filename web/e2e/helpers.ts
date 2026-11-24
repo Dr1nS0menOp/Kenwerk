@@ -1,7 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHmac } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { expect, test as base, type APIRequestContext, type Browser, type Page } from '@playwright/test';
+import {
+  expect,
+  test as base,
+  type APIRequestContext,
+  type Browser,
+  type Dialog,
+  type Page,
+} from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 export const ADMIN = { email: 'admin@example.com', password: 'correct horse battery staple' };
@@ -69,6 +76,91 @@ export async function login(page: Page, email: string, password = PASSWORD) {
 export async function editorSettled(page: Page) {
   await expect(page.locator('.prose.editing')).toBeFocused();
   await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => setTimeout(done, 40))));
+}
+
+/**
+ * Pasted HTML that tries each way to run script: event handlers, a script and a javascript: link.
+ * A handler that ran would set `pasteRan` on the window.
+ */
+export const HOSTILE_HTML =
+  '<h1>Big</h1><img src=x onerror="window.pasteRan=1;alert(1)"><b onmouseover=alert(4)>bold</b>' +
+  '<script>window.pasteRan=2</script><a href="javascript:alert(3)">click</a><mark>lit</mark>';
+
+/** What a watched paste saw: elements that reached the live document, and the policy's reports. */
+export interface WatchedPaste {
+  /** Every attached element with an event handler, a script or a javascript: address. */
+  attached: string[];
+  /** The directive of every report of the Content Security Policy. */
+  reports: string[];
+}
+
+/**
+ * Pastes HTML into the focused element as a browser does, with the raw HTML on the clipboard, and
+ * answers what happened on the way. Whatever parses the paste is watched from before it starts.
+ */
+export async function pasteWatched(page: Page, html: string): Promise<WatchedPaste> {
+  return page.evaluate(async (pasted) => {
+    const seen: { attached: string[]; reports: string[] } = { attached: [], reports: [] };
+    const look = (node: Node) => {
+      if (!(node instanceof Element)) return;
+      for (const element of [node, ...node.querySelectorAll('*')]) {
+        if (element.tagName === 'SCRIPT') seen.attached.push('script element');
+        for (const name of element.getAttributeNames()) {
+          const value = element.getAttribute(name) ?? '';
+          if (/^on/i.test(name)) seen.attached.push(`${element.tagName} with ${name}`);
+          if (/^\s*javascript:/i.test(value))
+            seen.attached.push(`${element.tagName} with a javascript: ${name}`);
+        }
+      }
+    };
+    const observer = new MutationObserver((records) => {
+      for (const record of records) {
+        if (record.type === 'attributes') look(record.target);
+        record.addedNodes.forEach(look);
+      }
+    });
+    observer.observe(document, { subtree: true, childList: true, attributes: true });
+    const report = (event: SecurityPolicyViolationEvent) => seen.reports.push(event.violatedDirective);
+    document.addEventListener('securitypolicyviolation', report);
+    const data = new DataTransfer();
+    data.setData('text/html', pasted);
+    document.activeElement?.dispatchEvent(
+      new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }),
+    );
+    // Reports arrive as tasks of their own, so wait for a drawn frame and a task after it.
+    await new Promise((done) => requestAnimationFrame(() => setTimeout(done, 200)));
+    observer.disconnect();
+    document.removeEventListener('securitypolicyviolation', report);
+    return seen;
+  }, html);
+}
+
+/**
+ * Pastes HOSTILE_HTML into the focused editor and holds that it did no harm: nothing with a handler,
+ * no script and no javascript: address reached the page, no script ran and no dialog opened.
+ *
+ * The browser does report the handlers once: ProseMirror parses a paste in a detached document, and
+ * Chromium checks an inline handler against the policy as it parses one, even there. That report,
+ * `script-src-attr`, is the policy doing its job, and the only report allowed. A test that calls
+ * this must allow reports with `test.use({ expectViolations: true })`.
+ */
+export async function expectHostilePasteHarmless(page: Page) {
+  const problems: string[] = [];
+  const onError = (error: Error) => problems.push(`script error: ${error.message}`);
+  const onDialog = (dialog: Dialog) => {
+    problems.push(`a dialog opened: ${dialog.message()}`);
+    void dialog.dismiss();
+  };
+  page.on('pageerror', onError);
+  page.on('dialog', onDialog);
+  const { attached, reports } = await pasteWatched(page, HOSTILE_HTML);
+  expect(attached, 'reached the live document').toEqual([]);
+  expect(reports.length, 'the policy blocked the handlers').toBeGreaterThan(0);
+  expect(new Set(reports), 'only inline handlers were reported').toEqual(new Set(['script-src-attr']));
+  expect(await page.evaluate(() => (window as { pasteRan?: number }).pasteRan)).toBeUndefined();
+  page.off('pageerror', onError);
+  page.off('dialog', onDialog);
+  expect(problems).toEqual([]);
 }
 
 /** What the publish step can be asked to set before it publishes (spec 082). */

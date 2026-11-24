@@ -10,7 +10,7 @@ import emoji from './emoji.json';
 import { documentExtensions, knownBlockType } from './extensions';
 import { turnIntoItems } from './insert';
 import { KNOWN_NODE_TYPES } from './palette';
-import { cleanWordHtml, pastedImages } from './paste';
+import { cleanGoogleDocsHtml, pastedImages } from './paste';
 
 describe('turn into', () => {
   it('starts with what is likely for this kind of block', () => {
@@ -67,27 +67,16 @@ describe('pasted images', () => {
   });
 });
 
-describe('text from Word and Google Docs', () => {
-  const item = (marker: string, text: string) =>
-    `<p class=MsoListParagraph style='mso-list:l0 level1 lfo1'><![if !supportLists]><span>${marker}</span><![endif]>${text}</p>`;
-
-  it('turns a run of Word list paragraphs into one list', () => {
-    expect(cleanWordHtml(`${item('·', 'One')}\n${item('·', 'Two')}`)).toBe(
-      '<ul><li>One</li><li>Two</li></ul>',
-    );
-  });
-
-  it('keeps numbers as a numbered list', () => {
-    expect(cleanWordHtml(item('1.', 'One'))).toBe('<ol><li>One</li></ol>');
-  });
-
+// Word's lists are turned into lists in the parsed document, which needs a browser: the
+// end-to-end tests of pasting hold them (blocks.spec.ts).
+describe('text from Google Docs', () => {
   it('takes away the bold wrapper of Google Docs, which is not bold', () => {
     const html = '<b style="font-weight:normal" id="docs-internal-guid-1"><p>Text</p></b>';
-    expect(cleanWordHtml(html)).toBe('<p>Text</p>');
+    expect(cleanGoogleDocsHtml(html)).toBe('<p>Text</p>');
   });
 
   it('leaves other HTML as it is', () => {
-    expect(cleanWordHtml('<p><b>Bold</b></p>')).toBe('<p><b>Bold</b></p>');
+    expect(cleanGoogleDocsHtml('<p><b>Bold</b></p>')).toBe('<p><b>Bold</b></p>');
   });
 });
 

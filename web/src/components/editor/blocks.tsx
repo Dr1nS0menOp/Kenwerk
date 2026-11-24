@@ -23,6 +23,7 @@ import {
   IconPanelWarning,
 } from '../icons';
 import { PANEL_TINT, type PanelKind } from './palette';
+import { safeAddressOrNull } from './shared-clean';
 
 const PANEL_ICONS = {
   info: IconPanelInfo,
@@ -144,7 +145,11 @@ export const Spotlight = DocumentNode.create({
     return {
       color: textAttribute('color'),
       button_text: textAttribute('button_text'),
-      button_href: textAttribute('button_href'),
+      // An address that runs code never enters the document, from a paste or anywhere else.
+      button_href: {
+        ...textAttribute('button_href'),
+        parseHTML: (el: HTMLElement) => safeAddressOrNull(el.getAttribute('data-button_href')),
+      },
     };
   },
   parseHTML() {

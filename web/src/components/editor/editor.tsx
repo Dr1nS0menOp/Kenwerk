@@ -62,7 +62,8 @@ import {
 } from './insert';
 import { InsertDialog } from './insert-dialog';
 import { EditorKeys, noActions, type EditorActions, type TemplateItemKind } from './keys';
-import { cleanWordHtml, convertPastedMarkdown, looksLikeMarkdown, pastedImages } from './paste';
+import { cleanGoogleDocsHtml, convertPastedMarkdown, looksLikeMarkdown, pastedImages } from './paste';
+import { PastedWordLists } from './word-lists';
 import { keepSharedClean } from './shared-clean';
 import { renderCaret, type Together } from './together';
 import { LinkDialog } from './link-dialog';
@@ -599,6 +600,7 @@ export function DocumentEditor({
       TableRules.configure({ onNested: () => nestedTable.current() }),
       CellHint,
       QuietCellMenu,
+      PastedWordLists,
     ],
     // A document even when empty: a string would be parsed as HTML, which our policy blocks.
     content: together
@@ -614,7 +616,7 @@ export function DocumentEditor({
         spellcheck: 'true',
         ...(language ? { lang: language } : {}),
       },
-      transformPastedHTML: cleanWordHtml,
+      transformPastedHTML: cleanGoogleDocsHtml,
       // Files are taken by the area around the editor, so a drop beside the page counts too.
       handleDrop: (view, event) => {
         if (carriesFiles(event.dataTransfer)) return true;

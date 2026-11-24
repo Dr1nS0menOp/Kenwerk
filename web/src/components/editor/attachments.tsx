@@ -11,6 +11,7 @@ import { OpenInCraft } from '../craft-frame';
 import { FilePreviewDialog, type PreviewFile } from '../file-preview';
 import { IconDownload, IconPage, IconPicture } from '../icons';
 import { Dialog, ErrorNote, formatSize, Loading } from '../ui';
+import { safeAddressOrNull } from './shared-clean';
 
 const DOWNLOAD_ICON_SIZE = 18;
 const MISSING_ICON_SIZE = 20;
@@ -205,7 +206,11 @@ export const AttachmentImage = Image.extend<ImageOptions & { fileAddress: FileAd
       },
       border: dataAttribute('border'),
       border_color: dataAttribute('border_color'),
-      href: dataAttribute('href'),
+      // An address that runs code never enters the document, from a paste or anywhere else.
+      href: {
+        ...dataAttribute('href'),
+        parseHTML: (el: HTMLElement) => safeAddressOrNull(el.getAttribute('data-href')),
+      },
     };
   },
   parseHTML() {
