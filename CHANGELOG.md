@@ -3,6 +3,9 @@
 Plain-language notes per release. Every entry has an "Upgrade impact" line.
 
 ## Unreleased
+### Changed: CI keeps the results of failed end-to-end tests (wave FX13)
+- When the end-to-end tests fail on GitHub, the run keeps Playwright's results for 7 days as the artifact `e2e-test-results`: the actual, expected and diff image of each failed picture, and its trace. They hold only the made-up data of the tests
+- Upgrade impact: none
 ### Added: how Kenwerk is tested (wave TD1)
 - `docs/testing.md` lists every check with what it proves, its tool, when it runs and how to run it locally, the counts of tests measured on 2026-11-23 with the command for each, the end-to-end suite by file, security testing, load and stress, what a wave must pass before it lands, how unreliable tests are handled, and the known limits of the test setup. The README, `docs/development.md` and `CONTRIBUTING.md` link to it
 - Blueprint 09 now says what is true: no load test in CI, PostgreSQL without Testcontainers, waves land by push without pull requests or branch protection, no signed commits, CODEOWNERS or issue templates, and where the "How to test" steps live. Pull requests and a load test in CI are left open for the product owner

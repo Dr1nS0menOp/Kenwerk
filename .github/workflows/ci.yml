@@ -123,6 +123,17 @@ jobs:
         run: bash scripts/dev sh -c "cd web && npm ci --no-fund --no-audit"
       - name: real binary, real PostgreSQL, real Chromium, accessibility checks
         run: bash scripts/e2e
+      # A failed picture is judged from its actual, expected and diff images, which only the
+      # run that failed has. The repository is public, so this artifact is public too: test
+      # results hold only the made-up data of the tests, never a secret.
+      - name: keep the test results, when something failed
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-test-results
+          path: web/test-results
+          if-no-files-found: ignore
+          retention-days: 7
 
   # Spec 099: every way to deploy is checked without a cloud account. The Helm chart with helm
   # lint, helm template and kubeconform, the Terraform module with OpenTofu and Terraform, the
