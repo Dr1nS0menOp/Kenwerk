@@ -115,6 +115,7 @@ Every item of this part is built in spec 082 (wave SC3); "The editor" below desc
 - A step's card holds an icon tile, a title and a second line, with its kind shown by icon and colour and in words; a small add button after every step asks for the kind first and shows a placeholder card. Same rule. PLT-135, PLT-137.
 - The panel shows the rule's summary and a card of details while no step is selected, and a step's settings with Back and Next while one is; saving happens only in the header, by a split button that stays unavailable until a trigger is chosen. Replaces "a summary at the top" (Insight and automation) and "Busy" (States) for that button. PLT-131, PLT-144, PLT-148.
 - A step that may not fit starts with a tinted warning without a close button; matching all or any conditions is a pair of toggle buttons, and an empty list of conditions shows only its add button. Replaces "with each message beside its field" (Insight and automation) and the muted sentence of "Empty" (States) there. PLT-143, PLT-150.
+- The four items above are built in spec 091 (wave AR1) behind the experimental part `rule_cards`: `views/rule-chain/` and `design/chain.css`. The kinds use the existing mark tints with the icon in the ink colour, and the warning the colours of the warning `Notice`; no colour was added. With the part off, a rule is still the form that "Insight and automation" below describes. Not built yet: the condition after an action and its arm (PLT-137, PLT-138, stage 7 of spec 091), and the help panel (PLT-160).
 
 ### Working together
 
@@ -249,6 +250,9 @@ Use these. Reuse beats a new variant.
 | A section with nothing in it yet | `EmptyState` in `components/empty-state.tsx`, and `TableEmpty` for the one row of an empty table |
 | A step of the security overview | `SecurityStep` in `components/security-step.tsx`: a full-width outlined row that is one link, a square state tile (tick, warning mark or open circle, said in words to screen readers), a bold title, a softer line, sub-steps as bullets with their state in words, an outlined count and an arrow (ADM-128, spec 088) |
 | A short message, maybe with Undo | `useToast`, and `useCopy` for copying |
+| A primary action with a rarer second one | `SplitButton` in `components/split-button.tsx`: the main part and an arrow joined to it that opens a `Menu`; unavailable with its reason in words |
+| Zooming a canvas | `ZoomControl` in `components/zoom-control.tsx`: out, the percentage, in, each step a class |
+| A step of a rule | `StepCard` in `views/rule-chain/chain.tsx`: an icon tile, a title and a second line from `sentences.ts`; a `button` whose name says its kind, and its problems in words |
 | A time | `RelativeTime` |
 | Switching between lists | `Tabs`, which brings the arrow keys; on the start screen, pills (`.pill` with `aria-pressed`) |
 | A panel beside the sidebar | The panels of `components/sidebar-panels.tsx` |
@@ -336,7 +340,7 @@ A comparison looks like the page. What was added sits on green, what was removed
 
 ## Insight and automation
 
-Every chart stands beside a sentence with its total and trend, and has one series, so nothing rests on colour. Empty says why: analytics off, or no reader yet. A rule is a form of native fields in When, If and Then, with each message beside its field, a summary at the top, and Move up and Move down instead of dragging.
+Every chart stands beside a sentence with its total and trend, and has one series, so nothing rests on colour. Empty says why: analytics off, or no reader yet. While the experimental part `rule_cards` is off, a rule is a form of native fields in When, If and Then, with each message beside its field, a summary at the top, and Move up and Move down instead of dragging; while it is on, a rule is a chain of cards (spec 091, above).
 
 ## Working together
 

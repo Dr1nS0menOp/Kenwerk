@@ -29,11 +29,15 @@ const (
 	ExperimentalSecurityOverview = "security_overview"
 	// ExperimentalHeaderFooter is the installation's header and footer (spec 089).
 	ExperimentalHeaderFooter = "header_footer"
+	// ExperimentalRuleCards shows rules as a chain of cards (spec 091). It does something only
+	// while automation is on too.
+	ExperimentalRuleCards = "rule_cards"
 )
 
 // ExperimentalParts lists every part that the experimental switch covers.
 var ExperimentalParts = []string{ExperimentalAutomation, ExperimentalDatabases, ExperimentalBundles, ExperimentalConsoleRestore,
-	ExperimentalPublishing, ExperimentalGuidedTemplates, ExperimentalSecurityOverview, ExperimentalHeaderFooter}
+	ExperimentalPublishing, ExperimentalGuidedTemplates, ExperimentalSecurityOverview, ExperimentalHeaderFooter,
+	ExperimentalRuleCards}
 
 // partsHeldForOlderReleases are parts that a previous release, still running beside this
 // one during an upgrade, would damage: it drops what it does not know of a guided template

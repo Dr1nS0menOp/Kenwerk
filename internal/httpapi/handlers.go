@@ -228,6 +228,9 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 		"guided_templates":  slices.Contains(experimental.On, features.ExperimentalGuidedTemplates),
 		"security_overview": slices.Contains(experimental.On, features.ExperimentalSecurityOverview),
 		"header_footer":     slices.Contains(experimental.On, features.ExperimentalHeaderFooter),
+		// The cards are a way of showing rules, so they are on only while rules are (spec 091).
+		"rule_cards": slices.Contains(experimental.On, features.ExperimentalAutomation) &&
+			slices.Contains(experimental.On, features.ExperimentalRuleCards),
 	})
 }
 

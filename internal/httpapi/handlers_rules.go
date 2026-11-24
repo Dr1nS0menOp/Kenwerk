@@ -24,8 +24,14 @@ func (s *Server) registerRuleRoutes() {
 	on := func(next http.HandlerFunc) http.HandlerFunc {
 		return s.experimental(features.ExperimentalAutomation, next)
 	}
+	// The check of the screen of cards needs both parts, and stores nothing (spec 091).
+	cards := func(next http.HandlerFunc) http.HandlerFunc {
+		return on(s.experimental(features.ExperimentalRuleCards, next))
+	}
 	r.HandleFunc("GET /api/v1/spaces/{id}/rules", manage, on(s.handleSpaceRules))
 	r.HandleFunc("POST /api/v1/spaces/{id}/rules", manage, on(s.handleSpaceRuleCreate))
+	r.HandleFunc("POST /api/v1/spaces/{id}/rules/check", manage, cards(s.handleSpaceRuleCheck))
+	r.HandleFunc("POST /api/v1/admin/rules/check", admin, cards(s.handleInstanceRuleCheck))
 	r.HandleFunc("GET /api/v1/rules/{id}", manage, on(s.handleRule))
 	r.HandleFunc("PUT /api/v1/rules/{id}", manage, on(s.handleRuleUpdate))
 	r.HandleFunc("DELETE /api/v1/rules/{id}", manage, on(s.handleRuleDelete))
@@ -92,6 +98,32 @@ func (s *Server) handleSpaceRuleCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleInstanceRules(w http.ResponseWriter, r *http.Request) { s.writeRules(w, r, nil) }
+
+func (s *Server) checkRule(w http.ResponseWriter, r *http.Request, spaceID *uuid.UUID) {
+	var in struct {
+		Definition automation.Definition `json:"definition"`
+	}
+	if decodeJSON(w, r, maxSmallBody, &in) != nil {
+		badBody(w)
+		return
+	}
+	out, err := s.deps.Automation.Check(r.Context(), s.caller(r), spaceID, in.Definition)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (s *Server) handleSpaceRuleCheck(w http.ResponseWriter, r *http.Request) {
+	if id, ok := pathID(w, r, "id"); ok {
+		s.checkRule(w, r, &id)
+	}
+}
+
+func (s *Server) handleInstanceRuleCheck(w http.ResponseWriter, r *http.Request) {
+	s.checkRule(w, r, nil)
+}
 
 func (s *Server) handleInstanceRuleCreate(w http.ResponseWriter, r *http.Request) {
 	s.createRule(w, r, nil)

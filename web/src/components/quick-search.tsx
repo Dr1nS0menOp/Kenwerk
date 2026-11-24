@@ -132,12 +132,12 @@ export function rowsOf(
   ];
 }
 
-export function useDelayed(value: string): string {
+export function useDelayed(value: string, pauseMs = PAUSE_MS): string {
   const [delayed, setDelayed] = useState(value);
   useEffect(() => {
-    const timer = setTimeout(() => setDelayed(value), PAUSE_MS);
+    const timer = setTimeout(() => setDelayed(value), pauseMs);
     return () => clearTimeout(timer);
-  }, [value]);
+  }, [value, pauseMs]);
   return delayed;
 }
 

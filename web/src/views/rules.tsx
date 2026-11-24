@@ -11,49 +11,18 @@ import { ConfirmButton, Dialog, ErrorNote, Field, FilePicker, Loading, RelativeT
 import { Link, navigate } from '../router';
 import { TableBox } from '../components/table-box';
 import { EmptyState } from '../components/empty-state';
+import {
+  RULE_TEMPLATES,
+  SCHEDULES,
+  TRIGGERS,
+  ruleListPath,
+  type Condition,
+  type Definition,
+  type Problem,
+  type Rule,
+  type RuleAction,
+} from './rule-definition';
 
-export interface RuleAction {
-  type: string;
-  text?: string;
-  label?: string;
-  to?: string;
-  target_id?: string;
-  title?: string;
-  older_days?: number;
-  address?: string;
-  body?: string;
-  restricted?: string;
-}
-interface Condition {
-  kind: string;
-  value?: string;
-  days?: number;
-  items?: Condition[];
-}
-export interface Definition {
-  trigger: { kind: string; every?: string; at?: string };
-  conditions?: Condition;
-  actions: RuleAction[];
-  /** For a rule of the instance: the spaces it acts in, or none for every space. */
-  spaces?: string[];
-}
-interface Problem {
-  step: number;
-  message: string;
-}
-interface Rule {
-  id: string;
-  space_id: string | null;
-  name: string;
-  enabled: boolean;
-  definition: Definition;
-  owner_name: string;
-  paused_at: string | null;
-  last_run_at: string | null;
-  last_state: string;
-  has_hook: boolean;
-  problems: Problem[];
-}
 interface Step {
   key: string;
   action: string;
@@ -69,33 +38,6 @@ interface Run {
   created_at: string;
 }
 
-const TRIGGERS = [
-  'page.published',
-  'page.edited',
-  'page.moved',
-  'page.copied',
-  'page.archived',
-  'page.deleted',
-  'page.commented',
-  'page.labelled',
-  'page.status_changed',
-  'page.owner_changed',
-  'blog.published',
-  'blog.commented',
-  'blog.labelled',
-  'attachment.added',
-  'attachment.removed',
-  'task.created',
-  'task.ticked',
-  'person.mentioned',
-  'group.member_added',
-  'group.member_removed',
-  'space.created',
-  'space.archived',
-  'schedule',
-  'manual',
-  'incoming',
-];
 const ACTIONS = [
   'find_pages',
   'add_label',
@@ -114,7 +56,6 @@ const ACTIONS = [
   'chat',
 ];
 const CONDITION_KINDS = ['has_label', 'has_status', 'title_contains', 'text_contains', 'older_than'];
-const SCHEDULES = ['hourly', 'daily', 'weekly', 'monthly'];
 const VALUES = [
   '{page.title}',
   '{page.url}',
@@ -127,53 +68,10 @@ const RECIPIENTS = ['owner', 'author'];
 const TRIGGER_STEP = -1;
 const CONDITION_STEP = -2;
 
-/** Ready-made rules (PLT-033): people want a start more than an empty form. */
-export const RULE_TEMPLATES: { key: string; definition: Definition }[] = [
-  {
-    key: 'remindOwner',
-    definition: {
-      trigger: { kind: 'schedule', every: 'weekly', at: '09:00' },
-      actions: [
-        { type: 'find_pages', older_days: 365 },
-        { type: 'notify', to: 'owner', text: '{found.title} has not changed for a year.' },
-      ],
-    },
-  },
-  {
-    key: 'labelNew',
-    definition: { trigger: { kind: 'page.published' }, actions: [{ type: 'add_label', label: 'new' }] },
-  },
-  {
-    key: 'tellOnPost',
-    definition: {
-      trigger: { kind: 'blog.published' },
-      actions: [{ type: 'notify', to: 'owner', text: 'New blog post: {page.title}' }],
-    },
-  },
-  {
-    key: 'askReview',
-    definition: {
-      trigger: { kind: 'page.status_changed' },
-      actions: [{ type: 'notify', to: 'owner', text: 'Please review {page.title}.' }],
-    },
-  },
-  {
-    key: 'manyComments',
-    definition: {
-      trigger: { kind: 'page.commented' },
-      actions: [{ type: 'notify', to: 'owner', text: '{page.title} has a new comment.' }],
-    },
-  },
-];
-
 const emptyDefinition: Definition = {
   trigger: { kind: 'page.published' },
   actions: [{ type: 'add_label', label: '' }],
 };
-
-function ruleList(spaceId: string | null) {
-  return spaceId ? `/spaces/${spaceId}/rules` : '/admin/rules';
-}
 
 /** Moves a step, for those who do not drag (WCAG 2.5.7). */
 export function moveStep<T>(list: T[], from: number, to: number): T[] {
@@ -204,7 +102,7 @@ function RuleRow({ rule, spaceId }: { rule: Rule; spaceId: string | null }) {
   });
   const copy = useMutation({
     mutationFn: () =>
-      api.post(ruleList(spaceId), {
+      api.post(ruleListPath(spaceId), {
         name: t('rules2.copyName', { name: rule.name }),
         enabled: false,
         definition: rule.definition,
@@ -253,12 +151,13 @@ function RuleRow({ rule, spaceId }: { rule: Rule; spaceId: string | null }) {
   );
 }
 
-function NewRule({ spaceId }: { spaceId: string | null }) {
+function NewRule({ spaceId, newAddress }: { spaceId: string | null; newAddress: string }) {
   const { t } = useTranslation();
+  const cards = useCapabilities().rule_cards;
   const [open, setOpen] = useState(false);
   const make = useMutation({
     mutationFn: (v: { name: string; definition: Definition }) =>
-      api.post<Rule>(ruleList(spaceId), { name: v.name, enabled: false, definition: v.definition }),
+      api.post<Rule>(ruleListPath(spaceId), { name: v.name, enabled: false, definition: v.definition }),
     onSuccess: (rule) => navigate(`/rules/${rule.id}`),
   });
   return (
@@ -274,7 +173,11 @@ function NewRule({ spaceId }: { spaceId: string | null }) {
               <button
                 type="button"
                 className="ghost"
-                onClick={() => make.mutate({ name: t('rules2.newName'), definition: emptyDefinition })}
+                onClick={() =>
+                  cards
+                    ? navigate(newAddress)
+                    : make.mutate({ name: t('rules2.newName'), definition: emptyDefinition })
+                }
               >
                 {t('rules2.fromEmpty')}
               </button>
@@ -285,10 +188,12 @@ function NewRule({ spaceId }: { spaceId: string | null }) {
                   type="button"
                   className="ghost"
                   onClick={() =>
-                    make.mutate({
-                      name: t(`rules2.template_${template.key}`),
-                      definition: template.definition,
-                    })
+                    cards
+                      ? navigate(`${newAddress}?template=${template.key}`)
+                      : make.mutate({
+                          name: t(`rules2.template_${template.key}`),
+                          definition: template.definition,
+                        })
                   }
                 >
                   {t(`rules2.template_${template.key}`)}
@@ -308,7 +213,7 @@ function ImportRule({ spaceId }: { spaceId: string | null }) {
   const load = useMutation({
     mutationFn: async (file: File) => {
       const parsed = JSON.parse(await file.text()) as { name: string; definition: Definition };
-      return api.post(ruleList(spaceId), {
+      return api.post(ruleListPath(spaceId), {
         name: parsed.name,
         enabled: false,
         definition: parsed.definition,
@@ -325,17 +230,17 @@ function ImportRule({ spaceId }: { spaceId: string | null }) {
 }
 
 /** The rules of a space, or of the instance, while automation is on (spec 069). */
-export function RuleList({ spaceId }: { spaceId: string | null }) {
+export function RuleList({ spaceId, newAddress }: { spaceId: string | null; newAddress: string }) {
   const capabilities = useCapabilities();
   if (!capabilities.automation) return <ExperimentalOff />;
-  return <RuleTable spaceId={spaceId} />;
+  return <RuleTable spaceId={spaceId} newAddress={newAddress} />;
 }
 
-function RuleTable({ spaceId }: { spaceId: string | null }) {
+function RuleTable({ spaceId, newAddress }: { spaceId: string | null; newAddress: string }) {
   const { t } = useTranslation();
   const q = useQuery({
     queryKey: ['rules', spaceId],
-    queryFn: () => api.get<{ rules: Rule[] }>(ruleList(spaceId)),
+    queryFn: () => api.get<{ rules: Rule[] }>(ruleListPath(spaceId)),
   });
   const isEmpty = q.data?.rules.length === 0;
   return (
@@ -343,7 +248,7 @@ function RuleTable({ spaceId }: { spaceId: string | null }) {
       {/* While there is no rule, the empty block holds the one button that makes the first (NAV-173). */}
       {q.data && !isEmpty && (
         <div className="row">
-          <NewRule spaceId={spaceId} />
+          <NewRule spaceId={spaceId} newAddress={newAddress} />
           <ImportRule spaceId={spaceId} />
         </div>
       )}
@@ -351,7 +256,10 @@ function RuleTable({ spaceId }: { spaceId: string | null }) {
       {q.isPending && <Loading />}
       {isEmpty && (
         <>
-          <EmptyState title={t('rules2.emptyTitle')} action={<NewRule spaceId={spaceId} />}>
+          <EmptyState
+            title={t('rules2.emptyTitle')}
+            action={<NewRule spaceId={spaceId} newAddress={newAddress} />}
+          >
             {t('rules2.none')}
           </EmptyState>
           <ImportRule spaceId={spaceId} />
@@ -397,7 +305,7 @@ export function RulesView({ spaceKey }: { spaceKey: string }) {
   return (
     <SpaceToolFrame space={q.data} entry="automation">
       <h1>{t('rules2.title')}</h1>
-      <RuleList spaceId={q.data.id} />
+      <RuleList spaceId={q.data.id} newAddress={`/spaces/${q.data.key}/settings/automation/new`} />
     </SpaceToolFrame>
   );
 }
@@ -499,7 +407,7 @@ function ActionFields({ action, onChange }: { action: RuleAction; onChange: (nex
 }
 
 /** Where a rule of the instance acts: in every space, or in the spaces chosen (spec 033). */
-function ScopePart({
+export function ScopePart({
   definition,
   onChange,
 }: {
@@ -751,7 +659,7 @@ function ActionPart({
   );
 }
 
-function TestRun({ rule }: { rule: Rule }) {
+export function TestRun({ rule }: { rule: Rule }) {
   const { t } = useTranslation();
   const [pageId, setPageId] = useState('');
   const run = useMutation({
@@ -791,7 +699,7 @@ function TestRun({ rule }: { rule: Rule }) {
   );
 }
 
-function RunLog({ rule }: { rule: Rule }) {
+export function RunLog({ rule }: { rule: Rule }) {
   const { t } = useTranslation();
   const q = useQuery({
     queryKey: ['rule-runs', rule.id],
@@ -815,7 +723,7 @@ function RunLog({ rule }: { rule: Rule }) {
   );
 }
 
-function HookAddress({ rule }: { rule: Rule }) {
+export function HookAddress({ rule }: { rule: Rule }) {
   const { t } = useTranslation();
   const make = useMutation({ mutationFn: () => api.post<{ address: string }>(`/rules/${rule.id}/hook`) });
   return (

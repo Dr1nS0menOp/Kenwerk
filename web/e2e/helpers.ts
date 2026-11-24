@@ -393,3 +393,16 @@ export function totpCode(secret: string, at = Date.now()): string {
   const n = (h.readUInt32BE(o) & 0x7fffffff) % 1_000_000;
   return n.toString().padStart(6, '0');
 }
+
+/**
+ * Makes this page see rules as the form, as an installation with the experimental part
+ * rule_cards off does (spec 091). Only this page's answer of the capabilities changes, so tests
+ * that run at the same time keep the cards: the form needs no route the cards changed.
+ */
+export async function rulesAsTheForm(page: Page) {
+  await page.route('**/api/v1/system/capabilities', async (route) => {
+    const response = await route.fetch();
+    const json = (await response.json()) as Record<string, unknown>;
+    await route.fulfill({ response, json: { ...json, rule_cards: false } });
+  });
+}

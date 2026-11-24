@@ -272,6 +272,22 @@ func (s *Service) ListAll(ctx context.Context) ([]Space, error) {
 	return collect(rows, err)
 }
 
+// NameFor returns the name of a space for someone who may see it, and costs less than Get,
+// for a screen that only names a space (spec 091, E4). A space in the trash is not found.
+func (s *Service) NameFor(ctx context.Context, c identity.Caller, id uuid.UUID) (string, error) {
+	if err := s.perms.RequireSpace(ctx, s.pool, c.UserID, id, permissions.SpaceView); err != nil {
+		return "", err
+	}
+	sp, err := load(ctx, s.pool, id)
+	if err != nil {
+		return "", err
+	}
+	if sp.Status == StatusTrashed {
+		return "", apperr.NotFound()
+	}
+	return sp.Name, nil
+}
+
 // Get returns a space by id.
 func (s *Service) Get(ctx context.Context, c identity.Caller, id uuid.UUID) (Space, error) {
 	if err := s.perms.RequireSpace(ctx, s.pool, c.UserID, id, permissions.SpaceView); err != nil {

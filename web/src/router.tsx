@@ -19,7 +19,22 @@ export function useLocation(): URL {
   return new URL(useSyncExternalStore(subscribe, snapshot), window.location.origin);
 }
 
+/**
+ * Decides whether the app may leave the screen for another address. Returning false keeps the
+ * screen, which then asks the person itself (spec 091, D15). One screen at a time holds it: a
+ * page has one router, so this is the router's own state, like its listeners.
+ */
+export type LeaveGuard = (to: string) => boolean;
+
+let leaveGuard: LeaveGuard | null = null;
+
+/** Sets the one guard that navigate and Link consult, or clears it with null. */
+export function guardLeaving(guard: LeaveGuard | null): void {
+  leaveGuard = guard;
+}
+
 export function navigate(to: string, replace = false): void {
+  if (leaveGuard && !leaveGuard(to)) return;
   const page = window.location.pathname;
   if (replace) window.history.replaceState(null, '', to);
   else window.history.pushState(null, '', to);

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 import { pagePath } from '../addresses';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -1447,7 +1447,7 @@ function SectionContent({ id, me }: { id: string; me: Me }) {
     case 'configuration':
       return <ConfigurationTab />;
     case 'automation':
-      return <RuleList spaceId={null} />;
+      return <RuleList spaceId={null} newAddress="/admin/automation/new" />;
     case 'spaces':
       return <SpacesTab />;
     case 'announcements':
@@ -1513,7 +1513,6 @@ function SectionContent({ id, me }: { id: string; me: Me }) {
 
 export function AdminView({ tab, me }: { tab: string; me: Me }) {
   const { t } = useTranslation();
-  const capabilities = useCapabilities();
   const section = adminSection(tab);
   // The server refuses every route of the administration to anyone else; this only spares a
   // person a broken screen. An unknown address is not found either.
@@ -1524,6 +1523,35 @@ export function AdminView({ tab, me }: { tab: string; me: Me }) {
       </main>
     );
   }
+  return (
+    <AdminFrame current={section.id} width={section.width}>
+      <SettingsSection
+        title={t(sectionNameKey(section.id))}
+        intro={t(sectionIntroKey(section.id))}
+        doc={section.doc}
+        notices={<HealthBand />}
+      >
+        <SectionContent id={section.id} me={me} />
+      </SettingsSection>
+    </AdminFrame>
+  );
+}
+
+/**
+ * The administration's Settings frame around a screen, with one section marked as current: the
+ * sections themselves, and a screen that belongs to one, such as a rule (spec 091, E2).
+ */
+export function AdminFrame({
+  current,
+  width,
+  children,
+}: {
+  current: string;
+  width: AdminSection['width'];
+  children: ReactNode;
+}) {
+  const { t } = useTranslation();
+  const capabilities = useCapabilities();
   const shown = sectionsShown(capabilities);
   const entry = (s: AdminSection) => ({
     id: s.id,
@@ -1549,17 +1577,10 @@ export function AdminView({ tab, me }: { tab: string; me: Me }) {
         settingsTitle: t('adminFrame.settings'),
       }}
       groups={groupsOf('settings')}
-      current={section.id}
-      width={section.width}
+      current={current}
+      width={width}
     >
-      <SettingsSection
-        title={t(sectionNameKey(section.id))}
-        intro={t(sectionIntroKey(section.id))}
-        doc={section.doc}
-        notices={<HealthBand />}
-      >
-        <SectionContent id={section.id} me={me} />
-      </SettingsSection>
+      {children}
     </SettingsFrame>
   );
 }

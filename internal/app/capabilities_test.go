@@ -20,9 +20,9 @@ func TestCapabilitiesSayWhatIsOnAndNothingMore(t *testing.T) {
 		}
 	}
 	// The four helpers, the four experimental parts of spec 069, publishing of spec 073, guided
-	// templates of spec 074, the security overview of spec 088 and the header and footer of spec
-	// 089, each only a yes or no.
-	if len(got) != 12 {
+	// templates of spec 074, the security overview of spec 088, the header and footer of spec
+	// 089 and the rule cards of spec 091, each only a yes or no.
+	if len(got) != 13 {
 		t.Fatalf("only whether a part is on, never where it runs: %v", got)
 	}
 	for part, on := range got {

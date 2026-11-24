@@ -58,7 +58,8 @@ import { TemplatesView, TemplateView } from './views/templates';
 import { TemplateSettingsView } from './views/template-settings';
 import { UnsubscribeView } from './views/unsubscribe';
 import { PageInsightsView, SpaceInsightsView } from './views/insights';
-import { RulesView, RuleView } from './views/rules';
+import { RulesView } from './views/rules';
+import { NewRuleChainView, RuleScreen } from './views/rule-chain/rule-screen';
 import { WebhooksView } from './views/webhooks';
 import { HomeFrame } from './components/home-frame';
 
@@ -255,7 +256,7 @@ function PageRoute({ id, screen }: { id: string; screen: PageScreen | null }) {
 
 function Routes({ me }: { me: Me }) {
   const { t } = useTranslation();
-  const { pathname } = useLocation();
+  const { pathname, searchParams } = useLocation();
   useCanonicalSpaceAddress();
   let m;
   if (pathname === '/') {
@@ -378,6 +379,9 @@ function Routes({ me }: { me: Me }) {
     );
   }
   if ((m = match('/admin', pathname))) return <AdminView tab="summary" me={me} />;
+  if (match('/admin/automation/new', pathname)) {
+    return <NewRuleChainView spaceKey={null} template={searchParams.get('template')} />;
+  }
   if ((m = match('/admin/:tab', pathname))) return <AdminView tab={m.tab ?? 'summary'} me={me} />;
   if ((m = match('/spaces/:key', pathname))) return <SpaceHome spaceKey={m.key ?? ''} />;
   if ((m = match('/spaces/:key/overview', pathname))) return <SpaceOverviewView spaceKey={m.key ?? ''} />;
@@ -385,9 +389,12 @@ function Routes({ me }: { me: Me }) {
   if ((m = match('/spaces/:key/release', pathname))) return <ReleaseView spaceKey={m.key ?? ''} />;
   if ((m = match('/spaces/:key/settings', pathname))) return <SpaceSettingsView spaceKey={m.key ?? ''} />;
   if ((m = match('/spaces/:key/settings/automation', pathname))) return <RulesView spaceKey={m.key ?? ''} />;
+  if ((m = match('/spaces/:key/settings/automation/new', pathname))) {
+    return <NewRuleChainView spaceKey={m.key ?? ''} template={searchParams.get('template')} />;
+  }
   if ((m = match('/spaces/:key/settings/webhooks', pathname))) return <WebhooksView spaceKey={m.key ?? ''} />;
   if ((m = match('/spaces/:key/insights', pathname))) return <SpaceInsightsView spaceKey={m.key ?? ''} />;
-  if ((m = match('/rules/:id', pathname))) return <RuleView ruleId={m.id ?? ''} />;
+  if ((m = match('/rules/:id', pathname))) return <RuleScreen ruleId={m.id ?? ''} />;
   if ((m = match('/spaces/:key/trash', pathname))) return <TrashView spaceKey={m.key ?? ''} />;
   if ((m = match('/spaces/:key/sites', pathname))) return <SitesView spaceKey={m.key ?? ''} />;
   if ((m = match('/exports/:id', pathname))) return <ExportView id={m.id ?? ''} />;

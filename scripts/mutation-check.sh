@@ -3055,7 +3055,32 @@ mutate "the holder check lets everyone through" internal/automation/service.go \
   's.replace("\tif !held {\n\t\treturn errHeld()\n\t}\n", "\tif !held \x26\x26 false {\n\t\treturn errHeld()\n\t}\n")' $app -run '^TestOnlyTheHolder'
 mutate "by hand an instance rule starts outside its spaces" internal/automation/match.go \
   's.replace("if otherSpace || !r.Definition.reaches(\x26space) {", "if otherSpace {")' $app -run '^TestByHandAnInstanceRuleStartsOnlyInItsSpaces$'
-# Spec 070: migrations, checkpoint signing and restore orders in the backup service.
+# Spec 091, wave AR1: the check of the screen of cards, what a card may name, and the refusals
+# the screen relies on.
+mutate "the check of a rule works while the cards are off" internal/httpapi/handlers_rules.go \
+  's.replace("return on(s.experimental(features.ExperimentalRuleCards, next))", "return on(next)")' $app -run '^TestTheRuleCardsAreOffUntilBothPartsAreOn$'
+mutate "the screens offer the cards while automation is off" internal/httpapi/handlers.go \
+  's.replace("slices.Contains(experimental.On, features.ExperimentalAutomation) \x26\x26\n\t\t\tslices.Contains(experimental.On, features.ExperimentalRuleCards)", "slices.Contains(experimental.On, features.ExperimentalRuleCards)")' $app -run '^TestTheRuleCardsAreOffUntilBothPartsAreOn$'
+mutate "the check of a rule skips the rule on rules" internal/automation/check.go \
+  's.replace("\tif err := s.mayManage(ctx, c, spaceID); err != nil {\n\t\treturn Checked{}, err\n\t}\n", "")' $app -run '^TestOnlyThoseWhoManageRulesMayCheckOne$'
+mutate "a card names a page its viewer may not see" internal/pages/sets.go \
+  's.replace("if err := s.perms.RequirePage(ctx, s.pool, c.UserID, id, permissions.ActionPageView, uuid.Nil); err != nil {\n\t\tif _, refused := apperr.As(err); refused {", "if err := error(nil); err != nil {\n\t\tif _, refused := apperr.As(err); refused {")' $app -run '^TestARuleCardNeverNamesWhatItsViewerMayNotSee$'
+mutate "a card names a space its viewer may not see" internal/spaces/spaces.go \
+  's.replace("if err := s.perms.RequireSpace(ctx, s.pool, c.UserID, id, permissions.SpaceView); err != nil {\n\t\treturn \"\", err", "if err := error(nil); err != nil {\n\t\treturn \"\", err")' $app -run '^TestARuleCardNeverNamesWhatItsViewerMayNotSee$'
+mutate "a rule without a trigger is stored" internal/automation/service.go \
+  's.replace("if strings.TrimSpace(d.Trigger.Kind) == \"\" {", "if false {")' $app -run '^TestARuleWithoutATriggerCannotBeSaved$'
+mutate "a rule that is not ready is switched on" internal/automation/service.go \
+  's.replace("\tif len(checked.Problems) == 0 {\n\t\treturn nil\n\t}\n\tfields", "\tif true {\n\t\treturn nil\n\t}\n\tfields")' $app -run '^TestSwitchingOnARuleThatIsNotReadyNamesItsProblems$'
+mutate "a rule tells someone else they hold it" internal/automation/service.go \
+  's.replace("r.YouHold, err = s.holds(ctx, c, r)", "r.YouHold, err = true, nil")' $app -run '^TestARuleSaysWhoHoldsIt$'
+mutate "the items of an all group share one problem" internal/automation/definition.go \
+  's.replace("if c.Kind != CondAll || len(c.Items) == 0 {", "if true {")' ./internal/automation/ -run '^TestEachItemOfAnAllTreeHasItsOwnProblem$'
+mutate_web "a placeholder action is saved" src/views/rule-chain/chain-model.ts \
+  's.replace("card.kind === \x27action\x27 \x26\x26 !isPlaceholder(card) ? [card.action]", "card.kind === \x27action\x27 ? [card.action]")' src/views/rule-chain/chain-model.test.ts
+mutate_web "a condition moves among the actions" src/views/rule-chain/chain-model.ts \
+  's.replace("card.kind !== \x27trigger\x27 \x26\x26 family(card) === family(other)", "card.kind !== \x27trigger\x27")' src/views/rule-chain/chain-model.test.ts
+mutate_web "a card shows the id of what its viewer may not see" src/views/rule-chain/sentences.ts \
+  's.replace("return name ?? { key: `ruleChain.unseen.${unseen}` };", "return name ?? id ?? { key: `ruleChain.unseen.${unseen}` };")' src/views/rule-chain/sentences.test.ts# Spec 070: migrations, checkpoint signing and restore orders in the backup service.
 mutate "a short backup key is taken" internal/keys/worker.go \
   's.replace("if len(secret) < minWorkerSecret {", "if len(secret) < 0 {")' ./internal/keys/ -run TestAWorkerKeyThatIsMissingOrShortIsRefused
 mutate "two purposes of the backup key share a MAC key" internal/keys/worker.go \

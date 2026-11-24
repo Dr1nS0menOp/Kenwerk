@@ -16,7 +16,7 @@ internal/audit funlen 8
 internal/audit gocyclo 18
 internal/audit gosec 1
 internal/automation funlen 2
-internal/automation gocyclo 10
+internal/automation gocyclo 9
 internal/backups funlen 4
 internal/backups gocyclo 7
 internal/backups gosec 3

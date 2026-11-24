@@ -15,6 +15,7 @@ import './design/document.css';
 import './design/blocks.css';
 import './design/organise.css';
 import './design/together.css';
+import './design/chain.css';
 
 const client = new QueryClient({
   defaultOptions: {

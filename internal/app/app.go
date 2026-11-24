@@ -262,7 +262,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 	a.analytics = analytics.NewService(a.pool, a.perms, a.features)
 	a.presence = presence.NewService(a.pool, a.perms, a.identity, a.settings)
 	a.outward = outward.NewService(a.pool, outward.Options{AllowPrivate: cfg.OutwardAllowPrivate})
-	a.automation = automation.NewService(automation.Deps{Pool: a.pool, Perms: a.perms, Identity: a.identity, Pages: a.pages,
+	a.automation = automation.NewService(automation.Deps{Pool: a.pool, Perms: a.perms, Identity: a.identity, Pages: a.pages, Spaces: a.spaces,
 		Comments: a.comments, Watches: a.watches, Templates: a.templates, Notify: a.notify, Jobs: a.jobs, Features: a.features,
 		Outward: a.outward, Origin: cfg.PublicOrigin()})
 	a.webhooks = webhooks.NewService(a.pool, a.perms, a.identity, a.outward, a.keyring, a.notify)

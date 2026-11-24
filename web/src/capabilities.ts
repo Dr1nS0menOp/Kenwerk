@@ -22,6 +22,8 @@ export interface Capabilities {
   header_footer: boolean;
   /** The security overview of the administration (spec 088). */
   security_overview: boolean;
+  /** Rules as a chain of cards (spec 091): true only while automation is on too. */
+  rule_cards: boolean;
 }
 
 /** Until the answer is there, nothing is offered: better a moment late than a broken button. */
@@ -38,17 +40,27 @@ export const NOTHING_ON: Capabilities = {
   guided_templates: false,
   header_footer: false,
   security_overview: false,
+  rule_cards: false,
 };
 
 const CAPABILITIES_STALE_MS = 60_000;
 
+const capabilitiesQuery = {
+  queryKey: ['capabilities'],
+  queryFn: () => api.get<Capabilities>('/system/capabilities'),
+  staleTime: CAPABILITIES_STALE_MS,
+};
+
 export function useCapabilities(): Capabilities {
-  const q = useQuery({
-    queryKey: ['capabilities'],
-    queryFn: () => api.get<Capabilities>('/system/capabilities'),
-    staleTime: CAPABILITIES_STALE_MS,
-  });
-  return q.data ?? NOTHING_ON;
+  return useQuery(capabilitiesQuery).data ?? NOTHING_ON;
+}
+
+/**
+ * The answer once it is there, for a screen that is drawn one of two ways and must not show the
+ * wrong one first, such as a rule as a form or as cards (spec 091).
+ */
+export function useKnownCapabilities(): Capabilities | undefined {
+  return useQuery(capabilitiesQuery).data;
 }
 
 /** The parts of a list a helper makes possible, and which helper each needs. */

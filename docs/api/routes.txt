@@ -358,6 +358,7 @@ POST /api/v1/admin/publishing/check                            session-only perm
 POST /api/v1/admin/roles                                       session-only permission:administrator scope:admin:write
 POST /api/v1/admin/roles/{id}/preview                          session-only permission:administrator scope:admin:write
 POST /api/v1/admin/rules                                       session-only permission:administrator scope:admin:write
+POST /api/v1/admin/rules/check                                 session-only permission:administrator scope:admin:read
 POST /api/v1/admin/scim-tokens                                 sensitive permission:administrator scope:admin:write
 POST /api/v1/admin/scim-tokens/{id}/rotate                     sensitive permission:administrator scope:admin:write
 POST /api/v1/admin/service-accounts                            session-only permission:administrator scope:admin:write
@@ -501,6 +502,7 @@ POST /api/v1/spaces/{id}/releases/{run}/resume                 object:space.rele
 POST /api/v1/spaces/{id}/releases/{run}/start                  object:space.release scope:spaces:manage
 POST /api/v1/spaces/{id}/role-assignments/preview              object:space.manage_access scope:spaces:manage
 POST /api/v1/spaces/{id}/rules                                 object:space.automation scope:spaces:manage
+POST /api/v1/spaces/{id}/rules/check                           object:space.automation scope:content:read
 POST /api/v1/spaces/{id}/signature-meanings                    object:space.workflows scope:spaces:manage
 POST /api/v1/spaces/{id}/sites                                 object:site.publish scope:content:share
 POST /api/v1/spaces/{id}/templates                             object:space.templates scope:spaces:manage

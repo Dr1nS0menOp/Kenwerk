@@ -12,6 +12,7 @@ import {
   newSpace,
   PASSWORD,
   publishedPage,
+  rulesAsTheForm,
   test,
   unique,
   VIEWER,
@@ -26,6 +27,7 @@ async function asPerson(browser: Browser, email: string): Promise<Page> {
 
 test.describe('rules', () => {
   test('a rule is built by keyboard, tested, and runs', async ({ page }) => {
+    await rulesAsTheForm(page);
     await login(page, ADMIN.email, ADMIN.password);
     const space = await newSpace(page, 'Rules');
     const target = await publishedPage(page, space.id, 'Plan', 'x');
@@ -77,6 +79,7 @@ test.describe('rules', () => {
   });
 
   test('a rule with an open problem says what is wrong, and stays off', async ({ page }) => {
+    await rulesAsTheForm(page);
     await login(page, ADMIN.email, ADMIN.password);
     const space = await newSpace(page, 'Broken');
     await page.goto(`/spaces/${space.key}/settings/automation`);
@@ -85,7 +88,7 @@ test.describe('rules', () => {
     await expect(page.getByText('Give the label.').first()).toBeVisible();
     await page.getByLabel('This rule is on').check();
     await page.getByRole('button', { name: 'Save' }).click();
-    await expect(page.getByText('Fix what the form says before turning this rule on.')).toBeVisible();
+    await expect(page.getByText('Fix what the rule still needs before turning it on.')).toBeVisible();
   });
 });
 

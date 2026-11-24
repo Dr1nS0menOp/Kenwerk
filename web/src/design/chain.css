@@ -1,0 +1,611 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+/*
+ * A rule as a chain of cards (spec 091, PLT-129 to PLT-152): the header strip, the canvas with
+ * its cards and lines, the zoom, and the panel. Logical properties only, tokens only. The kinds
+ * use the existing mark tints, and the warning the colours of the warning notice (E5).
+ */
+
+.rule-screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-inline-size: 0;
+}
+
+/* The header strip (PLT-130). */
+.rule-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding-block-end: var(--space-3);
+  border-block-end: 1px solid var(--color-line);
+}
+
+.rule-strip-icon {
+  display: flex;
+  color: var(--color-muted);
+}
+
+.rule-strip h1.rule-strip-name {
+  margin: 0;
+  font-size: var(--text-ui);
+  font-weight: var(--weight-regular);
+  color: var(--color-ink);
+}
+
+.rule-strip-state {
+  color: var(--color-muted);
+  font-size: var(--text-small);
+}
+
+.rule-strip-end {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-inline-start: auto;
+}
+
+/* A boxed button: the way back and More, framed so they read as buttons beside the strip. */
+.boxed {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-block-size: var(--size-control);
+  min-inline-size: var(--size-control);
+  justify-content: center;
+  padding-inline: var(--space-2);
+  border: 1px solid var(--color-line);
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+.boxed:hover {
+  background: var(--color-subtle);
+}
+
+/* The split button (PLT-131): one primary button and its arrow, joined. */
+.split-button {
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.split-button .menu {
+  display: flex;
+}
+
+.split-main {
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+}
+
+.split-arrow {
+  display: inline-flex;
+  align-items: center;
+  padding-inline: var(--space-1-5);
+  border-inline-start: 1px solid var(--color-on-accent);
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
+}
+
+.split-main[aria-disabled='true'],
+.split-arrow[aria-disabled='true'] {
+  background: var(--color-subtle);
+  color: var(--color-muted);
+  cursor: not-allowed;
+}
+
+/* The canvas and the panel side by side; below 50rem the panel is a sheet under the chain. */
+.rule-body {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(var(--size-panel), 1fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+/* The canvas (PLT-134): a quiet pattern of dots behind the chain, scrolling by itself. */
+.chain-canvas {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-block-size: var(--size-bell-panel);
+  overflow: auto;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+  background-color: var(--color-side);
+  background-image: radial-gradient(var(--color-guide) 1px, transparent 1px);
+  background-size: var(--space-5) var(--space-5);
+}
+
+.chain-zoom {
+  padding: var(--space-6);
+  padding-block-end: var(--space-12);
+}
+
+.zoom-50 {
+  zoom: 0.5;
+}
+
+.zoom-75 {
+  zoom: 0.75;
+}
+
+.zoom-100 {
+  zoom: 1;
+}
+
+.zoom-125 {
+  zoom: 1.25;
+}
+
+.zoom-150 {
+  zoom: 1.5;
+}
+
+.chain {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chain-step {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+/* A thin line joins each card to its add button, and the add button to the next card. */
+.chain-add {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  inline-size: var(--size-card);
+  padding-block: var(--space-2);
+}
+
+.chain-add::before,
+.chain-step:not(:last-child) > .chain-add::after {
+  content: '';
+  display: block;
+  inline-size: 0;
+  block-size: var(--space-3);
+  border-inline-start: 1px solid var(--color-field);
+}
+
+.add-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--size-badge-small);
+  block-size: var(--size-badge-small);
+  padding: 0;
+  border: 1px solid var(--color-field);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+.add-step[aria-disabled='true'] {
+  border-color: var(--color-line);
+  color: var(--color-field);
+  cursor: not-allowed;
+}
+
+/* A card (PLT-135): an icon tile, a title, a second line, and nothing else. */
+.step-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  font-weight: var(--weight-regular);
+  gap: var(--space-2-5);
+  inline-size: var(--size-card);
+  padding: var(--space-3);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  text-align: start;
+}
+
+.step-card:hover {
+  border-color: var(--color-field);
+}
+
+/* Selected: the accent border; the halo only while the keyboard is on it (PLT-136). */
+.step-card.selected,
+.step-card[aria-pressed='true'] {
+  border-color: var(--color-accent);
+  background: var(--color-surface);
+  box-shadow: none;
+}
+
+.step-card:focus-visible {
+  outline: 3px solid var(--color-accent-tint);
+  outline-offset: 0;
+  border-color: var(--color-accent);
+}
+
+/* A step that needs something: the warning outline, used for nothing else (PLT-142). */
+.step-card.needs {
+  border-color: var(--color-on-lozenge);
+}
+
+.step-tile {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--size-badge);
+  block-size: var(--size-badge);
+  border-radius: var(--radius);
+  background: var(--color-mark-grey);
+  color: var(--color-ink);
+}
+
+.step-tile.kind-trigger,
+.kind-trigger > .step-tile {
+  background: var(--color-mark-blue);
+}
+
+.step-tile.kind-condition,
+.step-tile.kind-group,
+.kind-condition > .step-tile,
+.kind-group > .step-tile {
+  background: var(--color-mark-purple);
+}
+
+.step-tile.kind-action,
+.kind-action > .step-tile {
+  background: var(--color-mark-green);
+}
+
+.step-words {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0-5);
+  min-inline-size: 0;
+}
+
+.step-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  font-weight: var(--weight-strong);
+}
+
+.step-warning {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-0-5);
+  padding-inline: var(--space-1);
+  border-radius: var(--radius);
+  background: var(--color-lozenge);
+  color: var(--color-on-lozenge);
+  font-size: var(--text-caption);
+}
+
+.step-lead {
+  color: var(--color-muted);
+  font-size: var(--text-caption);
+}
+
+.step-line {
+  font-size: var(--text-small);
+  font-weight: var(--weight-regular);
+  overflow-wrap: anywhere;
+}
+
+.tone-muted {
+  color: var(--color-muted);
+}
+
+.tone-plain {
+  color: var(--color-ink);
+}
+
+.step-line.tone-needs {
+  color: var(--color-strong);
+  font-weight: var(--weight-strong);
+}
+
+/* The zoom stays at the bottom centre of the canvas (PLT-140). */
+.chain-zoom-bar {
+  margin-block-start: auto;
+  position: sticky;
+  inset-block-end: var(--space-3);
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.zoom-control {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-0-5) var(--space-1);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-menu);
+  pointer-events: auto;
+}
+
+.zoom-value {
+  min-inline-size: var(--size-control);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-small);
+}
+
+/* The panel over the end side (PLT-129); never narrower than the panel token. */
+.chain-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-inline-size: 0;
+  max-block-size: var(--size-reading-max);
+  overflow: auto;
+  padding: var(--space-4);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
+}
+
+.chain-panel h2 {
+  margin: 0;
+  font-size: var(--text-section);
+}
+
+.chain-panel h2:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* The summary (PLT-144): tiles, the name in bold, then the framed card of details. */
+.chain-summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.summary-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.summary-name {
+  font-weight: var(--weight-title);
+}
+
+.summary-needs {
+  margin: 0;
+  color: var(--color-on-lozenge);
+  font-weight: var(--weight-strong);
+}
+
+.bordered-word {
+  align-self: flex-start;
+  padding-inline: var(--space-1-5);
+  border: 1px solid var(--color-field);
+  border-radius: var(--radius);
+  font-size: var(--text-caption);
+}
+
+.details-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+}
+
+.details-card h3 {
+  margin: 0;
+  font-size: var(--text-ui);
+}
+
+.details-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0-5);
+}
+
+.details-label {
+  font-size: var(--text-label);
+  font-weight: var(--weight-strong);
+}
+
+.details-owner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* The lists of types (PLT-145 to PLT-147): the head stays in view, only the rows scroll. */
+.type-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-block-size: 0;
+}
+
+.type-list-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-block-end: var(--space-2);
+  border-block-end: 1px solid var(--color-line);
+}
+
+.type-list-tools {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.type-list-tools .tool-search {
+  flex: 1;
+}
+
+.type-list-tools .filter-button {
+  white-space: nowrap;
+}
+
+.type-list-rows {
+  overflow-y: auto;
+  max-block-size: var(--size-bell-panel);
+}
+
+.type-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  margin-block: var(--space-3) var(--space-1);
+  font-size: var(--text-small);
+  font-weight: var(--weight-title);
+}
+
+.type-count {
+  color: var(--color-muted);
+  font-size: var(--text-caption);
+  font-weight: var(--weight-regular);
+}
+
+/* A row: a tinted tile and one label; the current one has the tint, a start bar and accent words (PLT-151). */
+.type-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-2);
+  inline-size: 100%;
+  padding: var(--space-1);
+  border-inline-start: 3px solid transparent;
+  background: none;
+  color: var(--color-ink);
+  text-align: start;
+}
+
+.type-row:hover {
+  background: var(--color-subtle);
+}
+
+.type-row.current {
+  border-inline-start-color: var(--color-accent);
+  background: var(--color-accent-tint);
+  color: var(--color-accent);
+}
+
+.type-help {
+  margin-block-start: var(--space-3);
+}
+
+/* A step's settings (PLT-148): a heading row with its buttons, the form, Back and Next. */
+.step-settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.step-settings-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.step-settings-tools {
+  display: flex;
+  margin-inline-start: auto;
+}
+
+.step-settings-foot {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+  padding-block-start: var(--space-3);
+  border-block-start: 1px solid var(--color-line);
+}
+
+.step-settings-foot > .quiet {
+  border: none;
+}
+
+.explain > summary {
+  cursor: pointer;
+  color: var(--color-accent);
+}
+
+.field-with-values {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-1);
+}
+
+.field-with-values > .field {
+  flex: 1;
+}
+
+.field-with-values .menu {
+  margin-block-end: var(--space-1);
+}
+
+.value-button {
+  border: 1px solid var(--color-line);
+}
+
+/* A group card's criteria rows (point 23) and its two toggle buttons. */
+.toggle-pair {
+  display: inline-flex;
+  gap: var(--space-1);
+}
+
+.toggle-pair > button[aria-pressed='true'] {
+  background: var(--color-accent-tint);
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.criteria {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.criteria-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  align-items: start;
+}
+
+.criteria-lead {
+  padding-block-start: var(--space-1-5);
+  color: var(--color-muted);
+  font-weight: var(--weight-strong);
+}
+
+.criteria-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+@media (max-width: 50rem) {
+  .rule-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .chain-canvas {
+    min-block-size: var(--size-image-medium);
+  }
+
+  .step-card,
+  .chain-add {
+    inline-size: min(var(--size-card), 100%);
+  }
+}

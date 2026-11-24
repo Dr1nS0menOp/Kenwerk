@@ -32,6 +32,7 @@ import (
 	"github.com/kenwerk/kenwerk/internal/pages"
 	"github.com/kenwerk/kenwerk/internal/permissions"
 	"github.com/kenwerk/kenwerk/internal/settings"
+	"github.com/kenwerk/kenwerk/internal/spaces"
 	"github.com/kenwerk/kenwerk/internal/templates"
 	"github.com/kenwerk/kenwerk/internal/watches"
 )
@@ -59,6 +60,7 @@ type Deps struct {
 	Perms     *permissions.Service
 	Identity  *identity.Service
 	Pages     *pages.Service
+	Spaces    *spaces.Service
 	Comments  *comments.Service
 	Watches   *watches.Service
 	Templates *templates.Service
@@ -97,8 +99,11 @@ type Rule struct {
 	LastState  string     `json:"last_state"`
 	HasHook    bool       `json:"has_hook"`
 	Problems   []Problem  `json:"problems"`
-	nextRunAt  *time.Time
-	toldAt     *time.Time
+	// YouHold says whether the person asking holds the rule (spec 092), so a screen offers a
+	// take-over rather than a save that fails. The server decides either way.
+	YouHold   bool `json:"you_hold"`
+	nextRunAt *time.Time
+	toldAt    *time.Time
 }
 
 // Input is what a person sends to make or change a rule.
@@ -177,7 +182,7 @@ func (s *Service) goneThings(ctx context.Context, r Rule) ([]Problem, error) {
 				if !ok {
 					return nil, err
 				}
-				out = append(out, Problem{Step: i, Message: e.Message})
+				out = append(out, fault{"host_not_allowed", e.Message}.at(i, whereStep(i)))
 			}
 		}
 		if a.To != ToGroup && a.Type != ActRestrict || a.TargetID == nil {
@@ -188,7 +193,7 @@ func (s *Service) goneThings(ctx context.Context, r Rule) ([]Problem, error) {
 			return nil, err
 		}
 		if !found {
-			out = append(out, Problem{Step: i, Message: "This group no longer exists."})
+			out = append(out, fault{"group_gone", "This group no longer exists."}.at(i, whereStep(i)))
 		}
 	}
 	return out, nil
@@ -203,7 +208,18 @@ func (s *Service) Get(ctx context.Context, c identity.Caller, id uuid.UUID) (Rul
 	if err := s.mayManage(ctx, c, r.SpaceID); err != nil {
 		return r, err
 	}
-	return s.withProblems(ctx, r)
+	return s.forViewer(ctx, c, r)
+}
+
+// forViewer adds what the person asking needs to see of a rule: its problems, and whether
+// they hold it.
+func (s *Service) forViewer(ctx context.Context, c identity.Caller, r Rule) (Rule, error) {
+	r, err := s.withProblems(ctx, r)
+	if err != nil {
+		return r, err
+	}
+	r.YouHold, err = s.holds(ctx, c, r)
+	return r, err
 }
 
 // List gives the rules of a space, or of the instance when spaceID is nil.
@@ -221,7 +237,7 @@ func (s *Service) List(ctx context.Context, c identity.Caller, spaceID *uuid.UUI
 	}
 	out := make([]Rule, 0, len(list))
 	for _, r := range list {
-		v, err := s.withProblems(ctx, r)
+		v, err := s.forViewer(ctx, c, r)
 		if err != nil {
 			return nil, err
 		}
@@ -337,13 +353,29 @@ func (s *Service) checkSpaces(ctx context.Context, spaceID *uuid.UUID, d *Defini
 	return nil
 }
 
+// mayEnable refuses to switch on a rule that still has problems, and names each, so the
+// screen can show them on their cards (spec 091, PLT-078).
 func (s *Service) mayEnable(ctx context.Context, r Rule) error {
 	checked, err := s.withProblems(ctx, r)
 	if err != nil {
 		return err
 	}
-	if len(checked.Problems) > 0 {
-		return apperr.Invalid("Fix what the form says before turning this rule on.")
+	if len(checked.Problems) == 0 {
+		return nil
+	}
+	fields := make([]apperr.FieldProblem, 0, len(checked.Problems))
+	for _, p := range checked.Problems {
+		fields = append(fields, apperr.FieldProblem{Field: p.Where, Problem: p.Code, Message: p.Message})
+	}
+	return &apperr.Error{Kind: apperr.KindInvalid, Code: "rule_not_ready", Fields: fields,
+		Message: "Fix what the rule still needs before turning it on."}
+}
+
+// requireTrigger refuses a definition that does not say when it runs: a rule without a
+// trigger cannot be saved, by any client (spec 091, D7).
+func requireTrigger(d Definition) error {
+	if strings.TrimSpace(d.Trigger.Kind) == "" {
+		return apperr.Invalid("Choose when this rule runs.")
 	}
 	return nil
 }
@@ -379,6 +411,9 @@ func (s *Service) Create(ctx context.Context, c identity.Caller, spaceID *uuid.U
 	}
 	name, err := cleanName(in.Name)
 	if err != nil {
+		return Rule{}, err
+	}
+	if err := requireTrigger(in.Definition); err != nil {
 		return Rule{}, err
 	}
 	account, err := s.account(ctx, c, in)
@@ -448,6 +483,9 @@ func errMoved() error {
 // change saves a rule for its holder. The row must still have the owner and account
 // that were read, so a take-over in between is never undone.
 func (s *Service) change(ctx context.Context, c identity.Caller, r Rule, name string, in Input) (Rule, error) {
+	if err := requireTrigger(in.Definition); err != nil {
+		return r, err
+	}
 	account := r.AccountID
 	if in.AccountID != nil {
 		var err error
@@ -528,6 +566,9 @@ func sameDefinition(a, b Definition) (bool, error) {
 // (spec 092 D3). It starts off, so nothing runs before its new holder switches it on,
 // and its incoming address ends, because the previous holder knows it.
 func (s *Service) takeOver(ctx context.Context, c identity.Caller, r Rule, name string, in Input) (Rule, error) {
+	if err := requireTrigger(in.Definition); err != nil {
+		return r, err
+	}
 	account, err := s.account(ctx, c, in)
 	if err != nil {
 		return r, err

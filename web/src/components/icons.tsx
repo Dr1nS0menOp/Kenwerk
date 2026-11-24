@@ -263,6 +263,14 @@ export const IconLogout = line('M10 5H5v14h5M14 8l4 4-4 4M18 12H9');
 export const IconAutomation = line('M13 3L5 14h6l-1 7 8-11h-6z');
 /** System health: a line that beats. */
 export const IconPulse = line('M3 12h4l2-5 4 10 2-5h6');
+/** Zooming the canvas of a rule (PLT-140): a lens with a plus, and with a minus. */
+export const IconZoomIn = line(
+  'M10.5 17.5a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4.5-4.5M10.5 7.5v6M7.5 10.5h6',
+);
+export const IconZoomOut = line('M10.5 17.5a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4.5-4.5M7.5 10.5h6');
+/** The kinds of a rule's step (PLT-135): a condition is a fork in the way, an action a play mark. */
+export const IconCondition = line('M12 21v-7M12 14L6 8M12 14l6-6M6 12V8h4M14 8h4v4');
+export const IconAction = line('M7 4l12 8-12 8z');
 /** Announcements to everyone on the instance. */
 export const IconMegaphone = line('M4 10v4h3l7 4V6l-7 4zM17 9a4 4 0 0 1 0 6M7 14l1 5h3l-1-4');
 /** Service accounts, which act with a token. */

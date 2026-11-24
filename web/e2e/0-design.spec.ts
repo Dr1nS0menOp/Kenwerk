@@ -27,6 +27,7 @@ import {
   unique,
   pageMenu,
   openRestrictions,
+  rulesAsTheForm,
 } from './helpers';
 
 const READER = { email: 'anna.visser@example.com', name: 'Anna Visser' };
@@ -2378,6 +2379,8 @@ test.describe('the look of every kind of screen', () => {
 
       test('RuleView: one rule', async ({ browser }) => {
         const page = await newReaderPage(browser, 'light');
+        // The form is what an installation with the cards off shows (spec 091).
+        await rulesAsTheForm(page);
         await page.goto(`/rules/${ruleId}`);
         await expect(page.getByRole('heading', { name: 'When', exact: true })).toBeVisible();
         await picture(page, 'rule', [page.locator('time')]);
@@ -2385,6 +2388,149 @@ test.describe('the look of every kind of screen', () => {
         await page.context().close();
       });
 
+      // Rules as a chain of cards (spec 091), made by the reader, so the reader holds them.
+      test.describe('rules as a chain of cards', () => {
+        let chainRuleId = '';
+        let warnRuleId = '';
+        let groupRuleId = '';
+
+        // After the picture of the list of rules above, so that picture keeps its one rule.
+        test.beforeAll(async ({ browser }) => {
+          const holder = await newReaderPage(browser, 'light');
+          const rule = async (name: string, definition: object) => {
+            const res = await holder.request.post(`/api/v1/spaces/${spaceId}/rules`, {
+              data: { name, enabled: false, definition },
+            });
+            expect(res.status(), await res.text()).toBe(201);
+            return ((await res.json()) as { id: string }).id;
+          };
+          chainRuleId = await rule('Review old drafts', {
+            trigger: { kind: 'page.published' },
+            conditions: {
+              kind: 'all',
+              items: [
+                { kind: 'has_label', value: 'draft' },
+                { kind: 'title_contains', value: 'plan' },
+              ],
+            },
+            actions: [
+              { type: 'find_pages', label: 'old', older_days: 30 },
+              { type: 'add_label', label: 'review' },
+              { type: 'notify', to: 'owner', text: 'Please look at {page.title}.' },
+            ],
+          });
+          warnRuleId = await rule('Weekly label', {
+            trigger: { kind: 'schedule', every: 'weekly', at: '09:00' },
+            actions: [{ type: 'add_label', label: 'stale' }],
+          });
+          groupRuleId = await rule('Either label', {
+            trigger: { kind: 'page.labelled' },
+            conditions: {
+              kind: 'any',
+              items: [
+                { kind: 'has_label', value: 'urgent' },
+                { kind: 'has_label', value: 'blocker' },
+              ],
+            },
+            actions: [{ type: 'notify', to: 'owner', text: 'A label needs you.' }],
+          });
+          await holder.context().close();
+        });
+
+        /** Opens a rule as cards, once its check has named and judged its steps. */
+        async function openRule(page: Page, id: string, settled: RegExp) {
+          await page.goto(`/rules/${id}`);
+          await expect(
+            page.getByRole('list', { name: 'Steps of the rule' }).getByRole('button', { name: settled }),
+          ).toBeVisible();
+        }
+
+        test('NewRuleChainView: a new rule with its trigger to choose', async ({ browser }) => {
+          const page = await newReaderPage(browser, 'light');
+          await page.goto(`/spaces/${spaceKey}/settings/automation/new`);
+          await expect(page.getByRole('heading', { name: 'When does this rule run?' })).toBeFocused();
+          await picture(page, 'rule-chain-new');
+          await checkAccessibility(page);
+          await page.context().close();
+        });
+
+        test('NewRuleChainView: the add menu beside a placeholder', async ({ browser }) => {
+          const page = await newReaderPage(browser, 'light');
+          await page.goto(`/spaces/${spaceKey}/settings/automation/new`);
+          await page
+            .getByRole('region', { name: 'Suggestions' })
+            .getByRole('button', { name: 'Page published' })
+            .click();
+          await page.getByRole('button', { name: 'Add a step after step 1' }).click();
+          await page.getByRole('menuitem', { name: 'Condition' }).click();
+          await expect(page.getByRole('heading', { name: 'What does this condition check?' })).toBeFocused();
+          await page.getByRole('button', { name: 'Add a step after step 1' }).click();
+          await expect(page.getByRole('menuitem', { name: 'Condition' })).toBeVisible();
+          await picture(page, 'rule-chain-add');
+          await page.context().close();
+        });
+
+        test('RuleScreen: a saved rule, its summary and details', async ({ browser }) => {
+          const page = await newReaderPage(browser, 'light');
+          await openRule(page, chainRuleId, /Tells the owner: Please look at/);
+          await picture(page, 'rule-chain');
+          await checkAccessibility(page);
+          await page.context().close();
+        });
+
+        test('RuleScreen: a step with a missing value and the value picker', async ({ browser }) => {
+          const page = await newReaderPage(browser, 'light');
+          await openRule(page, chainRuleId, /Tells the owner: Please look at/);
+          await page.getByRole('button', { name: /^Then: Notify/ }).click();
+          await page.getByRole('textbox', { name: 'Text * (required)' }).fill('');
+          await expect(page.getByText('Write the text.').first()).toBeVisible();
+          await page.getByRole('button', { name: 'Put a value into Text * (required)' }).click();
+          await expect(page.getByRole('menuitem', { name: 'The title of the page found' })).toBeVisible();
+          await picture(page, 'rule-chain-step');
+          await page.context().close();
+        });
+
+        test('RuleScreen: a step that may not fit its trigger', async ({ browser }) => {
+          const page = await newReaderPage(browser, 'light');
+          await openRule(page, warnRuleId, /^Then: Add a label.*1 problem/);
+          await page.getByRole('button', { name: /^Then: Add a label/ }).click();
+          await expect(page.getByText('This step may not fit its trigger')).toBeVisible();
+          await picture(page, 'rule-chain-warning');
+          await checkAccessibility(page);
+          await page.context().close();
+        });
+
+        test('RuleScreen: a group of conditions as criteria rows', async ({ browser }) => {
+          const page = await newReaderPage(browser, 'light');
+          await openRule(page, groupRuleId, /If any of 2 conditions holds/);
+          await page.getByRole('button', { name: /^If: Any of several/ }).click();
+          await expect(page.getByRole('button', { name: 'Any of these' })).toHaveAttribute(
+            'aria-pressed',
+            'true',
+          );
+          await picture(page, 'rule-chain-group');
+          await checkAccessibility(page);
+          await page.context().close();
+        });
+
+        test('RuleScreen: dark, narrow and right to left', async ({ browser }) => {
+          const dark = await newReaderPage(browser, 'dark');
+          await openRule(dark, chainRuleId, /Tells the owner: Please look at/);
+          await picture(dark, 'rule-chain-dark');
+          await dark.context().close();
+          const page = await newReaderPage(browser, 'light');
+          await page.setViewportSize(NARROW_SCREEN);
+          await openRule(page, chainRuleId, /Tells the owner: Please look at/);
+          // On a narrow screen the settings sidebar comes first; the picture is of the rule under it.
+          await useFixedFont(page);
+          await page.evaluate(() => document.fonts.ready);
+          await expect(page.locator('.rule-screen')).toHaveScreenshot('rule-chain-narrow.png');
+          await page.setViewportSize({ width: 1280, height: 800 });
+          await page.evaluate(() => document.documentElement.setAttribute('dir', 'rtl'));
+          await picture(page, 'rule-chain-rtl');
+          await page.context().close();
+        });
+      });
       test('WebhooksView: the webhooks of a space', async ({ browser }) => {
         const page = await newReaderPage(browser, 'light');
         await page.goto(`/spaces/${spaceKey}/settings/webhooks`);

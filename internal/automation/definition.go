@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -140,18 +141,46 @@ func (d Definition) reaches(space *uuid.UUID) bool {
 }
 
 // Problem is something a person must fix before a rule can be turned on. Step is the
-// number of the action, or -1 for the trigger and -2 for the conditions.
+// number of the action, or -1 for the trigger and -2 for the conditions. Where, Kind and
+// Code say the same for the screen of cards (spec 091): Where is "trigger", "conditions",
+// "condition/<n>" for the n-th item of an all group, "step/<n>" or "steps"; Kind is input
+// or fit; Code is what the screen translates, and Message the same in English.
 type Problem struct {
 	Step    int    `json:"step"`
 	Message string `json:"message"`
+	Where   string `json:"where"`
+	Kind    string `json:"kind"`
+	Code    string `json:"code"`
 }
 
+// The kinds of problem: a value is missing or wrong, or a step does not fit its trigger.
 const (
-	stepTrigger    = -1
-	stepConditions = -2
-	maxActions     = 50
-	maxTextRunes   = 2000
+	kindInput = "input"
+	kindFit   = "fit"
 )
+
+const (
+	stepTrigger     = -1
+	stepConditions  = -2
+	maxActions      = 50
+	maxTextRunes    = 2000
+	whereTrigger    = "trigger"
+	whereConditions = "conditions"
+	whereSteps      = "steps"
+)
+
+// fault is one problem before it knows its place; an empty code is none.
+type fault struct {
+	code, message string
+}
+
+func (f fault) at(step int, where string) Problem {
+	return Problem{Step: step, Where: where, Kind: kindInput, Code: f.code, Message: f.message}
+}
+
+func whereStep(i int) string { return "step/" + strconv.Itoa(i) }
+
+func whereCondition(i int) string { return "condition/" + strconv.Itoa(i) }
 
 func needsPage(kind string) bool {
 	return !slices.Contains([]string{ActFind, ActTemplate, ActWebhook, ActChat}, kind)
@@ -167,108 +196,124 @@ func timeOfDay(at string) (hour, minute int, ok bool) {
 }
 
 func (t Trigger) problems() []Problem {
-	wrong := func(message string) []Problem { return []Problem{{Step: stepTrigger, Message: message}} }
+	wrong := func(code, message string) []Problem {
+		return []Problem{fault{code, message}.at(stepTrigger, whereTrigger)}
+	}
 	switch {
 	case t.Kind == TriggerManual, t.Kind == TriggerIncoming, slices.Contains(eventTriggers, t.Kind):
 		return nil
 	case t.Kind != TriggerSchedule:
-		return wrong("Choose when this rule runs.")
+		return wrong("choose_trigger", "Choose when this rule runs.")
 	case !slices.Contains([]string{EveryHour, EveryDay, EveryWeek, EveryMonth}, t.Every):
-		return wrong("Choose how often: hourly, daily, weekly or monthly.")
+		return wrong("choose_every", "Choose how often: hourly, daily, weekly or monthly.")
 	}
 	if _, _, ok := timeOfDay(t.At); t.Every != EveryHour && !ok {
-		return wrong("Give the time as 09:30.")
+		return wrong("give_time", "Give the time as 09:30.")
 	}
 	return nil
 }
 
-func (c Condition) problem(depth int, count *int) string {
+func (c Condition) problem(depth int, count *int) fault {
 	*count++
 	if depth > maxCondDepth || *count > maxCondCount {
-		return "These conditions go too deep."
+		return fault{"too_deep", "These conditions go too deep."}
 	}
 	switch c.Kind {
 	case CondAll, CondAny, CondNot:
-		if len(c.Items) == 0 {
-			return "A group needs a condition."
-		}
-		if c.Kind == CondNot && len(c.Items) != 1 {
-			return "Not takes one condition."
-		}
-		for _, item := range c.Items {
-			if p := item.problem(depth+1, count); p != "" {
-				return p
-			}
-		}
-		return ""
+		return c.groupProblem(depth, count)
 	case CondOlder:
 		if c.Days < 1 {
-			return "Give the number of days."
+			return fault{"give_days", "Give the number of days."}
 		}
-		return ""
+		return fault{}
 	case CondSpace, CondBelow, CondAuthor, CondInGroup:
 		if _, err := uuid.Parse(c.Value); err != nil {
-			return "Choose who or what this is about."
+			return fault{"choose_subject", "Choose who or what this is about."}
 		}
-		return ""
+		return fault{}
 	case CondLabel, CondStatus, CondTitle, CondText:
 		if strings.TrimSpace(c.Value) == "" {
-			return "This condition needs a value."
+			return fault{"needs_value", "This condition needs a value."}
 		}
-		return ""
+		return fault{}
 	}
-	return "That is not a condition."
+	return fault{"not_a_condition", "That is not a condition."}
+}
+
+func (c Condition) groupProblem(depth int, count *int) fault {
+	if len(c.Items) == 0 {
+		return fault{"group_empty", "A group needs a condition."}
+	}
+	if c.Kind == CondNot && len(c.Items) != 1 {
+		return fault{"not_takes_one", "Not takes one condition."}
+	}
+	for _, item := range c.Items {
+		if f := item.problem(depth+1, count); f.code != "" {
+			return f
+		}
+	}
+	return fault{}
+}
+
+// conditionProblems judges the tree of conditions. Each item of an all group is a card of
+// its own on the screen, so each gets its own problem; any other tree is one card.
+func (c Condition) conditionProblems() []Problem {
+	count := 0
+	if c.Kind != CondAll || len(c.Items) == 0 {
+		if f := c.problem(0, &count); f.code != "" {
+			return []Problem{f.at(stepConditions, whereConditions)}
+		}
+		return nil
+	}
+	count++
+	out := []Problem{}
+	for i, item := range c.Items {
+		if f := item.problem(1, &count); f.code != "" {
+			out = append(out, f.at(stepConditions, whereCondition(i)))
+		}
+	}
+	return out
 }
 
 func (a Action) needsRecipient() bool {
 	return slices.Contains([]string{ActNotify, ActMail, ActWatch, ActUnwatch, ActTask}, a.Type)
 }
 
-func (a Action) problem() string {
+func (a Action) problem() fault {
 	if len([]rune(a.Text)) > maxTextRunes || len([]rune(a.Body)) > maxTextRunes {
-		return "This text is too long."
+		return fault{"text_too_long", "This text is too long."}
 	}
 	if a.needsRecipient() {
-		if p := a.recipientProblem(); p != "" {
-			return p
+		if f := a.recipientProblem(); f.code != "" {
+			return f
 		}
 	}
 	switch a.Type {
 	case ActCopy, ActArchive, ActDelete, ActWatch, ActUnwatch, ActFind:
-		return ""
+		return fault{}
 	case ActMove:
 		if a.ParentID == nil && a.SpaceID == nil {
-			return "Choose where the page goes."
+			return fault{"choose_place", "Choose where the page goes."}
 		}
 	case ActTemplate:
-		if a.TargetID == nil {
-			return "Choose a template."
-		}
-		if strings.TrimSpace(a.Title) == "" {
-			return "A new page needs a title."
-		}
+		return a.templateProblem()
 	case ActRestrict:
-		if a.Restricted != "view" && a.Restricted != "edit" {
-			return "Choose whether viewing or editing is restricted."
-		}
-		if a.TargetID == nil {
-			return "Choose the group that keeps access."
-		}
+		return a.restrictProblem()
 	case ActAddLabel, ActDropLabel:
 		if strings.TrimSpace(a.Label) == "" {
-			return "Give the label."
+			return fault{"give_label", "Give the label."}
 		}
 	case ActStatus:
 		if strings.TrimSpace(a.Text) == "" {
-			return "Give the status."
+			return fault{"give_status", "Give the status."}
 		}
 	case ActOwner:
 		if a.TargetID == nil {
-			return "Choose the new owner."
+			return fault{"choose_owner", "Choose the new owner."}
 		}
 	case ActComment, ActNotify, ActMail, ActTask, ActChat:
 		if strings.TrimSpace(a.Text) == "" {
-			return "Write the text."
+			return fault{"write_text", "Write the text."}
 		}
 		if a.Type == ActChat {
 			return a.addressProblem()
@@ -276,29 +321,49 @@ func (a Action) problem() string {
 	case ActWebhook:
 		return a.addressProblem()
 	default:
-		return "Choose what this step does."
+		return fault{"not_an_action", "Choose what this step does."}
 	}
-	return ""
+	return fault{}
 }
 
-func (a Action) recipientProblem() string {
+func (a Action) templateProblem() fault {
+	if a.TargetID == nil {
+		return fault{"choose_template", "Choose a template."}
+	}
+	if strings.TrimSpace(a.Title) == "" {
+		return fault{"needs_title", "A new page needs a title."}
+	}
+	return fault{}
+}
+
+func (a Action) restrictProblem() fault {
+	if a.Restricted != "view" && a.Restricted != "edit" {
+		return fault{"choose_restriction", "Choose whether viewing or editing is restricted."}
+	}
+	if a.TargetID == nil {
+		return fault{"choose_group", "Choose the group that keeps access."}
+	}
+	return fault{}
+}
+
+func (a Action) recipientProblem() fault {
 	switch a.To {
 	case ToOwner, ToAuthor:
-		return ""
+		return fault{}
 	case ToUser, ToGroup:
 		if a.TargetID == nil {
-			return "Choose who this is for."
+			return fault{"choose_recipient", "Choose who this is for."}
 		}
-		return ""
+		return fault{}
 	}
-	return "Choose who this is for."
+	return fault{"choose_recipient", "Choose who this is for."}
 }
 
-func (a Action) addressProblem() string {
+func (a Action) addressProblem() fault {
 	if a.Address == "" {
-		return "Choose an allowed host."
+		return fault{"choose_host", "Choose an allowed host."}
 	}
-	return ""
+	return fault{}
 }
 
 // Problems lists what is wrong with a definition, so each message can sit beside its
@@ -306,34 +371,110 @@ func (a Action) addressProblem() string {
 func (d Definition) Problems() []Problem {
 	out := append([]Problem{}, d.Trigger.problems()...)
 	if d.Conditions != nil {
-		count := 0
-		if p := d.Conditions.problem(0, &count); p != "" {
-			out = append(out, Problem{Step: stepConditions, Message: p})
-		}
+		out = append(out, d.Conditions.conditionProblems()...)
 		// Conditions are judged once, on the page the run starts with, so a Find pages
 		// step does not help them (spec 092 D5).
 		if !d.Trigger.bringsPage() {
-			out = append(out, Problem{Step: stepConditions, Message: "Conditions look at a page, and this trigger brings none."})
+			out = append(out, Problem{Step: stepConditions, Where: whereConditions, Kind: kindFit, Code: "conditions_need_page",
+				Message: "Conditions look at a page, and this trigger brings none."})
 		}
 	}
+	return append(out, d.stepProblems()...)
+}
+
+// stepProblems judges the list of actions and each action, in order: a step that needs a page
+// needs a trigger that brings one or a Find pages step before it.
+func (d Definition) stepProblems() []Problem {
+	out := []Problem{}
 	if len(d.Actions) == 0 {
-		out = append(out, Problem{Step: 0, Message: "A rule needs at least one action."})
+		out = append(out, fault{"no_actions", "A rule needs at least one action."}.at(0, whereSteps))
 	}
 	if len(d.Actions) > maxActions {
-		out = append(out, Problem{Step: maxActions, Message: "A rule holds at most 50 actions."})
+		out = append(out, fault{"too_many_steps", "A rule holds at most 50 actions."}.at(maxActions, whereSteps))
 	}
 	hasPage := d.Trigger.bringsPage()
 	for i, a := range d.Actions {
-		if p := a.problem(); p != "" {
-			out = append(out, Problem{Step: i, Message: p})
+		if f := a.problem(); f.code != "" {
+			out = append(out, f.at(i, whereStep(i)))
 			continue
 		}
 		hasPage = hasPage || a.Type == ActFind
 		if needsPage(a.Type) && !hasPage {
-			out = append(out, Problem{Step: i, Message: "This step needs a page. Add a Find pages step before it."})
+			out = append(out, Problem{Step: i, Where: whereStep(i), Kind: kindFit, Code: "needs_page",
+				Message: "This step needs a page. Add a Find pages step before it."})
 		}
 	}
 	return out
+}
+
+// references are the ids a definition names, by what they are, each once and in order.
+type references struct {
+	pages, spaces, people, groups, templates []uuid.UUID
+}
+
+// references lists what a definition refers to by id, so the screen can name each as its
+// viewer may see it (spec 091, E4). A value that is not an id is no reference.
+func (d Definition) references() references {
+	var out references
+	if d.Conditions != nil {
+		d.Conditions.walk(out.addCondition)
+	}
+	for _, a := range d.Actions {
+		out.addAction(a)
+	}
+	return out
+}
+
+func addOnce(list *[]uuid.UUID, id *uuid.UUID) {
+	if id != nil && !slices.Contains(*list, *id) {
+		*list = append(*list, *id)
+	}
+}
+
+func (r *references) addCondition(c Condition) {
+	id, err := uuid.Parse(c.Value)
+	if err != nil {
+		return
+	}
+	switch c.Kind {
+	case CondBelow:
+		addOnce(&r.pages, &id)
+	case CondSpace:
+		addOnce(&r.spaces, &id)
+	case CondAuthor:
+		addOnce(&r.people, &id)
+	case CondInGroup:
+		addOnce(&r.groups, &id)
+	}
+}
+
+func (r *references) addAction(a Action) {
+	addOnce(&r.pages, a.ParentID)
+	addOnce(&r.spaces, a.SpaceID)
+	switch {
+	case a.Type == ActTemplate:
+		addOnce(&r.templates, a.TargetID)
+	case a.Type == ActRestrict, a.To == ToGroup:
+		addOnce(&r.groups, a.TargetID)
+	case a.Type == ActOwner, a.To == ToUser:
+		addOnce(&r.people, a.TargetID)
+	}
+}
+
+// walk calls see for the condition and every condition inside it, at most as deep as a
+// rule may go, so a tree sent by a client cannot make it work without end.
+func (c Condition) walk(see func(Condition)) {
+	c.walkTo(see, 0)
+}
+
+func (c Condition) walkTo(see func(Condition), depth int) {
+	if depth > maxCondDepth {
+		return
+	}
+	see(c)
+	for _, item := range c.Items {
+		item.walkTo(see, depth+1)
+	}
 }
 
 // bringsPage says whether a run starts with a page.
