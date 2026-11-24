@@ -964,6 +964,21 @@ mutate "a script in imported HTML survives" internal/exchange/htmlimport.go \
   's.replace("atom.Script: true, ", "")' $app -run TestHTMLThroughTheAllowListKeepsNoScript
 mutate "an external relationship is followed" internal/office/read.go \
   's.replace("if !ok || rel.external {", "if !ok {")' ./internal/office/ -run TestReadDOCXNeverFollowsAnExternalImage
+# The package rules of an OpenDocument file (wave OD1): LibreOffice refuses a file that breaks them.
+mutate "the mimetype of an ODT gets a data descriptor" internal/office/odt.go \
+  's.replace("head, err := zw.CreateRaw(&zip.FileHeader{", "head, err := zw.CreateHeader(&zip.FileHeader{")' ./internal/office/ -run TestODTStartsWithAPlainMimetypeEntry
+mutate "the mimetype of an ODT is compressed" internal/office/odt.go \
+  's.replace("Method:             zip.Store,", "Method:             zip.Deflate,")' ./internal/office/ -run TestODTStartsWithAPlainMimetypeEntry
+mutate "the mimetype of an ODT is not the first entry" internal/office/odt.go \
+  's.replace("\tif err := writeMimetype(zw); err != nil {\n\t\treturn err\n\t}\n\tmanifest", "\tmanifest").replace("\treturn zw.Close()\n}", "\tif err := writeMimetype(zw); err != nil {\n\t\treturn err\n\t}\n\treturn zw.Close()\n}")' ./internal/office/ -run TestODTStartsWithAPlainMimetypeEntry
+mutate "an ODT picture is missing from the manifest" internal/office/odt.go \
+  's.replace("for name, kind := range d.types {", "for name, kind := range map[string]string{} {")' ./internal/office/ -run TestODTManifestListsEveryFileInThePackage
+mutate "the manifest of an ODT gives the package no version" internal/office/odt.go \
+  's.replace("manifest:full-path=\"/\" manifest:version=\"` + odfVersion + `\" ", "manifest:full-path=\"/\" ")' ./internal/office/ -run TestODTManifestGivesThePackageItsTypeAndVersion
+mutate "the content of an ODT claims an older OpenDocument" internal/office/odt.go \
+  's.replace("office:version=\"` + odfVersion + `\"", "office:version=\"1.2\"")' ./internal/office/ -run TestODTContentDeclaresTheOpenDocumentNamespacesAndVersion
+mutate "an ODT puts a table inside a list item" internal/office/odt.go \
+  's.replace("func (d *odtWriter) inGrid() bool { return d.inList == 0 }", "func (d *odtWriter) inGrid() bool { return d.inList >= 0 }")' ./internal/office/ -run TestODTMatchesTheOpenDocumentSchema
 mutate "a restricted page can be public" internal/sites/rule.go \
   's.replace("AND NOT EXISTS (SELECT 1 FROM page_tree t JOIN page_restrictions r ON r.page_id = t.ancestor_id AND r.kind = '"'"'view'"'"'\n\t\t\tWHERE t.descendant_id = p.id)", "")' $app -run TestARestrictedPageCannotBeChosen
 mutate "an event does not reach the public rule" internal/sites/rule.go \

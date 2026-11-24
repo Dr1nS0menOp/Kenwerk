@@ -62,6 +62,10 @@ jobs:
       # Spec 097: complexity, length, copies and security patterns, with the ratchet.
       - name: lint
         run: make lint
+      # xmllint checks the OpenDocument export against the schema of OASIS (wave OD1); the
+      # test fails in CI without it rather than skip.
+      - name: install xmllint
+        run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends libxml2-utils
       - name: tests (race detector, integration against PostgreSQL)
         # A job log needs a login to read, while annotations are public, so the lines that
         # name a failing test also go out as annotations.
@@ -278,7 +282,8 @@ jobs:
           exit-code: "1"
           ignore-unfixed: true
       # The real helper, run as compose.yaml runs it, against Kenwerk's own requests: a PDF
-      # export and the preview of a Word and an RTF file. Without its password it
+      # export, the preview of a Word, an OpenDocument and an RTF file, and Kenwerk's
+      # OpenDocument export of every block. Without its password it
       # refuses, so the password of compose.yaml is known to switch the check on.
       - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
@@ -298,7 +303,7 @@ jobs:
           done
           refused=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$KENWERK_TEST_PDF_URL/forms/libreoffice/convert")
           test "$refused" = 401 || { echo "::error::without its password the helper answered $refused"; exit 1; }
-          go test -count=1 -run '^TestTheRealPDFHelperMakesAnExportAndOpensOfficeFiles$' -v ./internal/app
+          go test -count=1 -run '^(TestTheRealPDFHelperMakesAnExportAndOpensOfficeFiles|TestLibreOfficeOpensTheODTOfEveryBlock)$' -v ./internal/app ./internal/office
       # ADR-038: a ZAP baseline against the real image, as a browser would reach it.
       - name: start the image for ZAP
         run: |

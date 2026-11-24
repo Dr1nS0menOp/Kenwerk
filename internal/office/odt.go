@@ -5,6 +5,7 @@ package office
 import (
 	"archive/zip"
 	"fmt"
+	"hash/crc32"
 	"io"
 	"strings"
 
@@ -21,12 +22,15 @@ const (
 		`xmlns:svg="urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0" ` +
 		`xmlns:xlink="http://www.w3.org/1999/xlink"`
 	odtMime = "application/vnd.oasis.opendocument.text"
+	// odfVersion is the version of OpenDocument the file claims, in content.xml and the manifest.
+	odfVersion = "1.3"
 )
 
 type odtWriter struct {
 	b       strings.Builder
 	o       Options
 	depth   int
+	inList  int // how deep in lists the writer is
 	media   map[string][]byte
 	types   map[string]string
 	nextPic int
@@ -77,22 +81,18 @@ func odtStyles() string {
 
 func (d *odtWriter) pack(w io.Writer) error {
 	zw := zip.NewWriter(w)
-	// The mimetype comes first and is not compressed: that is how a reader knows the file.
-	head, err := zw.CreateHeader(&zip.FileHeader{Name: "mimetype", Method: zip.Store})
-	if err != nil {
+	if err := writeMimetype(zw); err != nil {
 		return err
 	}
-	if _, err := io.WriteString(head, odtMime); err != nil {
-		return err
-	}
-	manifest := `<manifest:file-entry manifest:full-path="/" manifest:media-type="` + odtMime + `"/>` +
+	manifest := `<manifest:file-entry manifest:full-path="/" manifest:version="` + odfVersion + `" manifest:media-type="` + odtMime + `"/>` +
 		`<manifest:file-entry manifest:full-path="content.xml" manifest:media-type="text/xml"/>`
 	for name, kind := range d.types {
 		manifest += `<manifest:file-entry manifest:full-path="Pictures/` + name + `" manifest:media-type="` + kind + `"/>`
 	}
 	parts := []struct{ name, body string }{
-		{"META-INF/manifest.xml", xmlHeader + `<manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0" manifest:version="1.2">` + manifest + `</manifest:manifest>`},
-		{"content.xml", xmlHeader + `<office:document-content ` + odtNS + ` office:version="1.2"><office:automatic-styles>` + odtStyles() +
+		{"META-INF/manifest.xml", xmlHeader + `<manifest:manifest xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0" manifest:version="` +
+			odfVersion + `">` + manifest + `</manifest:manifest>`},
+		{"content.xml", xmlHeader + `<office:document-content ` + odtNS + ` office:version="` + odfVersion + `"><office:automatic-styles>` + odtStyles() +
 			`</office:automatic-styles><office:body><office:text>` + d.b.String() + `</office:text></office:body></office:document-content>`},
 	}
 	for _, p := range parts {
@@ -116,6 +116,25 @@ func (d *odtWriter) pack(w io.Writer) error {
 	return zw.Close()
 }
 
+// writeMimetype writes the entry that tells a reader what the file is: first, not compressed,
+// without an extra field, and with its size and checksum in its own header (ODF 1.3 part 2,
+// 3.3). zip.Writer.CreateHeader would put them in a data descriptor after the bytes, and
+// LibreOffice refuses a stored entry with a data descriptor, so the file would not open.
+func writeMimetype(zw *zip.Writer) error {
+	head, err := zw.CreateRaw(&zip.FileHeader{
+		Name:               "mimetype",
+		Method:             zip.Store,
+		CRC32:              crc32.ChecksumIEEE([]byte(odtMime)),
+		CompressedSize64:   uint64(len(odtMime)),
+		UncompressedSize64: uint64(len(odtMime)),
+	})
+	if err != nil {
+		return err
+	}
+	_, err = io.WriteString(head, odtMime)
+	return err
+}
+
 func odtParagraphStyle(n document.Node) string {
 	switch attr(n, "align") {
 	case "center":
@@ -137,6 +156,8 @@ func (d *odtWriter) children(list []document.Node) {
 }
 
 func (d *odtWriter) list(n document.Node) {
+	d.inList++
+	defer func() { d.inList-- }()
 	d.b.WriteString(`<text:list>`)
 	for _, item := range n.Content {
 		d.b.WriteString(`<text:list-item>`)
@@ -204,14 +225,33 @@ func (d *odtWriter) block(n document.Node) {
 	}
 }
 
+// inGrid reports whether a table may be written here. A list item holds only paragraphs,
+// headings and lists (ODF 1.3 part 3, 5.3.4), so inside a list a panel, columns or a table
+// are written as their blocks one after another.
+func (d *odtWriter) inGrid() bool { return d.inList == 0 }
+
 func (d *odtWriter) oneCell(n document.Node) {
-	d.b.WriteString(`<table:table><table:table-column/><table:table-row><table:table-cell>`)
+	if d.inGrid() {
+		d.b.WriteString(`<table:table><table:table-column/><table:table-row><table:table-cell>`)
+	}
 	d.paragraph("Body", `<text:span text:style-name="Bold">`+escape(panelLabel(n))+`</text:span>`)
 	d.children(n.Content)
-	d.b.WriteString(`</table:table-cell></table:table-row></table:table>`)
+	if d.inGrid() {
+		d.b.WriteString(`</table:table-cell></table:table-row></table:table>`)
+	}
 }
 
 func (d *odtWriter) columns(n document.Node) {
+	if !d.inGrid() {
+		for _, column := range n.Content {
+			d.children(column.Content)
+		}
+		return
+	}
+	// A row needs a cell, so columns without a column write nothing.
+	if len(n.Content) == 0 {
+		return
+	}
 	d.b.WriteString(`<table:table><table:table-column table:number-columns-repeated="` + fmt.Sprint(len(n.Content)) + `"/><table:table-row>`)
 	for _, column := range n.Content {
 		d.b.WriteString(`<table:table-cell>`)
@@ -222,6 +262,14 @@ func (d *odtWriter) columns(n document.Node) {
 }
 
 func (d *odtWriter) table(n document.Node) {
+	if !d.inGrid() {
+		for _, row := range n.Content {
+			for _, cell := range row.Content {
+				d.children(cell.Content)
+			}
+		}
+		return
+	}
 	width := 0
 	for _, row := range n.Content {
 		cells := 0
@@ -230,31 +278,42 @@ func (d *odtWriter) table(n document.Node) {
 		}
 		width = max(width, cells)
 	}
-	d.b.WriteString(`<table:table><table:table-column table:number-columns-repeated="` + fmt.Sprint(max(width, 1)) + `"/>`)
+	// A table needs a row and a row needs a cell: a table without cells writes nothing.
+	if width == 0 {
+		return
+	}
+	d.b.WriteString(`<table:table><table:table-column table:number-columns-repeated="` + fmt.Sprint(width) + `"/>`)
 	for i, row := range n.Content {
-		header := i == 0 && len(row.Content) > 0 && row.Content[0].Type == document.TypeTableHeader
+		if len(row.Content) == 0 {
+			continue
+		}
+		header := i == 0 && row.Content[0].Type == document.TypeTableHeader
 		if header {
 			d.b.WriteString(`<table:table-header-rows>`)
 		}
-		d.b.WriteString(`<table:table-row>`)
-		for _, cell := range row.Content {
-			d.b.WriteString(`<table:table-cell`)
-			if span := number(cell, "colspan"); span > 1 {
-				d.b.WriteString(fmt.Sprintf(` table:number-columns-spanned="%d"`, span))
-			}
-			if bg := attr(cell, "background"); markColors[bg] != "" {
-				d.b.WriteString(` table:style-name="Cell-` + bg + `"`)
-			}
-			d.b.WriteString(`>`)
-			d.children(cell.Content)
-			d.b.WriteString(`</table:table-cell>`)
-		}
-		d.b.WriteString(`</table:table-row>`)
+		d.tableRow(row)
 		if header {
 			d.b.WriteString(`</table:table-header-rows>`)
 		}
 	}
 	d.b.WriteString(`</table:table>`)
+}
+
+func (d *odtWriter) tableRow(row document.Node) {
+	d.b.WriteString(`<table:table-row>`)
+	for _, cell := range row.Content {
+		d.b.WriteString(`<table:table-cell`)
+		if span := number(cell, "colspan"); span > 1 {
+			d.b.WriteString(fmt.Sprintf(` table:number-columns-spanned="%d"`, span))
+		}
+		if bg := attr(cell, "background"); markColors[bg] != "" {
+			d.b.WriteString(` table:style-name="Cell-` + bg + `"`)
+		}
+		d.b.WriteString(`>`)
+		d.children(cell.Content)
+		d.b.WriteString(`</table:table-cell>`)
+	}
+	d.b.WriteString(`</table:table-row>`)
 }
 
 func (d *odtWriter) image(n document.Node) {

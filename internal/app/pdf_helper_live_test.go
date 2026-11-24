@@ -12,8 +12,8 @@ import (
 // pdfMagic is how every PDF file starts.
 const pdfMagic = "%PDF-"
 
-// The real helper image, not a stand-in: an export becomes a PDF, and a Word and an RTF
-// file open as one. It runs only where KENWERK_TEST_PDF_URL points to the image
+// The real helper image, not a stand-in: an export becomes a PDF, and a Word, an
+// OpenDocument and an RTF file open as one. It runs only where KENWERK_TEST_PDF_URL points to the image
 // of deploy/pdf, as CI's container job starts it; KENWERK_TEST_PDF_PASSWORD is its password.
 func TestTheRealPDFHelperMakesAnExportAndOpensOfficeFiles(t *testing.T) {
 	address := os.Getenv("KENWERK_TEST_PDF_URL")
@@ -40,14 +40,15 @@ func TestTheRealPDFHelperMakesAnExportAndOpensOfficeFiles(t *testing.T) {
 		}
 	}
 
-	// Kenwerk's own Word export is a real office file to open, and RTF one written by hand.
-	run := owner.export(map[string]any{"space_id": space, "format": "docx", "root_id": parent})
-	if run["state"] != "done" {
-		t.Fatalf("docx export: %+v", run)
-	}
-	files := map[string]string{
-		"report.docx": string(owner.exportFile(run["id"].(string))),
-		"notes.rtf":   `{\rtf1\ansi Notes in rich text\par}`,
+	// Kenwerk's own Word and OpenDocument exports are real office files to open, and RTF one
+	// written by hand.
+	files := map[string]string{"notes.rtf": `{\rtf1\ansi Notes in rich text\par}`}
+	for _, format := range []string{"docx", "odt"} {
+		run := owner.export(map[string]any{"space_id": space, "format": format, "root_id": parent})
+		if run["state"] != "done" {
+			t.Fatalf("%s export: %+v", format, run)
+		}
+		files["report."+format] = string(owner.exportFile(run["id"].(string)))
 	}
 	for name, content := range files {
 		file := owner.file(parent, name, content)
