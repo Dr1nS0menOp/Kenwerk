@@ -18,6 +18,8 @@ export interface Capabilities {
   /** Draft and published spaces (spec 073). */
   publishing: boolean;
   guided_templates: boolean;
+  /** The installation's header and footer (spec 089). */
+  header_footer: boolean;
 }
 
 /** Until the answer is there, nothing is offered: better a moment late than a broken button. */
@@ -32,6 +34,7 @@ export const NOTHING_ON: Capabilities = {
   console_restore: false,
   publishing: false,
   guided_templates: false,
+  header_footer: false,
 };
 
 const CAPABILITIES_STALE_MS = 60_000;

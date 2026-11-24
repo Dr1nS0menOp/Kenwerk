@@ -38,6 +38,7 @@ import (
 	"github.com/kenwerk/kenwerk/internal/failures"
 	"github.com/kenwerk/kenwerk/internal/features"
 	"github.com/kenwerk/kenwerk/internal/feed"
+	"github.com/kenwerk/kenwerk/internal/headerfooter"
 	"github.com/kenwerk/kenwerk/internal/httpapi"
 	"github.com/kenwerk/kenwerk/internal/identity"
 	"github.com/kenwerk/kenwerk/internal/ids"
@@ -138,6 +139,8 @@ type App struct {
 	healthCache healthCache
 	// runtime is the log level for a while and the disk thresholds, reread every few seconds.
 	runtime runtimeState
+	// headerFooter is the installation's header and footer (spec 089).
+	headerFooter *headerfooter.Service
 	// startedWith is the configuration as this process read it at its start, so the console
 	// can mark what changes at the next restart (spec 075, CSL-601).
 	startedWith []config.Setting
@@ -211,6 +214,8 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 	a.console = console.NewService(a.pool, a.store, func() int { return a.thresholds().DiskWarnPercent })
 	a.features = features.NewService(a.pool, a.settings)
 	a.features.HoldWhileOlderReleaseRuns(a.olderReleaseRuns)
+	a.headerFooter = headerfooter.NewService(a.pool, a.identity)
+	a.features.WhenExperimentalChanges(a.headerFooter.Forget)
 	a.jobs = jobs.NewService(a.pool, log)
 	a.jobs.HoldWhile(a.inMaintenance)
 	a.attach = attachments.NewService(a.pool, a.perms, a.store, a.settings, a.instanceID)
@@ -310,7 +315,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger) (*App, error)
 			Permissions: a.perms, Spaces: a.spaces, Pages: a.pages, Attachments: a.attach, Blocks: blocks.NewService(a.pool, a.perms, a.people, a.analytics), People: a.people, Console: a.console, Search: a.search,
 			Trash: a.trash, Settings: a.settings, Jobs: a.jobs, Exchange: a.exchange, Sites: a.sites, Example: a.example,
 			Publishing: a.publishing,
-			SCIM:       a.scim, SSO: a.sso, Connections: a.connections, Comments: a.comments, Watches: a.watches, Tasks: a.tasks, Notify: a.notify, Mail: a.mail,
+			SCIM:       a.scim, SSO: a.sso, Connections: a.connections, HeaderFooter: a.headerFooter, Comments: a.comments, Watches: a.watches, Tasks: a.tasks, Notify: a.notify, Mail: a.mail,
 			Sharing: a.sharing, SavedBlocks: savedblocks.NewService(a.pool), Feed: a.feed, Features: a.features, Templates: a.templates,
 			Analytics: a.analytics, Presence: a.presence, Outward: a.outward, Automation: a.automation, Webhooks: a.webhooks, Collab: a.collab,
 			SystemStatus: a.SystemStatus, HelpersDown: a.HelpersDown, CheckAudit: a.CheckAudit, Gauges: a.Gauges, Failures: a.failures,
@@ -641,6 +646,9 @@ func (a *App) Mail() *mail.Service { return a.mail }
 
 // Connections exposes the connections in force (used by tests).
 func (a *App) Connections() *connections.Service { return a.connections }
+
+// HeaderFooter is the installation's header and footer, for tests that call the service itself.
+func (a *App) HeaderFooter() *headerfooter.Service { return a.headerFooter }
 
 // Logger exposes the logger (used by tests).
 func (a *App) Logger() *slog.Logger { return a.log }

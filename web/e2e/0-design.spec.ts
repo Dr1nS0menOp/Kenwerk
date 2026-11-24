@@ -3923,3 +3923,167 @@ test.describe('the settings of a space as blueprint 03 arranges them', () => {
     await page.context().close();
   });
 });
+
+// Spec 089: the installation's header and footer, in the administration and on a page. The
+// header and footer are one value for the whole installation, so each test empties them again.
+test.describe("the installation's header and footer", () => {
+  const BAND = '/api/v1/admin/header-footer';
+  const classification = {
+    type: 'doc',
+    content: [
+      {
+        type: 'paragraph',
+        attrs: { align: 'center' },
+        content: [
+          { type: 'status', attrs: { color: 'blue', text: 'Internal' } },
+          { type: 'text', text: ' For staff of this organisation only.' },
+        ],
+      },
+    ],
+  };
+  const contact = {
+    type: 'doc',
+    content: [
+      {
+        type: 'paragraph',
+        content: [
+          { type: 'text', text: 'Questions about this wiki: ' },
+          {
+            type: 'text',
+            text: 'the help desk',
+            marks: [{ type: 'link', attrs: { href: 'mailto:help@example.org' } }],
+          },
+          { type: 'text', text: ' or the ' },
+          {
+            type: 'text',
+            text: 'guide',
+            marks: [{ type: 'link', attrs: { href: 'https://help.example.org/wiki' } }],
+          },
+          { type: 'text', text: '.' },
+        ],
+      },
+    ],
+  };
+
+  async function setBand(browser: Browser, header: unknown, footer: unknown) {
+    const { api, close } = await adminRequest(browser);
+    const res = await api.put(BAND, { data: { header, footer } });
+    expect(res.ok(), await res.text()).toBeTruthy();
+    await close();
+  }
+
+  test.afterEach(async ({ browser }) => setBand(browser, null, null));
+
+  async function administrator(browser: Browser, colorScheme: 'light' | 'dark' = 'light'): Promise<Page> {
+    const page = await (
+      await browser.newContext({ baseURL: 'http://localhost:8080', colorScheme })
+    ).newPage();
+    await login(page, ADMIN.email, ADMIN.password);
+    return page;
+  }
+
+  /** A page of a space made for the picture, with paragraphs of text; the key sets its animal. */
+  async function bandPage(page: Page, key: string, paragraphs: string[]) {
+    const created = await page.request.post('/api/v1/spaces', {
+      data: { key, name: 'Staff handbook' },
+    });
+    expect(created.status(), await created.text()).toBe(201);
+    const space = (await created.json()) as { id: string };
+    const id = await publishedPage(page, space.id, 'Opening hours', paragraphs[0] ?? '');
+    const document = {
+      type: 'doc',
+      content: paragraphs.map((text) => ({ type: 'paragraph', content: [{ type: 'text', text }] })),
+    };
+    const updated = await page.request.post(`/api/v1/pages/${id}/publish`, {
+      data: { title: 'Opening hours', document, base_version: 1 },
+    });
+    expect(updated.ok(), await updated.text()).toBeTruthy();
+    return id;
+  }
+
+  test('AdminView: header and footer, empty and with a change', async ({ browser }) => {
+    const page = await administrator(browser);
+    await page.goto('/admin/header-footer');
+    await expect(page.getByRole('textbox', { name: 'Header' })).toBeVisible();
+    await picture(page, 'admin-header-footer');
+    await checkAccessibility(page);
+    await page.getByRole('textbox', { name: 'Header' }).click();
+    await page.keyboard.type('Internal: for staff of this organisation only.');
+    await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeEnabled();
+    await picture(page, 'admin-header-footer-changed');
+    await page.context().close();
+  });
+
+  test('AdminView: header and footer refused, with the notice that names the footer', async ({ browser }) => {
+    const page = await administrator(browser);
+    await page.route(BAND, (route) =>
+      route.request().method() === 'PUT'
+        ? route.fulfill({
+            status: 400,
+            json: {
+              error: {
+                code: 'invalid',
+                message: 'Some answers need a change.',
+                fields: [
+                  {
+                    field: 'footer',
+                    problem: 'link_not_allowed',
+                    message: 'The footer cannot be stored.',
+                  },
+                ],
+              },
+            },
+          })
+        : route.fallback(),
+    );
+    await page.goto('/admin/header-footer');
+    await page.getByRole('textbox', { name: 'Footer' }).click();
+    await page.keyboard.type('Questions: the help desk');
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(page.getByRole('alert').filter({ hasText: 'The footer was not saved' })).toBeVisible();
+    await picture(page, 'admin-header-footer-refused');
+    await checkAccessibility(page);
+    await page.context().close();
+  });
+
+  for (const colorScheme of ['light', 'dark'] as const) {
+    test(`PageView: the installation's header and footer on a short page, ${colorScheme}`, async ({
+      browser,
+    }) => {
+      await setBand(browser, classification, contact);
+      const page = await administrator(browser, colorScheme);
+      await page.goto(
+        `/pages/${await bandPage(page, `HFSHORT${colorScheme.toUpperCase()}`, ['We are open from nine to five on working days.'])}`,
+      );
+      await expect(
+        page.getByRole('region', { name: 'Note from this installation, below the page' }),
+      ).toBeVisible();
+      await picture(page, `page-header-footer-short-${colorScheme}`);
+      await checkAccessibility(page);
+      await page.context().close();
+    });
+  }
+
+  test("PageView: the installation's header and footer on a long page, and narrow right to left", async ({
+    browser,
+  }) => {
+    await setBand(browser, classification, contact);
+    const page = await administrator(browser);
+    const lines = Array.from(
+      { length: 12 },
+      (_, i) => `Paragraph ${i + 1} of the opening hours: who is in, when the doors open, and whom to call.`,
+    );
+    await page.goto(`/pages/${await bandPage(page, 'HFLONG', lines)}`);
+    await expect(
+      page.getByRole('region', { name: 'Note from this installation, above the page' }),
+    ).toBeVisible();
+    await picture(page, 'page-header-footer-long');
+    await page.setViewportSize(NARROW_SCREEN);
+    await page.evaluate(() => document.documentElement.setAttribute('dir', 'rtl'));
+    await page
+      .getByRole('region', { name: 'Note from this installation, below the page' })
+      .scrollIntoViewIfNeeded();
+    await picture(page, 'page-header-footer-narrow-rtl');
+    await page.context().close();
+  });
+});

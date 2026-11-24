@@ -1194,6 +1194,42 @@
         "x-scope": "admin:write"
       }
     },
+    "/api/v1/admin/header-footer": {
+      "get": {
+        "operationId": "get /api/v1/admin/header-footer",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Done. Most routes answer with JSON."
+          },
+          "default": {
+            "description": "An error, as {\"error\": {\"code\", \"message\"}}."
+          }
+        },
+        "tags": [
+          "admin"
+        ],
+        "x-access": "permission:administrator scope:admin:read",
+        "x-scope": "admin:read"
+      },
+      "put": {
+        "operationId": "put /api/v1/admin/header-footer",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Done. Most routes answer with JSON."
+          },
+          "default": {
+            "description": "An error, as {\"error\": {\"code\", \"message\"}}."
+          }
+        },
+        "tags": [
+          "admin"
+        ],
+        "x-access": "sensitive permission:administrator scope:admin:write",
+        "x-scope": "admin:write"
+      }
+    },
     "/api/v1/admin/health": {
       "get": {
         "operationId": "get /api/v1/admin/health",
@@ -4896,6 +4932,25 @@
         ],
         "x-access": "object:group.manage_members scope:content:share",
         "x-scope": "content:share"
+      }
+    },
+    "/api/v1/header-footer": {
+      "get": {
+        "operationId": "get /api/v1/header-footer",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Done. Most routes answer with JSON."
+          },
+          "default": {
+            "description": "An error, as {\"error\": {\"code\", \"message\"}}."
+          }
+        },
+        "tags": [
+          "header-footer"
+        ],
+        "x-access": "permission:use_product scope:content:read",
+        "x-scope": "content:read"
       }
     },
     "/api/v1/imports/{id}": {

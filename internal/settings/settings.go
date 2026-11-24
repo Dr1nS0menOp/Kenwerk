@@ -138,6 +138,37 @@ func Load(ctx context.Context, q db.Querier, key string, v any) error {
 	return json.Unmarshal(raw, v)
 }
 
+// LoadEach reads the stored values of keys through q in one statement, as raw JSON by key. A key
+// without a value is absent from the answer. A reader that needs several values on every request,
+// such as the installation's header and footer, pays one statement for all of them.
+func LoadEach(ctx context.Context, q db.Querier, keys ...string) (map[string][]byte, error) {
+	return loadEach(ctx, q, "SELECT key, value FROM settings WHERE key = ANY($1)", keys)
+}
+
+// LoadEachLocked is LoadEach inside the caller's transaction, and locks the rows it read until
+// that transaction ends, so a change compares with what no one else changes meanwhile.
+func LoadEachLocked(ctx context.Context, tx pgx.Tx, keys ...string) (map[string][]byte, error) {
+	return loadEach(ctx, tx, "SELECT key, value FROM settings WHERE key = ANY($1) FOR UPDATE", keys)
+}
+
+func loadEach(ctx context.Context, q db.Querier, query string, keys []string) (map[string][]byte, error) {
+	rows, err := q.Query(ctx, query, keys)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string][]byte{}
+	for rows.Next() {
+		var key string
+		var raw []byte
+		if err := rows.Scan(&key, &raw); err != nil {
+			return nil, err
+		}
+		out[key] = raw
+	}
+	return out, rows.Err()
+}
+
 // Store writes one stored value inside the caller's transaction. Other modules keep
 // their own choices here through this, so only settings writes its table (ARC-027).
 // The caller audits the change and decides who may make it.

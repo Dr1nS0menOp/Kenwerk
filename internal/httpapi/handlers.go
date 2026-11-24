@@ -61,6 +61,7 @@ func (s *Server) registerRoutes() {
 	s.registerSavedBlockRoutes()
 	s.registerIdentityRoutes()
 	s.registerAppearanceRoutes()
+	s.registerHeaderFooterRoutes()
 	s.registerPeopleRoutes()
 	s.registerExchangeRoutes()
 	s.registerSiteRoutes()
@@ -224,6 +225,7 @@ func (s *Server) handleCapabilities(w http.ResponseWriter, r *http.Request) {
 		"console_restore":  slices.Contains(experimental.On, features.ExperimentalConsoleRestore),
 		"publishing":       slices.Contains(experimental.On, features.ExperimentalPublishing),
 		"guided_templates": slices.Contains(experimental.On, features.ExperimentalGuidedTemplates),
+		"header_footer":    slices.Contains(experimental.On, features.ExperimentalHeaderFooter),
 	})
 }
 

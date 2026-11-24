@@ -4420,7 +4420,31 @@
     "part_bundles": "Bundles between instances",
     "part_console_restore": "Restore from the console",
     "part_publishing": "Draft and published spaces",
-    "part_guided_templates": "Guided templates: sets of pages from one template"
+    "part_guided_templates": "Guided templates: sets of pages from one template",
+    "part_header_footer": "Header and footer: a note above and below every page and blog post"
+  },
+  "headerFooter": {
+    "header": "Header",
+    "footer": "Footer",
+    "hint": "At most {{characters}} characters and {{links}} links. A link that leaves this installation shows its host to readers. The audit log keeps what was written.",
+    "link": "Link",
+    "linkTitle": "Link",
+    "linkAddress": "Address",
+    "linkHelp": "An https address, a mail address that starts with mailto:, or a path in this installation that starts with /.",
+    "linkRemove": "Remove link",
+    "status": "Status mark",
+    "statusWords": "Status",
+    "lastChanged": "Last changed by",
+    "someoneRemoved": "Someone who is no longer here",
+    "refused_header": "The header was not saved",
+    "refused_footer": "The footer was not saved",
+    "problem_not_allowed": "It holds something a header or footer may not hold. It may hold text, links and status marks in up to five lines.",
+    "problem_link_not_allowed": "A link must be https to a plain host name, one mail address, or a path in this installation. Plain http and addresses with a user name are refused.",
+    "problem_text_not_allowed": "Its text holds a control character, or one that turns text around.",
+    "problem_too_long": "It is longer than a header or footer may be.",
+    "opensElsewhere": "(opens in a new tab)",
+    "region_above": "Note from this installation, above the page",
+    "region_below": "Note from this installation, below the page"
   },
   "exchange": {
     "export": "Export",
@@ -5500,6 +5524,10 @@
     "look": {
       "name": "Look",
       "intro": "The name, logo, colours, font and login text of the instance."
+    },
+    "header-footer": {
+      "name": "Header and footer",
+      "intro": "The header shows above and the footer below the text of every page and blog post, for everyone who is logged in. Both may hold text and links."
     },
     "care": {
       "name": "Care",

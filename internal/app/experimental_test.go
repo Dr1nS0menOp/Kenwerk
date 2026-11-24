@@ -57,6 +57,9 @@ func TestANewInstallationRefusesEveryExperimentalPart(t *testing.T) {
 		{"GET", "/api/v1/admin/bundles/key", nil},
 		{"POST", "/api/v1/admin/bundles?filename=a.zip", "x"},
 		{"POST", "/api/v1/admin/backups/restore", map[string]any{"name": "kenwerk-20260101T000000Z", "confirm": "Test", "code": "123456"}},
+		{"GET", "/api/v1/header-footer", nil},
+		{"GET", "/api/v1/admin/header-footer", nil},
+		{"PUT", "/api/v1/admin/header-footer", map[string]any{"header": nil, "footer": nil}},
 	}
 	for _, r := range refused {
 		if out := root.want(http.StatusNotFound, r.method, r.path, r.body); !strings.Contains(out, "experimental_off") {

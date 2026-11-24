@@ -259,6 +259,8 @@ Use these. Reuse beats a new variant.
 | Keys in the person's own words | `keysHere` and `ariaKeysHere` in `components/editor/key-names.ts` |
 | The tools of a table in the editor | `CellMenu` and `TableBar` in `components/editor/` |
 | A page in a list | `PageMark`, which shows its emoji |
+| The installation's header and footer on a page | `InstanceNote` in `components/instance-note.tsx`: a named region above and below the text of pages and blog posts, set apart by space and a quiet line, each outside link with its host in muted words and the outward mark (spec 089) |
+| Writing a few lines of text and links in a form | `HeaderFooterField` in `components/header-footer-field.tsx`: a bold label above the small editor of `CommentBox` with only the tools the field may hold, and its hint below (spec 089) |
 
 ## Settings and lists (ADR-034)
 

@@ -58,6 +58,8 @@ const ADDED_IN_SC4 = [
 
 /** Added in wave MC4 of spec 096. */
 const ADDED_IN_MC4 = ['assistants'];
+// Spec 089: the installation's header and footer, an experimental part.
+const ADDED_IN_HF1 = ['header-footer'];
 
 const ALL_ON: Capabilities = Object.fromEntries(
   Object.keys(NOTHING_ON).map((name) => [name, true]),
@@ -71,12 +73,10 @@ describe('the sections of the administration', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('still answers every address of before, and the seven new ones', () => {
-    for (const id of [...ADDRESSES_BEFORE_SC4, ...ADDED_IN_SC4, ...ADDED_IN_MC4])
-      expect(adminSection(id)?.id).toBe(id);
-    expect(ADMIN_SECTIONS).toHaveLength(
-      ADDRESSES_BEFORE_SC4.length + ADDED_IN_SC4.length + ADDED_IN_MC4.length,
-    );
+  it('still answers every address of before, and the new ones', () => {
+    const added = [...ADDED_IN_SC4, ...ADDED_IN_MC4, ...ADDED_IN_HF1];
+    for (const id of [...ADDRESSES_BEFORE_SC4, ...added]) expect(adminSection(id)?.id).toBe(id);
+    expect(ADMIN_SECTIONS).toHaveLength(ADDRESSES_BEFORE_SC4.length + added.length);
   });
 
   it('does not take an unknown id, or a name of a group, for a section', () => {
@@ -127,7 +127,7 @@ describe('the sections of the administration', () => {
       'assistants',
     ]);
     expect(inGroup('admin-permissions')).toEqual(['instance-permissions', 'permissions', 'space-defaults']);
-    expect(inGroup('admin-look')).toEqual(['look']);
+    expect(inGroup('admin-look')).toEqual(['look', 'header-footer']);
     expect(inGroup('admin-data')).toEqual(['care', 'backups', 'import-space', 'spaces-trash', 'webhooks']);
   });
 
@@ -149,10 +149,12 @@ describe('the sections of the administration', () => {
     const off = sectionsShown(NOTHING_ON).map((s) => s.id);
     expect(off).not.toContain('automation');
     expect(off).not.toContain('import-space');
+    expect(off).not.toContain('header-footer');
     expect(off).toContain('summary');
     const on = sectionsShown(ALL_ON).map((s) => s.id);
     expect(on).toContain('automation');
     expect(on).toContain('import-space');
+    expect(on).toContain('header-footer');
     expect(on).toHaveLength(ADMIN_SECTIONS.length);
   });
 

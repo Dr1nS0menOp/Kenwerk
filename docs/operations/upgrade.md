@@ -100,7 +100,7 @@ Since migration 0054 (ADR-043, spec 069), automation rules, databases, bundles b
 
 Afterwards, look under Administration, Organising, Experimental parts, and turn on what you use that left no trace: a bundle export whose job was already cleaned up, for example. Turning a part off deletes nothing: a rule stays and stops running, a database stays and can still be edited, only new ones wait. Public sites and analytics keep their own switches, unchanged by the upgrade.
 
-Two experimental parts came later and leave no trace before they exist, so they are off after the upgrade that brings them: draft and published spaces (`publishing`, spec 073) and guided templates (`guided_templates`, spec 074). Guided templates cannot be turned on while a node of the previous release still runs: finish the upgrade of every node first.
+Three experimental parts came later and leave no trace before they exist, so they are off after the upgrade that brings them: draft and published spaces (`publishing`, spec 073), guided templates (`guided_templates`, spec 074) and the header and footer of the installation (`header_footer`, spec 089, [header-and-footer.md](header-and-footer.md)). Guided templates cannot be turned on while a node of the previous release still runs: finish the upgrade of every node first.
 
 ## Draft and published spaces during an upgrade
 

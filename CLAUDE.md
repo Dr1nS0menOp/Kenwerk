@@ -50,6 +50,7 @@ internal/storage/      where files live (disk; S3 in phase 3)
 internal/search/       PostgreSQL full-text search and the search language
 internal/templates/    page templates and space templates, with their own rule
 internal/features/     which features are on, per space and for the instance
+internal/headerfooter/ the installation's header and footer above and below every page (spec 089)
 internal/trash/        the trash; owners restore and purge through a Handler
 internal/exchange/     Markdown export and import
 internal/jobs/         queued jobs and periodic tasks, coordinated through PostgreSQL

@@ -28,6 +28,9 @@ var queryBudgets = map[string]int64{
 	"the space":        11,
 	// Spec 094: a page someone may not see reads what its space answers, on the failing path only.
 	"a page refused": 10,
+	// Spec 089: the installation's header and footer ride along with every page view, so warm
+	// they cost only the access checks of the route; the node's copy answers the rest.
+	"the header and footer": 3,
 }
 
 // queriesOf counts the queries of one request. Background work can add queries in the same
@@ -69,6 +72,8 @@ func TestTheMainScreensStayWithinTheirQueryBudget(t *testing.T) {
 		"a page's summary": "/api/v1/pages/" + page + "/summary",
 		"the space":        "/api/v1/spaces/" + space,
 		"a page refused":   "/api/v1/pages/" + refused,
+		// No header or footer is written: the cost of the route is the same either way.
+		"the header and footer": "/api/v1/header-footer",
 	}
 	for screen, path := range paths {
 		who := owner

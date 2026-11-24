@@ -53,6 +53,9 @@ type Service struct {
 	settings *settings.Service
 	// olderReleaseRuns says whether a node of a previous release is still alive.
 	olderReleaseRuns func(context.Context) (bool, error)
+	// experimentalChanged runs after this node stored the experimental parts, so a copy of them
+	// kept elsewhere on the node is dropped at once. The wiring sets it before serving.
+	experimentalChanged func()
 }
 
 // NewService creates the service.

@@ -13,6 +13,7 @@ import { CommentSection, CommentsPanel, commentsQuery } from '../components/comm
 import { NewThread, SelectionBar } from '../components/comments/selection-bar';
 import { commentsKey } from '../components/comments/thread';
 import { DocumentView } from '../components/editor/editor';
+import { InstanceNote } from '../components/instance-note';
 import { contentsOf, jumpToComment, jumpToHeading, nextThread } from '../components/editor/outline';
 import { LabelBar } from '../components/page-labels';
 import { ControlBand, mayOpenReview } from '../components/control-band';
@@ -280,6 +281,8 @@ export function PageView({ pageId }: { pageId: string }) {
   const personalHome = page.id === pageSpace.data?.home_page_id && pageSpace.data?.kind === 'personal';
   const showContents = preferences.contents && headings.length >= MIN_HEADINGS_FOR_CONTENTS;
   const isPublished = page.status === 'published';
+  // The installation's header and footer frame the text of pages and blog posts only (D6).
+  const hasNote = page.kind === 'page' || page.kind === 'post';
   const canComment =
     isPublished && page.can['comment.add'] && page.features.comments && !page.comments_closed;
   return (
@@ -353,6 +356,7 @@ export function PageView({ pageId }: { pageId: string }) {
             canExport={page.can['space.export'] ?? false}
           />
         )}
+        {hasNote && <InstanceNote place="above" />}
         {page.kind !== 'folder' && page.kind !== 'link' && page.kind !== 'database' && (
           <DocumentView
             document={page.document}
@@ -367,6 +371,7 @@ export function PageView({ pageId }: { pageId: string }) {
             pageId={page.id}
           />
         )}
+        {hasNote && <InstanceNote place="below" />}
         <ErrorNote error={tick.error} />
         {(!page.hide_children || page.kind === 'folder') && <ChildPages pageId={page.id} />}
         <LabelBar page={page} />

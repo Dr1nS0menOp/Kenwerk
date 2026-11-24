@@ -42,7 +42,7 @@ export type AdminGroupId =
 export type AdminWidth = 'column' | 'full';
 
 /** The experimental parts that hide a section while they are off (spec 069, D8). */
-type ExperimentalPart = keyof Pick<Capabilities, 'automation' | 'bundles'>;
+type ExperimentalPart = keyof Pick<Capabilities, 'automation' | 'bundles' | 'header_footer'>;
 
 export type AdminIcon = (props: { size?: number }) => ReactElement;
 
@@ -111,6 +111,13 @@ export const ADMIN_SECTIONS: AdminSection[] = [
   { id: 'permissions', group: 'admin-permissions', width: 'column' },
   { id: 'space-defaults', group: 'admin-permissions', width: 'column' },
   { id: 'look', group: 'admin-look', width: 'column' },
+  {
+    id: 'header-footer',
+    group: 'admin-look',
+    width: 'column',
+    experimental: 'header_footer',
+    doc: 'operations/header-and-footer.md',
+  },
   { id: 'care', group: 'admin-data', width: 'column' },
   { id: 'backups', group: 'admin-data', width: 'column', doc: 'operations/backup-restore.md' },
   { id: 'import-space', group: 'admin-data', width: 'column', experimental: 'bundles' },

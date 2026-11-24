@@ -19,9 +19,9 @@ func TestCapabilitiesSayWhatIsOnAndNothingMore(t *testing.T) {
 			t.Fatalf("%s is not set up, so it must say false: %v", part, got)
 		}
 	}
-	// The four helpers, the four experimental parts of spec 069, publishing of spec 073 and
-	// guided templates of spec 074, each only a yes or no.
-	if len(got) != 10 {
+	// The four helpers, the four experimental parts of spec 069, publishing of spec 073, guided
+	// templates of spec 074 and the header and footer of spec 089, each only a yes or no.
+	if len(got) != 11 {
 		t.Fatalf("only whether a part is on, never where it runs: %v", got)
 	}
 	for part, on := range got {

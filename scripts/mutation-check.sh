@@ -3397,6 +3397,55 @@ mutate "the sessions list shows sessions past their idle limit" internal/identit
   's.replace(" AND last_seen_at > $2 - make_interval(secs => $3)\n", " AND $3::float8 IS NOT NULL\n")' ./internal/identity/ -run '^TestSessionsLeaveOutSessionsPastTheirLimits$'
 mutate_web "the bar offers tabs while a second factor is required" src/views/account-sections.ts \
   's.replace("return needsSecondFactor ? [] : accountTabs();", "return accountTabs();")' src/views/account-sections.test.ts
+# Spec 089, wave HF1: the installation's header and footer hold text and links only, links that
+# cannot hide where they go, small limits; only an administrator with a fresh login changes them,
+# the change is audited with what it was before, and readers are answered from a copy per node.
+mutate "a header or footer may link over plain http" internal/document/header_footer.go \
+  's.replace("\tcase \"https\":\n\t\treturn isPlainHTTPS(u)", "\tcase \"https\", \"http\":\n\t\treturn isPlainHTTPS(u)")' $docpkg
+mutate "a header or footer link may carry a user part" internal/document/header_footer.go \
+  's.replace("return u.User == nil \x26\x26 u.Opaque", "return u.Opaque")' $docpkg
+mutate "a header or footer link may name a host in look-alike letters" internal/document/header_footer.go \
+  's.replace("asciiHost.MatchString(u.Hostname()) \x26\x26 ", "")' $docpkg
+mutate "a header or footer link may start with two slashes" internal/document/header_footer.go \
+  's.replace("return !strings.HasPrefix(href, \"//\")", "return true")' $docpkg
+mutate "a header or footer may hold a heading" internal/document/header_footer.go \
+  's.replace("choices(TypeDoc, TypeParagraph,", "choices(TypeDoc, TypeHeading, TypeParagraph,")' $docpkg
+mutate "a header or footer may hold a dynamic block" internal/document/header_footer.go \
+  's.replace("choices(TypeDoc, TypeParagraph,", "choices(TypeDoc, TypeDynamic, TypeParagraph,")' $docpkg
+mutate "a header or footer may turn its text around" internal/document/header_footer.go \
+  's.replace("unicode.IsControl(r) || isTurningCharacter(r)", "unicode.IsControl(r)")' $docpkg
+mutate "a header or footer refuses what reaches its limit" internal/document/header_footer.go \
+  's.replace("\t\tif l.got > l.max {", "\t\tif l.got >= l.max {")' $docpkg
+mutate "a header or footer holds one link too many" internal/document/header_footer.go \
+  's.replace("{count.links, headerFooterMaxLinks, \"links\"}", "{count.links, headerFooterMaxLinks + 1, \"links\"}")' $docpkg
+mutate "a header or footer drops what it may not hold as empty" internal/document/header_footer.go \
+  's.replace("\t\tdefault:\n\t\t\tempty = false\n", "")' $docpkg
+mutate "a header or footer is stored without the check of the band" internal/document/header_footer.go \
+  's.replace("\tif err := checkHeaderFooter(n); err != nil {", "\tif err := checkHeaderFooter(n); false \x26\x26 err != nil {")' $app -run '^(TestARefusedHeaderAndFooterStoreNothing|TestTheHeaderAndFooterNeverCarryContentOfASpace)$'
+mutate "a header or footer saves without a fresh login" internal/httpapi/handlers_header_footer.go \
+  's.replace("Sensitive(admin), s.handleHeaderFooterSet", "admin, s.handleHeaderFooterSet")' $app -run '^TestChangingTheHeaderAndFooterNeedsAFreshLogin$'
+mutate "the header and footer service stores for anyone" internal/headerfooter/headerfooter.go \
+  's.replace("\tif !allowed {", "\tif false \x26\x26 !allowed {")' $app -run '^TestOnlyAnAdministratorChangesTheHeaderAndFooter$'
+mutate "a header and footer change records nothing before" internal/headerfooter/headerfooter.go \
+  's.replace("change := map[string]any{\"before\": before, \"after\": after}", "change := map[string]any{\"after\": after}")' $app -run '^TestTheHeaderAndFooterChangeIsAuditedWithWhatChanged$'
+mutate "readers read the header and footer while the part is off" internal/headerfooter/headerfooter.go \
+  's.replace("\tif !s.copy.on {", "\tif false \x26\x26 !s.copy.on {")' $app -run '^(TestTheHeaderAndFooterAreOffOnANewInstallation|TestTurningThePartOffKeepsWhatWasWritten)$'
+mutate "the copy of the header and footer never goes stale" internal/headerfooter/headerfooter.go \
+  's.replace("if s.copy.readAt.IsZero() || s.now().Sub(s.copy.readAt) >= freshFor {", "if s.copy.readAt.IsZero() {")' ./internal/headerfooter/
+mutate "the header and footer are read again for every reader" internal/headerfooter/headerfooter.go \
+  's.replace("if s.copy.readAt.IsZero() || s.now()", "if true || s.now()")' ./internal/headerfooter/
+mutate "a save leaves the old header and footer on its node" internal/headerfooter/headerfooter.go \
+  's.replace("\ts.Forget()\n\treturn s.adminView(ctx, stored)", "\treturn s.adminView(ctx, stored)")' $app -run '^TestTheHeaderAndFooterCostOneStatementWhenColdAndNoneWhenWarm$'
+mutate "turning a part off leaves the header and footer on its node" internal/features/experimental.go \
+  's.replace("\t\ts.experimentalChanged()\n", "\t\t_ = s.experimentalChanged\n")' $app -run '^TestTurningThePartOffKeepsWhatWasWritten$'
+mutate_web "the band links over plain http" src/components/instance-note.tsx \
+  's.replace("const HTTPS_ADDRESS = /^https:", "const HTTPS_ADDRESS = /^https?:")' src/components/instance-note.test.tsx
+mutate_web "the band hides where an outside link goes" src/components/instance-note.tsx \
+  's.replace("<span className=\"note-host\"> ({link.host})</span>", "")' src/components/instance-note.test.tsx
+mutate_web "the band shows a node it does not know" src/components/instance-note.tsx \
+  's.replace("if (block.type !== \x27paragraph\x27) return null;", "")' src/components/instance-note.test.tsx
+mutate_web "the field of the band offers headings" src/components/header-footer-field.tsx \
+  's.replace("      heading: false,\n", "")' src/components/header-footer-field.test.ts
 finish_mutations
 if [ "$survived" -gt 0 ]; then
   echo "$survived mutation(s) were not caught"

@@ -28,6 +28,7 @@ import { OrganisingTab, SpaceDefaultsTab, TemplatesTab } from './admin-organisin
 import { CareTab } from './admin-care';
 import { ExportTab, ImportSpaceTab } from './exchange';
 import { AnnouncementsTab, LookTab } from './admin-look';
+import { HeaderFooterTab } from './admin-header-footer';
 import {
   AnonymiseButton,
   BulkBar,
@@ -1490,6 +1491,8 @@ function SectionContent({ id, me }: { id: string; me: Me }) {
       return <SpaceDefaultsTab />;
     case 'look':
       return <LookTab />;
+    case 'header-footer':
+      return <HeaderFooterTab />;
     case 'care':
       return <CareTab me={me} />;
     case 'backups':

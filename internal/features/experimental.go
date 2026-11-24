@@ -4,6 +4,7 @@ package features
 
 import (
 	"context"
+	"encoding/json"
 	"slices"
 	"time"
 
@@ -24,11 +25,13 @@ const (
 	// ExperimentalPublishing is draft and published spaces (spec 073, PUB-1415).
 	ExperimentalPublishing      = "publishing"
 	ExperimentalGuidedTemplates = "guided_templates"
+	// ExperimentalHeaderFooter is the installation's header and footer (spec 089).
+	ExperimentalHeaderFooter = "header_footer"
 )
 
 // ExperimentalParts lists every part that the experimental switch covers.
 var ExperimentalParts = []string{ExperimentalAutomation, ExperimentalDatabases, ExperimentalBundles, ExperimentalConsoleRestore,
-	ExperimentalPublishing, ExperimentalGuidedTemplates}
+	ExperimentalPublishing, ExperimentalGuidedTemplates, ExperimentalHeaderFooter}
 
 // partsHeldForOlderReleases are parts that a previous release, still running beside this
 // one during an upgrade, would damage: it drops what it does not know of a guided template
@@ -56,11 +59,37 @@ func ExperimentalIn(ctx context.Context, q db.Querier) (Experimental, error) {
 	return v, err
 }
 
+// ExperimentalKey is the key of settings under which the parts that are on are stored, for a
+// reader that reads it together with other values in one statement.
+const ExperimentalKey = experimentalKey
+
+// PartOnIn reports whether part is on in raw, the stored value of ExperimentalKey; nothing stored
+// means every part is off.
+func PartOnIn(raw []byte, part string) (bool, error) {
+	if raw == nil {
+		return false, nil
+	}
+	var stored Experimental
+	if err := json.Unmarshal(raw, &stored); err != nil {
+		return false, err
+	}
+	return slices.Contains(stored.On, part), nil
+}
+
+// PartOff is the answer for a part that is off, for a module that read the switch itself.
+func PartOff() error { return experimentalOff() }
+
 // experimentalOff answers a route of a part that is off. It is a 404, because for this
 // installation the part does not exist, with a code and a message that say why.
 func experimentalOff() *apperr.Error {
 	return &apperr.Error{Kind: apperr.KindNotFound, Code: "experimental_off",
 		Message: "This experimental part is off on this installation. An administrator can turn it on in the console."}
+}
+
+// WhenExperimentalChanges gives what runs after this node stored the experimental parts, such as
+// dropping a copy of them. The wiring sets it once, before serving.
+func (s *Service) WhenExperimentalChanges(dropCopies func()) {
+	s.experimentalChanged = dropCopies
 }
 
 // Experimental reads which experimental parts are on.
@@ -101,7 +130,17 @@ func (s *Service) SetExperimental(ctx context.Context, c identity.Caller, v Expe
 		}
 		since[part] = at
 	}
-	return s.settings.Write(ctx, c, experimentalKey, Experimental{On: on, OnSince: since}, settings.SafeFields{"on", "on_since"})
+	return s.tellExperimentalChanged(s.settings.Write(ctx, c, experimentalKey, Experimental{On: on, OnSince: since},
+		settings.SafeFields{"on", "on_since"}))
+}
+
+// tellExperimentalChanged runs what WhenExperimentalChanges gave after a write that held, and
+// passes the write's error on.
+func (s *Service) tellExperimentalChanged(err error) error {
+	if err == nil && s.experimentalChanged != nil {
+		s.experimentalChanged()
+	}
+	return err
 }
 
 // refuseWhileOlderReleaseRuns refuses to turn on a part held for older releases while a

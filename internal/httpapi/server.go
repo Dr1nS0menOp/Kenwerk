@@ -32,6 +32,7 @@ import (
 	"github.com/kenwerk/kenwerk/internal/failures"
 	"github.com/kenwerk/kenwerk/internal/features"
 	"github.com/kenwerk/kenwerk/internal/feed"
+	"github.com/kenwerk/kenwerk/internal/headerfooter"
 	"github.com/kenwerk/kenwerk/internal/health"
 	"github.com/kenwerk/kenwerk/internal/identity"
 	"github.com/kenwerk/kenwerk/internal/jobs"
@@ -109,6 +110,8 @@ type Deps struct {
 	Failures    *failures.Service
 	Setup       *setup.Service
 	Backups     *backups.Service
+	// HeaderFooter is the installation's header and footer (spec 089).
+	HeaderFooter *headerfooter.Service
 
 	// SystemStatus reports nodes, versions and queues for the admin console.
 	SystemStatus func(ctx context.Context) (any, error)
