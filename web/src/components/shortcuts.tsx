@@ -72,6 +72,9 @@ const AFTER_G: Record<string, string> = { h: '/', s: '/spaces', r: '/recent', f:
 /** While someone types, a letter is a letter. */
 export function isTyping(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
+  // A dialog closed with Escape keeps focus in its field until its close event removes it
+  // from the page; nobody types in a field they can no longer see.
+  if (target.closest('dialog:not([open])')) return false;
   if (target.isContentEditable) return true;
   if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return true;
   return TYPING_ROLES.includes(target.getAttribute('role') ?? '');

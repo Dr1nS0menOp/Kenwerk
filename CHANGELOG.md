@@ -3,6 +3,9 @@
 Plain-language notes per release. Every entry has an "Upgrade impact" line.
 
 ## Unreleased
+### Fixed: a shortcut pressed just after a dialog closes is no longer lost (wave FX14)
+- A single-key shortcut pressed right after Escape closed a dialog, such as `s` after the shortcut overview, could do nothing: the closed dialog stays on the page until its close event has run, and until then focus stays in its field, so the key counted as typing. A field in a closed dialog no longer counts as typing. An end-to-end test closes the dialog and presses the key in one step, which held this gap open; the shortcut test failed on CI now and then because of it
+- Upgrade impact: none. No migration, route, setting, dependency or design picture changed
 ### Fixed: the OpenDocument export opens in LibreOffice (wave OD1)
 - An `.odt` export did not open in LibreOffice, which refused it as a broken package, while the Word export of the same pages opened. The entry that names the kind of file, `mimetype`, carried its size and checksum after its bytes (a zip "data descriptor"), which Go's zip writer adds by default and LibreOffice refuses for an entry that is not compressed. It now carries them in its own header, as OpenDocument expects
 - The file now claims OpenDocument 1.3, in its content and in its manifest, and the manifest gives the package itself its version

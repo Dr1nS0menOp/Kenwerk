@@ -756,6 +756,30 @@ test('shortcuts work, never fire while typing, and can be turned off', async ({ 
   await page.getByLabel('Keyboard shortcuts').check();
 });
 
+test('a shortcut works at once after a dialog closes, while its field still holds focus', async ({
+  page,
+}) => {
+  const space = await newSpace(page, 'Keys after close');
+  const id = await publishedPage(page, space.id, 'Closed dialog page', 'x');
+  await page.goto(`/pages/${id}`);
+  await expect(page.locator('h1')).toBeVisible();
+  await page.keyboard.press('Shift+?');
+  const filter = page.getByRole('dialog', { name: 'Keyboard shortcuts' }).getByLabel('Find a shortcut');
+  await filter.focus();
+  // Escape closes the dialog at once, but it leaves the page only when its close event has
+  // run; until then focus stays in the field. Closing and pressing in one task holds that gap
+  // open, which a fast runner otherwise hits only now and then.
+  const focusWasInField = await page.evaluate(() => {
+    const field = document.activeElement;
+    document.querySelector<HTMLDialogElement>('dialog[open]')?.close();
+    const stayed = document.activeElement === field;
+    field?.dispatchEvent(new KeyboardEvent('keydown', { key: 's', bubbles: true, cancelable: true }));
+    return stayed;
+  });
+  expect(focusWasInField).toBe(true);
+  await expect(page.getByText('Added to your favourites.')).toBeVisible();
+});
+
 test('a new space suggests its key, and says at once when it is taken', async ({ page }) => {
   const taken = await newSpace(page, 'Taken space');
   await page.goto('/spaces');
