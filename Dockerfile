@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Base images are pinned by digest, with the tag kept for reading; Renovate moves the
 # digests (OPS-096).
-FROM node:22-bookworm-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee AS web
+FROM node:22-bookworm-slim@sha256:be979e5523c76fa4d5ca4ebd3099078f220aa47ec39c48ad5b5df9314debd6eb AS web
 WORKDIR /src/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci --no-fund --no-audit
