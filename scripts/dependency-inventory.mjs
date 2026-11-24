@@ -125,6 +125,7 @@ const TOOLS = [
   { name: 'OpenTofu', file: 'scripts/deploy-check.sh', pattern: /TOFU_VERSION=([\d.]+)/, go: 'github.com/opentofu/opentofu', repo: 'opentofu/opentofu', licence: 'MPL-2.0', prefixV: true },
   { name: 'Terraform', file: 'scripts/deploy-check.sh', pattern: /TERRAFORM_VERSION=([\d.]+)/, go: 'github.com/hashicorp/terraform', repo: 'hashicorp/terraform', licence: 'MPL-2.0 (this version)', prefixV: true },
   { name: 'Bicep', file: 'scripts/deploy-check.sh', pattern: /BICEP_VERSION=(v[\d.]+)/, repo: 'Azure/bicep', licence: 'MIT' },
+  { name: 'k6', file: 'scripts/load/smoke.sh', pattern: /K6_VERSION=(v[\d.]+)/, repo: 'grafana/k6', licence: 'AGPL-3.0 (separate process)' },
 ];
 
 const stats = { calls: 0, failed: 0 };

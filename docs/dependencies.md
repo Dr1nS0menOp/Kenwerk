@@ -90,6 +90,14 @@ They check the deployment templates in `scripts/deploy-check.sh` and the CI job 
 | `python:3.13-slim`, pinned by digest in the script | PSF-2.0 for Python, with the licences of its Debian packages | The image cfn-lint runs in, so no Python is installed on the runner | As above |
 | cfn-lint 1.60.0, with jsonpatch, jsonpointer, networkx (BSD-3-Clause), mpmath, sympy (BSD), PyYAML (MIT), regex (Apache-2.0 and CNRI-Python), typing_extensions (PSF-2.0) | MIT-0 | The CloudFormation template, with warnings as failures | As above: MIT-0 and PSF-2.0 are permissive, but not on the list |
 
+## Load test (CI only, never in the product)
+
+The CI job `load-smoke` runs k6 against the real binary on every push and pull request (wave LT1), through `scripts/load/smoke.sh`, which pins it by version and by the sha256 of its release archive. The manual stress test of `scripts/stress/` uses the same tool. Nothing of it ends up in the binary, the packages or the images.
+
+| Tool | Licence | Why | Approved |
+|---|---|---|---|
+| k6 2.4.0, the official `linux-amd64` release archive, sha256 `5a5ecf23...abb87` | AGPL-3.0, read from its `LICENSE` | Sends the load of the smoke test and checks its thresholds. Run unmodified as a separate program and never linked or shipped, which blueprint 02 allows, as for golangci-lint. Scorecard 7.7 (2026-11-23), Maintained 10, Code-Review 10, Pinned-Dependencies 9; Signed-Releases 0, so the pin is the sha256 that the release's `k6-v2.4.0-checksums.txt` publishes. Grafana Labs maintains it, with a release a month or more. Compared: Locust (MIT, 6.6) would need Python packages installed on the runner; Gatling (Apache-2.0, 5.4) needs a JVM; vegeta (MIT, 3.6) and hey (Apache-2.0, 3.4) score Maintained 0. The official `grafana/setup-k6-action` has no Scorecard and 22 stars, so the script downloads the release itself | The product owner, 2026-11-24 (load test in CI); the tool decided on their behalf in wave LT1, may be overruled |
+
 ## Deliberately not a dependency
 
 | Part | Decision | Why |

@@ -55,7 +55,7 @@ From blueprint 04.8 and `limits.md`: 5,000 people, 10% active at once, about 40%
 | A k6 script with the frontend's real pattern, 50,000 pages | Built | `scripts/load/reading.js`, ARC-199 |
 | Measured ceilings and failure modes on a development machine | Built | `docs/operations/limits.md` |
 | Load protection: an order of work, a limit on what waits, an honest `/readyz` | Built | spec 031 |
-| A load test in CI | Not built | OPS-015 |
+| A load test in CI | Built as a smoke test of the main reads on every push, with fixed p95 budgets; not yet compared against the last main (OPS-112) | OPS-015, `scripts/load/smoke.js`, wave LT1 |
 | Tests on server hardware, soak, spike, 4x the model | Not run | |
 
 ## 8.6 Recommendations

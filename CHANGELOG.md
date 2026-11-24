@@ -3,6 +3,12 @@
 Plain-language notes per release. Every entry has an "Upgrade impact" line.
 
 ## Unreleased
+### Added: a short load test on every push (wave LT1)
+- A new CI job, `load-smoke`, runs on every push and pull request. It builds the binary, starts it on PostgreSQL, seeds a small organisation through the API (200 people, 20 spaces, 2,000 pages, files and labels), and runs k6 at about a tenth of the load model for 150 seconds: page views, the page tree, search, quick search, the feed and the count on the bell
+- It fails when the p95 of one of those reads crosses its budget, when more than 1% of requests fail, or on any server error. The budgets are the design targets of the blueprint, far above what the stress tests and `docs/operations/limits.md` measured, so a slow shared runner passes and a read that became several times slower does not. They are set in one place, at the top of `scripts/load/smoke.js`, each with its source
+- k6 2.4.0 is pinned by version and by the sha256 of its release archive in `scripts/load/smoke.sh`; `docs/dependencies.md` records its licence and Scorecard. Run it locally with `scripts/dev bash scripts/load/smoke.sh`
+- The test of 5,000 people stays a manual run on a server (`scripts/stress/`)
+- Upgrade impact: none. No migration, route, setting, dependency of the product or design picture changed
 ### Changed: addresses of image links and spotlight buttons, checked on every save and when rendered (wave SV1)
 - Addresses of image links and spotlight buttons are now checked on every save and when rendered
 - Upgrade impact: none. No migration, route, setting, dependency or design picture changed. An image link or a button with an http, https or mailto address, or an address inside the installation, is shown as before

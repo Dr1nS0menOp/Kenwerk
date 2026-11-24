@@ -2,7 +2,7 @@
 
 Written for: the product owner, operators and auditors who want to see every dependency of Kenwerk in one place.
 
-Every dependency, direct and transitive: Go modules, the npm packages of the web frontend and of the service for editing together, container images, GitHub Actions and the CI tools. 553 rows, 129 of them critical. Measured on 2026-11-24.
+Every dependency, direct and transitive: Go modules, the npm packages of the web frontend and of the service for editing together, container images, GitHub Actions and the CI tools. 554 rows, 129 of them critical. Measured on 2026-11-24.
 
 This file is generated. Do not edit it by hand: run `scripts/dev node scripts/dependency-inventory.mjs` in the development toolbox, which needs the network, and commit the result. How each critical dependency is judged, and the verdict on each, is in [the dependency review of 2026-11-24](reports/2026-11-24-dependency-review.md); why each direct dependency exists is in [dependencies.md](dependencies.md).
 
@@ -586,7 +586,7 @@ This file lists no advisories. Known vulnerabilities are checked on every change
 
 ## CI tools
 
-21 rows.
+22 rows.
 
 | Name | Version | Licence | Direct, or through | Critical | Used in | Last release | Scorecard |
 |---|---|---|---|---|---|---|---|
@@ -598,6 +598,7 @@ This file lists no advisories. Known vulnerabilities are checked on every change
 | `GoReleaser` | v2.20.3 | MIT | direct | security, architecture | CI | 2026-11-20 (v2.20.3) | 8.8 |
 | `govulncheck` | v1.10.0 | BSD-3-Clause | direct | security | CI | 2026-11-17 (v1.10.0) | 3.7 |
 | `Helm` | v4.3.2 | Apache-2.0 | direct | security | CI | 2026-11-13 (v4.3.2) | 9.4 |
+| `k6` | v2.4.0 | AGPL-3.0 (separate process) | direct | no | CI | 2026-11-12 (v2.4.0) | 7.7 |
 | `jsonpatch` | 1.48 | BSD-3-Clause | cfn-lint | no | CI | 2026-11-19 (1.48.0) | 5.2 |
 | `jsonpointer` | 3.12 | BSD-3-Clause | cfn-lint | no | CI | 2026-11-11 (3.12.0) | 4.5 |
 | `kubeconform` | v0.8.0 | Apache-2.0 | direct | no | CI | 2026-06-04 (v0.8.0) | 2.8 |
