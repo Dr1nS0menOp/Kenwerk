@@ -78,6 +78,7 @@ Each runs one node, as Kenwerk is sized for, and generates its own passwords: no
 | [Development](docs/development.md) | Everything runs in containers |
 | [How Kenwerk is tested](docs/testing.md) | Every check, when it runs, the counts, and what is not tested yet |
 | [Threat model](docs/security/threat-model.md) | What we defend against, and how we know |
+| [Dependency inventory](docs/dependency-inventory.md) | Every dependency, direct and transitive, with its licence, last release and Scorecard |
 | [Routes](docs/api/routes.txt) | Every API route and its access rule |
 
 ## Commands

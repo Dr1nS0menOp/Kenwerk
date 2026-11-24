@@ -2,6 +2,8 @@
 
 Rule from the product owner (2026-11-04): keep this list as short as possible, to avoid constant security advisories and abandoned code. But never hand-write an important or security-critical part when a widely used, maintained module does the job, unless it lacks a feature we need. Small non-critical code gets written here and adds no dependency.
 
+Rule from the product owner (2026-11-24): every judgement of a dependency includes its OpenSSF Scorecard and a real search for something better (other maintainers, maintained forks, big vendors, the standard library), and all security-critical and architecture-critical dependencies are reviewed together, against the base rule of 2026-11-23: recent releases and commits, advisories fixed fast, an organisation or two active maintainers, widely used with a Scorecard, an allowed licence, and as few modules as possible. Every dependency, direct and transitive, is in [the dependency inventory](dependency-inventory.md); the review and its verdicts are in [the dependency review of 2026-11-24](reports/2026-11-24-dependency-review.md).
+
 Every direct dependency is listed with its licence and the reason it exists. Licences must be MIT, BSD, Apache-2.0 or ISC.
 
 ## Backend (Go)

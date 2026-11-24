@@ -3,6 +3,10 @@
 Plain-language notes per release. Every entry has an "Upgrade impact" line.
 
 ## Unreleased
+### Added: the complete list of dependencies, and one review of the critical ones (wave DA2)
+- `docs/dependency-inventory.md` lists every dependency, direct and transitive: Go modules, the npm packages of the web frontend and of the service for editing together, container images, GitHub Actions and CI tools, each with its licence, its parent, whether it is critical, its last release and its OpenSSF Scorecard. `scripts/dependency-inventory.mjs` generates it again
+- `docs/reports/2026-11-24-dependency-review.md` judges every security-critical and architecture-critical dependency with its Scorecard and the best alternative found, under the product owner's rule of 2026-11-24, which `docs/dependencies.md` now states
+- Upgrade impact: none
 ### Changed: CI keeps the results of failed end-to-end tests (wave FX13)
 - When the end-to-end tests fail on GitHub, the run keeps Playwright's results for 7 days as the artifact `e2e-test-results`: the actual, expected and diff image of each failed picture, and its trace. They hold only the made-up data of the tests
 - The design picture `admin-users-narrow` was taken again. On a narrow screen the sidebar of the administration stands above the list, and the Assistants entry that wave MC4 added to it moved everything below by part of a pixel, so about half the lines of text landed one pixel from where they were. Nothing else on the screen changed
