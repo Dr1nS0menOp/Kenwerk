@@ -311,37 +311,34 @@ test.describe('editing together', () => {
     await colleague.context().close();
   });
 
-  test('offline text leaves at logout, and unsaved work stays for its writer alone', async ({
-    browser,
+  test('editing a page leaves no copy of it in the browser, and a copy an older version kept goes', async ({
     page,
   }) => {
-    const sharedDatabases = (p: Page) =>
-      p.evaluate(async () =>
-        (await indexedDB.databases()).flatMap((d) => (d.name?.includes('.shared.') ? [d.name] : [])),
-      );
-    const logOut = async (p: Page) => {
-      await p.goto('/');
-      await p.getByRole('button', { name: 'Account' }).click();
-      await p.getByRole('menuitem', { name: 'Log out' }).click();
-      await expect(p).toHaveURL(/login/);
-    };
+    const databases = (p: Page) =>
+      p.evaluate(async () => (await indexedDB.databases()).flatMap((d) => (d.name ? [d.name] : [])));
+    // What y-indexeddb left before wave DA3: the shared document under the person and the page.
+    const oldCopy = `kenwerk.person.${colleagueId}.shared.${target}`;
+    await page.evaluate(
+      (name) =>
+        new Promise<void>((done, failed) => {
+          const request = indexedDB.open(name);
+          request.onsuccess = () => {
+            request.result.close();
+            done();
+          };
+          request.onerror = () => failed(new Error('could not make the old copy'));
+        }),
+      oldCopy,
+    );
+    expect(await databases(page)).toContain(oldCopy);
+
+    await page.reload();
+    await expect.poll(() => databases(page)).toEqual([]);
+
     await openEditor(page, target);
     await typeAtEnd(page, ' Saved.');
     await expect(page.getByText('Saved for everyone')).toBeVisible(SYNC);
-    await expect.poll(() => sharedDatabases(page)).toHaveLength(1);
-    await logOut(page);
-    await expect.poll(() => sharedDatabases(page)).toHaveLength(0);
-
-    const colleague = await asPerson(browser, colleagueEmail);
-    await openEditor(colleague, target);
-    await colleague.context().setOffline(true);
-    await typeAtEnd(colleague, ' Never saved.');
-    await colleague.routeWebSocket(/collab/, (socket) => socket.close());
-    await colleague.context().setOffline(false);
-    await logOut(colleague);
-    const kept = await sharedDatabases(colleague);
-    expect(kept).toHaveLength(1);
-    expect(kept[0]).toContain(colleagueId);
-    await colleague.context().close();
+    await page.waitForTimeout(1000);
+    expect(await databases(page)).toEqual([]);
   });
 });

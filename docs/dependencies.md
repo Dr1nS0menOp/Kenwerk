@@ -12,11 +12,12 @@ Every direct dependency is listed with its licence and the reason it exists. Lic
 |---|---|---|---|
 | `jackc/pgx/v5` 5.13.0 | MIT | PostgreSQL driver. Brings its pool `jackc/puddle/v2` 2.2.4 (MIT) | Blueprint 04 |
 | `nats-io/nats.go` 1.56.0, `nats-server/v2` 2.15.3 | Apache-2.0 | Message queue, embedded for small installs. Brings `nats-io/jwt/v2` 2.8.3, `nats-io/nkeys` 0.4.17 (Apache-2.0) and `klauspost/compress` 1.20.5 (BSD-3, Apache-2.0 and MIT for its parts) | Blueprint 04 |
-| `google/uuid` | BSD-3 | UUIDv7 ids | Blueprint 05 |
+| `google/uuid` 1.6.0 | BSD-3 | UUIDv7 ids, and the name-based v5 ids of five places. An exception to the base rule: see Exceptions below | Blueprint 05 |
 | `golang.org/x/crypto` 0.59.0 | BSD-3 | Argon2id password hashing | Blueprint 06 |
 | `coreos/go-oidc`, `golang.org/x/oauth2` 0.38.0 | Apache-2.0, BSD-3 | OIDC login. Token verification must not be hand-written. Brings `go-jose/go-jose/v4` 4.1.9 (Apache-2.0, with BSD-3 for its JSON package) | Blueprint 04 |
 | `go-webauthn/webauthn` | BSD-3 | Passkeys. Far too intricate to write ourselves. Brings `fxamacker/cbor/v2` 2.10.0 (MIT) and `tinylib/msgp` 1.6.5 with `philhofer/fwd` 1.2.1 (MIT) | Blueprint 04 |
-| `pquerna/otp` | Apache-2.0 | TOTP codes and the QR code for enrolment, drawn by `boombuler/barcode` 1.1.1 (MIT), which it brings. Replaced the planned hand-written TOTP and the frontend QR library. | The product owner, 2026-11-04 |
+| `creachadair/otp` 0.5.6 | BSD-3, read from its `LICENSE` | TOTP codes by RFC 6238 (`internal/identity/totp.go`). Only its root package, which needs nothing but the standard library: its `otpauth` package would bring `creachadair/wirepb`, which has no release, so the `otpauth://` address for the QR code is a few lines of URL building of our own, with no cryptography in it. Replaced `pquerna/otp` (no commit since 2025-08, nobody active) in wave DA3; seeds enrolled before keep working. An exception to the base rule: see Exceptions below | The product owner, 2026-11-24 |
+| `boombuler/barcode` 1.1.1 | MIT | The QR code for enrolling an authenticator app. Came with `pquerna/otp` before; direct since wave DA3, as `creachadair/otp` draws no QR codes | The product owner, 2026-11-04 and 2026-11-24 |
 | `yuin/goldmark` | MIT | Markdown parser, no dependencies of its own | The product owner, 2026-11-04 |
 | `golang.org/x/net/html` 0.63.0 | BSD-3 | HTML import. Parsing hostile HTML must not be hand-written. | The product owner, ADR-026 |
 | `go.yaml.in/yaml/v3` 3.0.6 | MIT and Apache-2.0, read from its `LICENSE` and `NOTICE` | The configuration file (spec 056). Parsing YAML must not be hand-written. The maintained successor of the archived `gopkg.in/yaml.v3`; it needs no other module, and was already in the build through a test library | The product owner, ADR-040; spec 048 D4 |
@@ -126,17 +127,16 @@ See `web/package.json`. The list and its reasons are below, and `scripts/check-l
 | `yjs` 13.6.33 | MIT | The shared document that merges by itself | ADR-026 |
 | `@tiptap/extension-collaboration` 3.35.0, `@tiptap/extension-collaboration-caret` 3.35.0, `@tiptap/y-tiptap` 3.3.1 | MIT, read from each package | Connect the editor to Yjs, with cursors and an undo per person. Pinned together with TipTap | ADR-026 |
 | `@hocuspocus/provider` 4.9.0 | MIT, read from the package | Talks to the service | ADR-026 |
-| `y-indexeddb` 9.0.12 | MIT | Keeps typing safe offline | ADR-026 |
 | `y-protocols` 1.0.7, `lib0` 0.2.120 | MIT | Come with Yjs | ADR-026 |
 | `@tiptap/suggestion` | MIT | The menus at the cursor for `/` and `:`. Its helper for placing a popup, `@floating-ui/dom`, was already there through `@tiptap/react`. | The product owner, 2026-11-05 |
 | `i18next` 26.7.2, `react-i18next` 17.1.13 | MIT | Translation framework | Blueprint 04 |
-| `lowlight` 3.3.0, `highlight.js` 11.12.0 | MIT, BSD-3 | Colours in code blocks. lowlight asks for highlight.js 11.11, so `overrides` in `web/package.json` gives it 11.12.0, the one copy in the tree: 11.12.0 bounds two grammars that could take very long on crafted text, and changes no API that lowlight uses | The product owner, 2026-11-04 |
+| `lowlight` 3.3.0, `highlight.js` 11.12.0 | MIT, BSD-3 | Colours in code blocks. lowlight asks for highlight.js 11.11, so `overrides` in `web/package.json` gives it 11.12.0, the one copy in the tree: 11.12.0 bounds two grammars that could take very long on crafted text, and changes no API that lowlight uses. lowlight is an exception to the base rule: see Exceptions below | The product owner, 2026-11-04 |
 
 Development only: `vite`, `typescript`, `vitest`, `eslint`, `prettier`, `@playwright/test`, `@axe-core/playwright`, all named in blueprint 09.
 
 | Package (development only) | Licence | Why | Approved |
 |---|---|---|---|
-| `@stryker-mutator/core` 10.1.1, `@stryker-mutator/vitest-runner` 10.1.1 | Apache-2.0, read from each package | Mutation testing of the frontend logic (`make mutation-web`, spec 097): it proves the unit tests catch changed code, which coverage cannot. Writing a mutation tester ourselves would be a large, non-critical project. They bring 157 packages, all development only and never in a build: MIT, Apache-2.0, ISC, BSD and 0BSD, apart from `caniuse-lite` (CC-BY-4.0, browser data, through Babel). Pinned exactly, installed with `npm install --before` a date two weeks back | The product owner, 2026-11-21 (wave QG1) |
+| `@stryker-mutator/core` 10.1.1, `@stryker-mutator/vitest-runner` 10.1.1 | Apache-2.0, read from each package | Mutation testing of the frontend logic (`make mutation-web`, spec 097): it proves the unit tests catch changed code, which coverage cannot. Writing a mutation tester ourselves would be a large, non-critical project. They bring 157 packages, all development only and never in a build: MIT, Apache-2.0, ISC, BSD and 0BSD, apart from `caniuse-lite` (CC-BY-4.0, browser data, through Babel). Pinned exactly, installed with `npm install --before` a date two weeks back. `overrides` in `web/package.json` give Stryker `minimatch` 11.0.9 in place of 10.2.6 (GHSA-g3hv-75wg-m249) and its `typed-rest-client` `qs` 6.17.1 in place of 6.15.1 (four advisories fixed in 6.16.1), both scoped to Stryker alone; `make mutation-web` was run with them (wave DA3) | The product owner, 2026-11-21 (wave QG1) |
 
 ## Quality tools (make check and CI only, never in the product)
 
@@ -178,6 +178,7 @@ The product owner's rule (2026-11-23): what matters for security is kept maintai
 | `tinylib/msgp` | 1.6.5 | 2026-09-30 | MIT |
 | `philhofer/fwd` | 1.2.1 | 2026-10-16 | MIT |
 | `boombuler/barcode` | 1.1.1 | 2026-11-22 | MIT |
+| `creachadair/otp` | 0.5.6 | 2026-11-08 | BSD-3 |
 | `@tiptap/*` | 3.35.0 | 2026-11-20 | MIT |
 | `@tiptap/y-tiptap` | 3.3.1 | 2026-11-20 | MIT |
 | `@hocuspocus/provider`, `/server`, `/common` | 4.9.0 | 2026-11-20 | MIT |
@@ -202,6 +203,16 @@ The product owner's rule (2026-11-23): what matters for security is kept maintai
 | syft | 1.57.2 | 2026-11-16 | Apache-2.0 |
 | Helm | 4.3.2 | 2026-11-13 | Apache-2.0 |
 | Semgrep | 1.186.0 | 2026-11-18 | LGPL-2.1 |
+
+## Exceptions to the base rule
+
+A dependency that fails the base rule of 2026-11-23 stays only by the product owner's decision, recorded here with its reason and when it is looked at again. The verdicts and measurements are in [the dependency review of 2026-11-24](reports/2026-11-24-dependency-review.md).
+
+| Dependency | Rule it fails | Why it stays | Look again | Decided |
+|---|---|---|---|---|
+| `google/uuid` 1.6.0 | 1: no release since 2024-01-23, no commit in 12 months | It is Google's and has never had an advisory. The standard `uuid` package of Go 1.27 has no name-based v5, which Kenwerk uses at five places and which must not be hand-written. Stays with no change | At every Go release: once the standard library has v5, or Kenwerk no longer needs it, move to the standard package | The product owner, 2026-11-24 |
+| `lowlight` 3.3.0 | 1 and 3: last release 2024-12-14, nobody active | It has never had an advisory, it turns code into a syntax tree rather than HTML, and the Tiptap code-block extension needs it; no drop-in replacement exists | Every quarter; drop highlighting or move if it becomes unsafe | The product owner, 2026-11-24 |
+| `creachadair/otp` 0.5.6 | 3 and 4: one maintainer, about 20 stars, no Scorecard at the OpenSSF API (6.1 at deps.dev) | Released 2026-11-08, BSD-3, and its root package needs only the standard library, where `pquerna/otp` had nobody active. On **watch** | Every quarter | The product owner, 2026-11-24 |
 
 ## Wanted, waiting for the product owner
 

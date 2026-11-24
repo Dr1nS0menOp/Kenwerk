@@ -3,7 +3,6 @@
 package identity
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/subtle"
@@ -11,14 +10,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"image/png"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/pquerna/otp"
-	"github.com/pquerna/otp/totp"
 
 	"github.com/kenwerk/kenwerk/internal/apperr"
 	"github.com/kenwerk/kenwerk/internal/audit"
@@ -150,15 +146,11 @@ func (s *Service) BeginTOTP(ctx context.Context, c Caller, email, password strin
 	if err != nil {
 		return TOTPSetup{}, err
 	}
-	img, err := key.Image(240, 240)
+	qrCode, err := totpQRCode(key.URL)
 	if err != nil {
 		return TOTPSetup{}, err
 	}
-	var buf bytes.Buffer
-	if err := png.Encode(&buf, img); err != nil {
-		return TOTPSetup{}, err
-	}
-	sealed, err := s.keyring.Seal([]byte(key.Secret()), totpContext(c.UserID))
+	sealed, err := s.keyring.Seal([]byte(key.Secret), totpContext(c.UserID))
 	if err != nil {
 		return TOTPSetup{}, err
 	}
@@ -168,36 +160,34 @@ func (s *Service) BeginTOTP(ctx context.Context, c Caller, email, password strin
 	if err != nil {
 		return TOTPSetup{}, err
 	}
-	return TOTPSetup{Secret: key.Secret(), URL: key.URL(),
-		QRCode: "data:image/png;base64," + base64.StdEncoding.EncodeToString(buf.Bytes())}, nil
+	return TOTPSetup{Secret: key.Secret, URL: key.URL, QRCode: qrCode}, nil
 }
 
 // newTOTPKey makes the key of a new authenticator entry, named with the name in force.
-func (s *Service) newTOTPKey(ctx context.Context, email string) (*otp.Key, error) {
+func (s *Service) newTOTPKey(ctx context.Context, email string) (totpKey, error) {
 	issuer := s.issuer
 	if s.issuerName != nil {
 		var err error
 		if issuer, err = s.issuerName(ctx); err != nil {
-			return nil, err
+			return totpKey{}, err
 		}
 	}
-	return totp.Generate(totp.GenerateOpts{Issuer: issuer, AccountName: email, Period: totpPeriod,
-		Digits: otp.DigitsSix, Algorithm: otp.AlgorithmSHA1})
+	return makeTOTPKey(issuer, email)
 }
 
 // matchTOTP returns the time step the code belongs to, or 0 when it is wrong.
 // The window is one step either side, for clocks that differ a little.
 func (s *Service) matchTOTP(secret, code string) (int64, error) {
-	now := s.now()
+	now := s.now().Unix() / totpPeriod
 	code = strings.ReplaceAll(strings.TrimSpace(code), " ", "")
 	for _, offset := range []int64{0, -1, 1} {
-		at := now.Add(time.Duration(offset*totpPeriod) * time.Second)
-		want, err := totp.GenerateCodeCustom(secret, at, totp.ValidateOpts{Period: totpPeriod, Digits: otp.DigitsSix, Algorithm: otp.AlgorithmSHA1})
+		step := now + offset
+		want, err := totpCode(secret, step)
 		if err != nil {
 			return 0, err
 		}
 		if subtle.ConstantTimeCompare([]byte(want), []byte(code)) == 1 {
-			return at.Unix() / totpPeriod, nil
+			return step, nil
 		}
 	}
 	return 0, nil

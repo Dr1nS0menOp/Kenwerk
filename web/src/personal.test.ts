@@ -3,17 +3,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   dropDraft,
   dropOldDrafts,
+  dropOldSharedCopies,
   dropUnkeyedData,
   forgetPersonalData,
   keepDraft,
-  markSharedSaved,
-  markSharedUnsaved,
+  oldSharedCopies,
   personalKey,
   readDraft,
   readRecentItems,
   rememberItem,
-  sharedDocumentName,
-  sharedDocumentsToForget,
   unsavedKey,
 } from './personal';
 
@@ -85,45 +83,42 @@ describe('what a browser keeps for a person', () => {
   });
 });
 
-describe('text kept for working offline', () => {
-  const saved = sharedDocumentName('anna', 'page-1');
-  const unsaved = sharedDocumentName('anna', 'page-2');
+describe('the browser copies older versions kept of shared documents', () => {
+  const copyOf = (person: string, page: string) => personalKey(person, `shared.${page}`);
 
-  it('leaves at logout, unless it was never saved', () => {
-    markSharedUnsaved('anna', 'page-2', NOW);
-    expect(sharedDocumentsToForget([saved, unsaved, 'something-else'])).toEqual([saved]);
+  it('are all found, of anyone, and nothing else', () => {
+    const names = [copyOf('anna', 'page-1'), copyOf('bob', 'page-2'), 'kenwerk-other', 'shared.page'];
+    expect(oldSharedCopies(names)).toEqual([copyOf('anna', 'page-1'), copyOf('bob', 'page-2')]);
   });
 
-  it('leaves once the service has it', () => {
-    markSharedUnsaved('anna', 'page-2', NOW);
-    markSharedSaved('anna', 'page-2');
-    expect(sharedDocumentsToForget([unsaved])).toEqual([unsaved]);
-  });
-
-  it('is keyed per person', () => {
-    expect(sharedDocumentName('anna', 'page')).not.toBe(sharedDocumentName('bob', 'page'));
-    expect(unsavedKey('anna', 'page')).not.toBe(unsavedKey('bob', 'page'));
-  });
-
-  it('survives logout as a mark and as a backup, under the person', () => {
-    markSharedUnsaved('anna', 'page-2', NOW);
+  it('go when the app loads, with the marks of unsaved typing, and leave unsaved page text', async () => {
+    const deleted: string[] = [];
+    vi.stubGlobal('indexedDB', {
+      databases: () => Promise.resolve([{ name: copyOf('anna', 'page-1') }, { name: 'another-app' }, {}]),
+      deleteDatabase: (name: string) => deleted.push(name),
+    });
+    localStorage.setItem(personalKey('anna', 'unsaved.shared.page-1'), JSON.stringify({ saved: NOW }));
     localStorage.setItem(unsavedKey('anna', 'page-3'), JSON.stringify({ saved: NOW }));
-    forgetPersonalData();
-    expect(localStorage.length).toBe(2);
-  });
 
-  it('stays for a short time only, so the document goes with its mark', () => {
-    markSharedUnsaved('anna', 'page-2', NOW - 8 * DAY_MS);
-    dropOldDrafts(NOW);
-    expect(sharedDocumentsToForget([unsaved])).toEqual([unsaved]);
-  });
+    await dropOldSharedCopies();
 
-  it('when the app starts, leaves the person logged in alone and clears the others', () => {
-    const other = sharedDocumentName('bob', 'page-1');
-    expect(sharedDocumentsToForget([saved, other], 'anna')).toEqual([other]);
+    expect(deleted).toEqual([copyOf('anna', 'page-1')]);
+    expect(localStorage.length).toBe(1);
+    expect(localStorage.getItem(unsavedKey('anna', 'page-3'))).not.toBeNull();
   });
 });
 
+describe('page text that did not reach the server', () => {
+  it('is keyed per person', () => {
+    expect(unsavedKey('anna', 'page')).not.toBe(unsavedKey('bob', 'page'));
+  });
+
+  it('survives logout, under the person', () => {
+    localStorage.setItem(unsavedKey('anna', 'page-3'), JSON.stringify({ saved: NOW }));
+    forgetPersonalData();
+    expect(localStorage.length).toBe(1);
+  });
+});
 describe('a comment draft', () => {
   it('goes when it is posted', () => {
     keepDraft('anna', 'page', BODY, NOW);

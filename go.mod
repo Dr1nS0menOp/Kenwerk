@@ -5,7 +5,9 @@ go 1.26.0
 toolchain go1.26.11
 
 require (
+	github.com/boombuler/barcode v1.1.1
 	github.com/coreos/go-oidc/v3 v3.21.0
+	github.com/creachadair/otp v0.5.6
 	github.com/go-webauthn/webauthn v0.18.2
 	github.com/google/jsonschema-go v0.4.3
 	github.com/google/uuid v1.6.0
@@ -13,7 +15,6 @@ require (
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 	github.com/nats-io/nats-server/v2 v2.15.3
 	github.com/nats-io/nats.go v1.56.0
-	github.com/pquerna/otp v1.5.0
 	github.com/yuin/goldmark v1.8.7
 	go.opentelemetry.io/otel v1.47.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.47.0
@@ -28,7 +29,6 @@ require (
 
 require (
 	github.com/antithesishq/antithesis-sdk-go v0.9.0-default-no-op // indirect
-	github.com/boombuler/barcode v1.1.1 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.10.0 // indirect

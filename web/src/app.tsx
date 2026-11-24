@@ -8,7 +8,7 @@ import { appearanceQuery, useAccent, useImportedFont } from './appearance';
 import { useCapabilities } from './capabilities';
 import { mayCreate } from './create-permission';
 import { keepSettingsTyping } from './kept-fields';
-import { forgetPersonalData, forgetSharedDocuments, PersonProvider } from './personal';
+import { forgetPersonalData, PersonProvider } from './personal';
 import { Link, match, navigate, useLocation } from './router';
 import { applyTheme } from './preferences';
 import { NewDatabaseDialog, NewPageDialog, NewPostDialog, NewSpaceDialog } from './components/create';
@@ -171,17 +171,11 @@ function Shell({ me, children }: { me: Me; children: ReactNode }) {
   const [creating, setCreating] = useState<Creating>(null);
   // Your account has a bar of its own in place of the top bar (spec 084, ACC-102).
   const account = accountSectionAt(useLocation().pathname);
-  // Someone can leave without logging out, so the next person clears what they left.
-  const person = me.user.id;
-  useEffect(() => {
-    void forgetSharedDocuments(person);
-  }, [person]);
   // Text typed into settings forms outlives a reload offered for a new version (spec 043).
   useEffect(() => keepSettingsTyping(), []);
   const logout = async () => {
     await api.post('/auth/logout');
     forgetPersonalData();
-    await forgetSharedDocuments();
     client.clear();
     navigate('/login');
   };

@@ -403,7 +403,21 @@ mutate "unknown panels accepted" internal/document/attrs.go \
   's.replace("panelKinds.keep(in, out, \"kind\")\n\tif out[\"kind\"] == nil {", "out[\"kind\"] = in[\"kind\"]\n\tif out[\"kind\"] == nil {")' ./internal/document/
 
 mutate "a TOTP code can be replayed" internal/identity/factors.go \
-  's.replace("WHERE user_id = $1 AND last_step < $2", "WHERE user_id = $1 AND last_step <= $2 + 100")' $app -run TestTOTP
+  's.replace("WHERE user_id = $1 AND last_step < $2", "WHERE user_id = $1 AND last_step <= $2 + 100")' $app -run 'TestTOTP|TestAnAuthenticatorSetUpBeforeTheChangeOfLibraryStillLogsIn'
+mutate "a TOTP code two steps away is accepted" internal/identity/factors.go \
+  's.replace("range []int64{0, -1, 1} {", "range []int64{0, -1, 1, -2, 2} {")' ./internal/identity/ -run TestACodeTwoStepsAwayIsRefused
+mutate "a TOTP code of the step before is refused" internal/identity/factors.go \
+  's.replace("range []int64{0, -1, 1} {", "range []int64{0, 1} {")' ./internal/identity/ -run TestACodeFromOneStepEitherSideIsAccepted
+mutate "a TOTP code counts under the wrong step" internal/identity/factors.go \
+  's.replace("\t\t\treturn step, nil", "\t\t\treturn now, nil")' ./internal/identity/ -run TestACodeFromOneStepEitherSideIsAccepted
+mutate "a TOTP code has eight digits" internal/identity/totp.go \
+  's.replace("totpDigits = 6", "totpDigits = 8")' ./internal/identity/ -run TestACodeMatchesTheTestVectorsOfRFC6238
+mutate "a new TOTP seed holds 80 bits" internal/identity/totp.go \
+  's.replace("totpSeedBytes = 20", "totpSeedBytes = 10")' ./internal/identity/ -run TestANewKeyHolds160RandomBits
+mutate "the enrolment address drops the period" internal/identity/totp.go \
+  's.replace("\"&period=30&secret=\"", "\"&secret=\"")' ./internal/identity/ -run TestTheEnrolmentAddress
+mutate "the QR code holds another address" internal/identity/totp.go \
+  's.replace("qr.Encode(address, qr.M, qr.Auto)", "qr.Encode(address+\"&x\", qr.M, qr.Auto)")' ./internal/identity/ -run TestTheQRCodeHoldsTheEnrolmentAddress
 mutate "password alone opens a session with TOTP on" internal/identity/identity.go \
   's.replace("mfa := len(methods) > 0", "mfa := false")' $app -run TestTOTP
 mutate "OIDC takes over a local account by e-mail" internal/sso/sso.go \
@@ -1087,8 +1101,10 @@ mutate "metrics exist without a token" internal/httpapi/handlers_metrics.go \
   's.replace("if configured == \"\" {", "if configured == \"never\" {")' $app -run TestMetricsDoNotExistWithoutAToken
 mutate "a file is shared with other caches" internal/httpapi/handlers_content.go \
   's.replace("\"private, no-cache\"", "\"public, max-age=3600\"")' $app -run TestAFileAnswersNotModifiedButStillChecksAccess
-mutate_web "offline text stays after logout" src/personal.ts \
-  's.replace("localStorage.getItem(unsavedMarkOf(name)) === null &&", "localStorage.getItem(unsavedMarkOf(name)) === \"never\" &&")' src/personal.test.ts
+mutate_web "an old browser copy of a shared document stays" src/personal.ts \
+  's.replace("name.startsWith(PERSONAL_PREFIX) && name.includes(SHARED_PART)", "name.startsWith(PERSONAL_PREFIX) && name.includes(\"never\")")' src/personal.test.ts
+mutate_web "the mark of old unsaved shared typing stays" src/personal.ts \
+  's.replace("key.includes(OLD_UNSAVED_SHARED_PART))", "key.includes(\"never\"))")' src/personal.test.ts
 mutate_web "unsaved work goes at logout" src/personal.ts \
   's.replace(" && !key.includes(UNSAVED_PART))\n    .forEach", ")\n    .forEach")' src/personal.test.ts
 mutate "a move skips add on the target" internal/attachments/moves.go \

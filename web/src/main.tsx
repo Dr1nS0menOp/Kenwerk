@@ -4,7 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ApiError } from './api';
 import { App } from './app';
-import { dropOldDrafts, dropUnkeyedData } from './personal';
+import { dropOldDrafts, dropOldSharedCopies, dropUnkeyedData } from './personal';
 import { applyStoredTheme } from './preferences';
 import './i18n';
 import './design/tokens.css';
@@ -29,6 +29,8 @@ const client = new QueryClient({
 applyStoredTheme();
 dropUnkeyedData();
 dropOldDrafts();
+// Older versions kept a copy of each shared document in the browser; none is kept any more.
+void dropOldSharedCopies();
 
 const root = document.getElementById('root');
 if (root) {

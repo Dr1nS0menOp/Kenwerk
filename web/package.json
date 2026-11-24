@@ -36,7 +36,6 @@
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-i18next": "^17.1.13",
-    "y-indexeddb": "9.0.12",
     "y-protocols": "1.0.7",
     "yjs": "13.6.33"
   },
@@ -57,7 +56,13 @@
     "vitest": "^5.1.0"
   },
   "overrides": {
+    "@stryker-mutator/core": {
+      "minimatch": "11.0.9"
+    },
     "highlight.js": "11.12.0",
-    "prosemirror-view": "1.42.9"
+    "prosemirror-view": "1.42.9",
+    "typed-rest-client": {
+      "qs": "6.17.1"
+    }
   }
 }

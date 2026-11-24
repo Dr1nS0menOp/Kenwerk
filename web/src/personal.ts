@@ -3,6 +3,7 @@
 // nothing of the last: keys hold the person's id, and logging out removes them all
 // (SEC-265, SEC-266). Only work that never reached the server stays, under the id of the
 // person who wrote it, for a short time. The theme and the sidebar belong to the device.
+// Shared documents are never kept in the browser.
 import { createContext, useContext } from 'react';
 import type { Json } from './api';
 
@@ -10,6 +11,7 @@ const PERSONAL_PREFIX = 'kenwerk.person.';
 const DRAFT_PART = '.draft.';
 const UNSAVED_PART = '.unsaved.';
 const SHARED_PART = '.shared.';
+const OLD_UNSAVED_SHARED_PART = '.unsaved.shared.';
 const UNKEYED_NAMES = ['kenwerk.searches'];
 const UNKEYED_PREFIXES = ['kenwerk.tree.', 'kenwerk.comment.', 'kenwerk.backup.'];
 const DRAFT_KEEP_MS = 7 * 86_400_000;
@@ -36,20 +38,6 @@ function storedKeys(): string[] {
 /** Page text that did not reach the server. Logging out must not cost someone their work. */
 export const unsavedKey = (person: string, name: string) => personalKey(person, `unsaved.${name}`);
 
-/** The database that holds a shared document in the browser, for working offline. */
-export const sharedDocumentName = (person: string, page: string) => personalKey(person, `shared.${page}`);
-
-const unsavedMarkOf = (documentName: string) => documentName.replace(SHARED_PART, `${UNSAVED_PART}shared.`);
-
-/** Says that a shared document holds typing the service has not confirmed. */
-export function markSharedUnsaved(person: string, page: string, now = Date.now()): void {
-  localStorage.setItem(unsavedMarkOf(sharedDocumentName(person, page)), JSON.stringify({ saved: now }));
-}
-
-export function markSharedSaved(person: string, page: string): void {
-  localStorage.removeItem(unsavedMarkOf(sharedDocumentName(person, page)));
-}
-
 /** Removes what this browser holds for anyone, except work that was never saved. */
 export function forgetPersonalData(): void {
   storedKeys()
@@ -58,28 +46,28 @@ export function forgetPersonalData(): void {
   sessionStorage.clear();
 }
 
-/** The shared documents to delete: all of ours, but not unsaved work and not the one in use. */
-export function sharedDocumentsToForget(names: string[], person = ''): string[] {
-  return names.filter(
-    (name) =>
-      name.startsWith(PERSONAL_PREFIX) &&
-      name.includes(SHARED_PART) &&
-      localStorage.getItem(unsavedMarkOf(name)) === null &&
-      !(person !== '' && name.startsWith(personalKey(person, ''))),
-  );
+/**
+ * The browser copies of shared documents that versions before wave DA3 kept, through
+ * y-indexeddb, in a database named `kenwerk.person.<person>.shared.<page>`. Kenwerk keeps none
+ * now, so every one goes, whoever it belongs to.
+ */
+export function oldSharedCopies(names: string[]): string[] {
+  return names.filter((name) => name.startsWith(PERSONAL_PREFIX) && name.includes(SHARED_PART));
 }
 
 /**
- * Deletes shared documents from the browser. At logout nobody stays, and when the app
- * starts it clears those of others, who may never have logged out. A database still
- * open goes when the editor closes it.
+ * Deletes the browser copies older versions kept of shared documents, with the marks that
+ * said one held typing the service never had. A copy another tab of an older version still
+ * holds open goes when that tab closes it.
  */
-export async function forgetSharedDocuments(person = ''): Promise<void> {
+export async function dropOldSharedCopies(): Promise<void> {
+  storedKeys()
+    .filter((key) => key.startsWith(PERSONAL_PREFIX) && key.includes(OLD_UNSAVED_SHARED_PART))
+    .forEach((key) => localStorage.removeItem(key));
   const databases = await indexedDB.databases();
-  sharedDocumentsToForget(
-    databases.flatMap((d) => (d.name ? [d.name] : [])),
-    person,
-  ).forEach((name) => indexedDB.deleteDatabase(name));
+  oldSharedCopies(databases.flatMap((d) => (d.name ? [d.name] : []))).forEach((name) =>
+    indexedDB.deleteDatabase(name),
+  );
 }
 
 /** Older versions kept this without a person. Nobody can say whose it is, so it goes. */

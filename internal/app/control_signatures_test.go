@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/go-webauthn/webauthn/webauthn"
-	"github.com/pquerna/otp/totp"
 
 	"github.com/kenwerk/kenwerk/internal/identity"
 	"github.com/kenwerk/kenwerk/internal/pages"
@@ -99,11 +98,7 @@ func (w signingWorld) signedPage(title, text string) string {
 func (e *env) freshCode(u *user, secret string) string {
 	e.t.Helper()
 	e.sql("UPDATE totp_credentials SET last_step = 0 WHERE user_id = $1", u.id)
-	code, err := totp.GenerateCode(secret, time.Now())
-	if err != nil {
-		e.t.Fatal(err)
-	}
-	return code
+	return totpCode(e.t, secret, 0)
 }
 
 // begin opens a signing step and answers its prompt.

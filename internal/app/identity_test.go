@@ -23,8 +23,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/creachadair/otp"
 	"github.com/google/uuid"
-	"github.com/pquerna/otp/totp"
 
 	"github.com/kenwerk/kenwerk/internal/audit"
 	"github.com/kenwerk/kenwerk/internal/config"
@@ -51,6 +51,17 @@ func (u *user) password(path string) map[string]any {
 	return u.ok("POST", path, map[string]any{"password": adminPassword})
 }
 
+// totpCode is the code an authenticator app shows for secret, ahead steps of 30 seconds from
+// now. internal/identity checks the codes against RFC 6238 itself.
+func totpCode(t testing.TB, secret string, ahead uint64) string {
+	t.Helper()
+	cfg, err := otp.Config{TimeStep: func() uint64 { return otp.TimeWindow(30)() + ahead }}.WithKey(secret)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return cfg.TOTP()
+}
+
 func (u *user) enrolTOTP() (secret string, recovery []string) {
 	u.e.t.Helper()
 	setup := u.password("/api/v1/me/totp/begin")
@@ -58,11 +69,7 @@ func (u *user) enrolTOTP() (secret string, recovery []string) {
 	if !strings.HasPrefix(setup["qr_code"].(string), "data:image/png;base64,") || !strings.HasPrefix(setup["url"].(string), "otpauth://totp/") {
 		u.e.t.Fatalf("setup: %+v", setup)
 	}
-	code, err := totp.GenerateCode(secret, time.Now())
-	if err != nil {
-		u.e.t.Fatal(err)
-	}
-	m := u.ok("POST", "/api/v1/me/totp/confirm", map[string]any{"code": code})
+	m := u.ok("POST", "/api/v1/me/totp/confirm", map[string]any{"code": totpCode(u.e.t, secret, 0)})
 	for _, c := range m["recovery_codes"].([]any) {
 		recovery = append(recovery, c.(string))
 	}
@@ -124,7 +131,7 @@ func TestTOTP(t *testing.T) {
 		t.Fatalf("wrong code: %d", got)
 	}
 	// The code from enrolment was already used, so the next step's code is needed.
-	next, _ := totp.GenerateCode(secret, time.Now().Add(30*time.Second))
+	next := totpCode(t, secret, 1)
 	if got := e.secondStep(c, token, next); got != 200 {
 		t.Fatalf("right code: %d", got)
 	}

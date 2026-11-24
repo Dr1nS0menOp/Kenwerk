@@ -5,10 +5,8 @@ import { HocuspocusProvider } from '@hocuspocus/provider';
 import { yUndoPluginKey } from '@tiptap/y-tiptap';
 import type { Editor } from '@tiptap/core';
 import type { EditorState } from '@tiptap/pm/state';
-import { IndexeddbPersistence } from 'y-indexeddb';
 import * as Y from 'yjs';
 import type { Json } from '../../api';
-import { markSharedSaved, markSharedUnsaved, sharedDocumentName } from '../../personal';
 import { Avatar } from '../ui';
 
 const ACCESS_ENDED = 'access-ended';
@@ -37,7 +35,10 @@ function socketAddress(pageId: string): string {
   return `${scheme}://${window.location.host}/collab?page=${encodeURIComponent(pageId)}`;
 }
 
-/** Connects to the service for as long as the editor is open, and keeps typing in the browser. */
+/**
+ * Connects to the service for as long as the editor is open. Typing the service has not confirmed
+ * lives in this tab alone: nothing of the page is kept in the browser after it closes.
+ */
 export function useTogether(pageId: string, info: CollabInfo | null) {
   const [together, setTogether] = useState<Together | null>(null);
   const [link, setLink] = useState<LinkState>('connecting');
@@ -47,7 +48,6 @@ export function useTogether(pageId: string, info: CollabInfo | null) {
   useEffect(() => {
     if (!userId) return undefined;
     const doc = new Y.Doc();
-    const kept = new IndexeddbPersistence(sharedDocumentName(userId, pageId), doc);
     const provider = new HocuspocusProvider({
       url: socketAddress(pageId),
       name: pageId,
@@ -62,24 +62,15 @@ export function useTogether(pageId: string, info: CollabInfo | null) {
           return status === 'connected' ? 'online' : 'offline';
         });
       },
-      // What the service has not confirmed must survive logging out, as nobody has it yet.
-      onUnsyncedChanges: ({ number }) => {
-        if (number > 0) markSharedUnsaved(userId, pageId);
-        else markSharedSaved(userId, pageId);
-      },
       onAuthenticationFailed: () => setLink('ended'),
       onStateless: ({ payload }) => {
         if (payload === ACCESS_ENDED) setLink('ended');
       },
     });
     provider.setAwarenessField('user', { id: userId, name });
-    void kept.whenSynced.then(() => {
-      if (doc.getXmlFragment('default').length > 0) setReady(true);
-    });
     setTogether({ doc, provider, userId, name });
     return () => {
       provider.destroy();
-      void kept.destroy();
       doc.destroy();
       setTogether(null);
       setReady(false);
