@@ -56,6 +56,14 @@ Only in the `collab` container, and only where an operator installs it. Pinned i
 | `crossws` 0.4.17, `async-mutex` 0.5.0, `isomorphic.js` 0.2.5, `kleur` 4.1.5 | MIT | Come with Hocuspocus | ADR-026 |
 | `tslib` 2.9.1 | 0BSD | Comes with `async-mutex` | ADR-026 |
 
+## Helper images (optional)
+
+Separate programs in their own containers, reached over HTTP, never linked into Kenwerk. An operator runs them only when they want what they give.
+
+| Image | Licence | Why | Approved |
+|---|---|---|---|
+| `gotenberg/gotenberg` 9.9.3, pinned by digest, as the base of our image `kenwerk-pdf` (`deploy/pdf`) | MIT (Gotenberg; it carries Chromium, BSD-3-Clause, and LibreOffice, MPL-2.0, as separate programs) | PDF export and the PDF preview of office files (ADR-026). Our image adds Debian's security updates since upstream's build, and Kenwerk's settings: no outside fetches, no JavaScript, no macros, and none of the routes for changing PDF files, which Kenwerk never calls. CI builds and scans it on every change and every night; `.github/workflows/pdf-image.yml` publishes it, signed, at every release; Renovate moves the base | ADR-026; Gotenberg 9 decided on the product owner's behalf (wave GB1); a weekly published image waits for their decision |
+
 ## Release tools (CI only, never in the product)
 
 They build, list and sign a release in `.github/workflows/release.yml` and the CI job `release-dry-run` (spec 057). Nothing of them ends up in the binary, the packages or the image. Each is pinned by version, and each action by commit SHA.

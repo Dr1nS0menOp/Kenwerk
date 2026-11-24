@@ -37,7 +37,7 @@ The product owner chose these in ADR-026. They are separate programs, so their l
 ## 4.3 PDF through Gotenberg
 
 - **ARC-084** · built · The worker renders `document.ToHTML`, and posts `index.html` with images and styles as parts of a form to `/forms/chromium/convert/html`. Local content goes this way because that route takes no outside address.
-- **ARC-085** · built · Gotenberg runs on an internal network with no way out, and its outbound filter stays on. The HTML holds no links to fetch, as all images travel in the form.
+- **ARC-085** · built · Gotenberg runs on an internal network with no way out, and its outbound filter stays on. The HTML holds no links to fetch, as all images travel in the form. Since wave GB1 its image, `deploy/pdf`, starts it so that Chromium and LibreOffice refuse every address, public or private, macros never run, and the routes for changing PDF files, which Kenwerk never calls, are off.
 - **ARC-086** · built · One job, one call, a limit of five minutes. The file lands in storage for 24 hours (spec 014 D4).
 - **ARC-087** · built · The large image holds Chromium and LibreOffice. Variants with only one of them exist, for those who want less.
 
@@ -47,7 +47,7 @@ Blueprint 03 asks for a **preview** (BLK-067, FIL-027), not for editing in the b
 
 - **ARC-088** · built · One small interface: `Convert(file) → PDF`. Which program does it is chosen at installation with `KENWERK_OFFICE_CONVERTER` and its address.
 - **ARC-089** · partly · **Collabora** is the default choice, through `/cool/convert-to/pdf`. It only answers hosts on its `post_allow` list, so the install guide must set that. Confirm the path and the terms of the image at build time: the SDK pages could not be read for this study. Built in `internal/exchange/office.go` (wave J). Still open: one try with the real service, which only a fake has answered so far.
-- **ARC-090** · built · **LibreOffice** needs no extra container when Gotenberg is there, through `/forms/libreoffice/convert`. This is the choice that costs least. Built in `internal/exchange/office.go` (wave J), and tried with the real Gotenberg 8.40 (spec 025).
+- **ARC-090** · built · **LibreOffice** needs no extra container when Gotenberg is there, through `/forms/libreoffice/convert`. This is the choice that costs least. Built in `internal/exchange/office.go` (wave J), and tried with the real Gotenberg 8.40 (spec 025). Since wave GB1 it runs Gotenberg 9 in Kenwerk's own image, `deploy/pdf`, which CI tries against a real export and real Word and RTF files on every change.
 - **ARC-091** · later · **Euro-Office** joins when its way of connecting is known. It is AGPLv3, which is fine for a separate program, and no source read here confirms how it connects.
 - **ARC-092** · built · No WOPI. Editing through WOPI needs public routes on our side, tokens per file and a frame per editor. None of that serves a preview, and each is attack surface. If office editing is ever wanted, it is a new study.
 - **ARC-093** · built · The result is a derived file: `previews/<sha256 of the source>-pdf`, made once per version and removed when no version uses it any more. It is made on the first view instead of in a job, which gives the same once-per-version result without a queue. The PDF viewer shows it (spec 032).

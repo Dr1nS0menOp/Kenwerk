@@ -2,7 +2,7 @@
 
 Written for: the product owner, operators and auditors who want to see every dependency of Kenwerk in one place.
 
-Every dependency, direct and transitive: Go modules, the npm packages of the web frontend and of the service for editing together, container images, GitHub Actions and the CI tools. 554 rows, 129 of them critical. Measured on 2026-11-24.
+Every dependency, direct and transitive: Go modules, the npm packages of the web frontend and of the service for editing together, container images, GitHub Actions and the CI tools. 553 rows, 129 of them critical. Measured on 2026-11-24.
 
 This file is generated. Do not edit it by hand: run `scripts/dev node scripts/dependency-inventory.mjs` in the development toolbox, which needs the network, and commit the result. How each critical dependency is judged, and the verdict on each, is in [the dependency review of 2026-11-24](reports/2026-11-24-dependency-review.md); why each direct dependency exists is in [dependencies.md](dependencies.md).
 
@@ -26,7 +26,7 @@ This file lists no advisories. Known vulnerabilities are checked on every change
 | `cel.dev/expr` | v0.25.3 | Apache-2.0 | google.golang.org/grpc | no | module graph only | 2026-10-27 (v0.26.0) | none |
 | `cloud.google.com/go/compute/metadata` | v0.9.0 | Apache-2.0 | golang.org/x/oauth2 | no | module graph only | 2026-09-24 (v0.10.0) | 8.5 |
 | `github.com/antithesishq/antithesis-sdk-go` | v0.9.0-default-no-op | MIT, BSD-3-Clause | github.com/nats-io/nats-server/v2 | no | binary | 2026-11-10 (v0.9.0) | 3.3 |
-| `github.com/boombuler/barcode` | v1.1.1 | MIT | github.com/pquerna/otp | no | binary | 2026-11-22 (v1.1.1) | 5 |
+| `github.com/boombuler/barcode` | v1.1.1 | MIT | github.com/pquerna/otp | no | binary | 2026-11-22 (v1.1.1) | 5.3 |
 | `github.com/BurntSushi/toml` | v1.4.1-0.20240526193622-a339e1f7089c | MIT | github.com/grpc-ecosystem/grpc-gateway/v2 | no | module graph only | 2025-12-18 (v1.6.0) | 5.6 |
 | `github.com/cenkalti/backoff/v5` | v5.0.3 | MIT | go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp | no | binary | 2025-07-23 (v5.0.3) | 5.5 |
 | `github.com/cespare/xxhash/v2` | v2.3.0 | MIT | go.opentelemetry.io/otel | no | binary | 2024-04-04 (v2.3.0) | 3 |
@@ -546,20 +546,19 @@ This file lists no advisories. Known vulnerabilities are checked on every change
 
 ## Container images
 
-11 rows.
+10 rows.
 
 | Name | Version | Licence | Direct, or through | Critical | Used in | Last release | Scorecard |
 |---|---|---|---|---|---|---|---|
 | `axllent/mailpit` | v1.33.0 (no digest) | MIT | direct | no | development | 2026-10-31 (tag pushed) | none |
 | `gcr.io/distroless/static-debian12` | nonroot (sha256:afa5c872c891) | Apache-2.0 (Debian packages: various) | direct | security, architecture | image build | not looked up (not on Docker Hub) | 8.6 |
 | `golang` | 1.26 (sha256:4165ee6bf3b7) | BSD-3-Clause (Go; Debian packages: various) | direct | architecture | image build, development | 2026-11-16 (tag pushed) | 3.9 |
-| `gotenberg/gotenberg` | 8 (no digest) | MIT (Gotenberg; LibreOffice MPL-2.0, Chromium BSD-3-Clause) | direct | no | development | 2026-11-05 (tag pushed) | 5.5 |
-| `gotenberg/gotenberg` | 8.40.0 (sha256:53073e798c8e) | MIT (Gotenberg; LibreOffice MPL-2.0, Chromium BSD-3-Clause) | direct | security | reference installation | 2026-11-05 (tag pushed) | 5.5 |
+| `gotenberg/gotenberg` | 9.9.3 (sha256:9731688d1b62) | MIT (Gotenberg; LibreOffice MPL-2.0, Chromium BSD-3-Clause) | direct | security | pdf image | 2026-11-22 (tag pushed) | 5.5 |
 | `mcr.microsoft.com/playwright` | v1.64.1-noble (no digest) | Apache-2.0 (Ubuntu packages: various) | direct | no | development | not looked up (not on Docker Hub) | 6.5 |
 | `node` | 22-bookworm-slim (sha256:e9f565d32859) | MIT (Node.js; Debian packages: various) | direct | security, architecture | image build, development | 2026-11-24 (tag pushed) | 6.9 |
-| `node` | 22-slim (sha256:e9f565d32859) | MIT (Node.js; Debian packages: various) | direct | security, architecture | collab image | 2026-11-11 (tag pushed) | 6.9 |
+| `node` | 22-slim (sha256:e9f565d32859) | MIT (Node.js; Debian packages: various) | direct | security, architecture | collab image | 2026-11-24 (tag pushed) | 6.9 |
 | `postgres` | 16 (sha256:3950ad7c3148) | PostgreSQL (Debian packages: various) | direct | security, architecture | image build, reference installation, development, CI | 2026-11-24 (tag pushed) | 3.9 |
-| `python` | 3.13-slim (sha256:e48f59cdba69) | PSF-2.0 (Python; Debian packages: various) | direct | no | CI | 2026-11-08 (tag pushed) | 4.1 |
+| `python` | 3.13-slim (sha256:e48f59cdba69) | PSF-2.0 (Python; Debian packages: various) | direct | no | CI | 2026-11-24 (tag pushed) | 4.1 |
 | `semgrep/semgrep` | 1.186.0 (sha256:6e1b04340e60) | LGPL-2.1 | direct | no | CI | 2026-11-18 (tag pushed) | none |
 
 ## GitHub Actions

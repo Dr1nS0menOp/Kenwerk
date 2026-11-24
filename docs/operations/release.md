@@ -14,7 +14,7 @@ From 1.0 (OPS-098, also in `SECURITY.md`):
 
 ## What a release is made of
 
-A pushed tag `vX.Y.Z` on `main` runs `.github/workflows/release.yml` (spec 057), and nothing else does. It makes:
+A pushed tag `vX.Y.Z` on `main` runs `.github/workflows/release.yml` (spec 057), and nothing else makes these files. It makes:
 - the archives for Linux amd64 and arm64;
 - the `.deb` and `.rpm` packages;
 - `checksums.txt`, signed with Sigstore;
@@ -23,7 +23,9 @@ A pushed tag `vX.Y.Z` on `main` runs `.github/workflows/release.yml` (spec 057),
 - the image on `ghcr.io` for both architectures, signed and attested;
 - the Helm chart as `oci://ghcr.io/<owner>/charts/kenwerk`, version `X.Y.Z` and appVersion `vX.Y.Z`, signed, and its `.tgz` on the release (spec 099).
 
-**The first release only:** packages that a workflow pushes to ghcr.io start private. Make `kenwerk`, `kenwerk-backup`, `kenwerk-collab` and `charts/kenwerk` public under the repository's Packages, or no button, chart or template can pull them (spec 099).
+The same tag also runs `.github/workflows/pdf-image.yml`, which builds the image of the PDF helper (`deploy/pdf`), scans it, and publishes it as `ghcr.io/<owner>/kenwerk-pdf:vX.Y.Z`, signed and attested. It can also be run by hand, to publish a helper with newer security updates between releases; such a build is tagged with its date. A weekly build waits for the product owner's decision.
+
+**The first release only:** packages that a workflow pushes to ghcr.io start private. Make `kenwerk`, `kenwerk-backup`, `kenwerk-collab`, `kenwerk-pdf` and `charts/kenwerk` public under the repository's Packages, or no button, chart or template can pull them (spec 099).
 
 It leaves a **draft** release with the notes of that version from `CHANGELOG.md`. CI's `release-dry-run` builds the same files on every push to main, and checks that two builds are the same byte for byte.
 

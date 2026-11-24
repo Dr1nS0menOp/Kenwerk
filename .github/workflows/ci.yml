@@ -206,6 +206,9 @@ jobs:
         run: docker build --target backup -t kenwerk-backup:ci .
       - name: build the image of the service for editing together
         run: docker build -t kenwerk-collab:ci collab
+      # --pull and the nightly run take Debian's newest updates, as the weekly image does.
+      - name: build the image of the helper for PDF files and office previews
+        run: docker build --pull -t kenwerk-pdf:ci deploy/pdf
       # Every image the reference installation runs is scanned, not only the app (spec 067).
       - name: scan the app image
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
@@ -228,6 +231,35 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: "1"
           ignore-unfixed: true
+      - name: scan the image of the helper for PDF files and office previews
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: kenwerk-pdf:ci
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: true
+      # The real helper, run as compose.yaml runs it, against Kenwerk's own requests: a PDF
+      # export and the preview of a Word and an RTF file. Without its password it
+      # refuses, so the password of compose.yaml is known to switch the check on.
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: go.mod
+      - name: the helper makes a PDF of an export and opens office files
+        env:
+          KENWERK_TEST_DATABASE_URL: postgres://kenwerk:kenwerk@localhost:5432/kenwerk?sslmode=disable
+          KENWERK_TEST_PDF_URL: http://127.0.0.1:3000
+          KENWERK_TEST_PDF_PASSWORD: helper-password-for-ci
+        run: |
+          docker run -d --name pdf -p 127.0.0.1:3000:3000 --read-only --tmpfs /tmp --tmpfs /home/gotenberg \
+            --security-opt no-new-privileges:true --cap-drop ALL \
+            -e GOTENBERG_API_BASIC_AUTH_PASSWORD="$KENWERK_TEST_PDF_PASSWORD" kenwerk-pdf:ci
+          for _ in $(seq 1 60); do
+            curl -sf -u "kenwerk:$KENWERK_TEST_PDF_PASSWORD" "$KENWERK_TEST_PDF_URL/health" >/dev/null && break
+            sleep 1
+          done
+          refused=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$KENWERK_TEST_PDF_URL/forms/libreoffice/convert")
+          test "$refused" = 401 || { echo "::error::without its password the helper answered $refused"; exit 1; }
+          go test -count=1 -run '^TestTheRealPDFHelperMakesAnExportAndOpensOfficeFiles$' -v ./internal/app
       # ADR-038: a ZAP baseline against the real image, as a browser would reach it.
       - name: start the image for ZAP
         run: |
@@ -247,6 +279,9 @@ jobs:
       - name: server log, when something failed
         if: failure()
         run: docker logs kenwerk 2>&1 | tail -50
+      - name: log of the PDF helper, when something failed
+        if: failure()
+        run: docker logs pdf 2>&1 | tail -50
 
   # ADR-038: Semgrep's rules for Go, TypeScript, React and secrets. A finding fails the
   # build; an exception is a nosemgrep comment on the line, with the reason above it.

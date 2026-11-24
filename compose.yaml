@@ -149,28 +149,17 @@ services:
   # Start it with --profile pdf, and set KENWERK_PDF_URL=http://pdf:3000 and a long
   # KENWERK_PDF_PASSWORD in .env. With a password set, it answers nobody without it.
   # It never fetches an address, runs no script in pages, and holds nothing on disk.
+  # The image is Gotenberg with Debian's security updates and these settings built in
+  # (deploy/pdf). docker compose --profile pdf build --pull --no-cache pdf takes the newest
+  # updates; or set KENWERK_PDF_IMAGE to the signed image the project publishes at each release.
   pdf:
-    image: gotenberg/gotenberg:8.40.0@sha256:53073e798c8ef39ea2187e44cb67bab77894ea2509100b94c4fe3b461f7b2996
+    image: ${KENWERK_PDF_IMAGE:-kenwerk-pdf:local}
+    build: ./deploy/pdf
     profiles: [pdf]
     restart: unless-stopped
     networks: [helpers]
     environment:
-      GOTENBERG_API_BASIC_AUTH_USERNAME: kenwerk
       GOTENBERG_API_BASIC_AUTH_PASSWORD: ${KENWERK_PDF_PASSWORD:-}
-    # The password switches on the check, so an install without one keeps working.
-    entrypoint:
-      - sh
-      - -c
-      - 'if [ -n "$$GOTENBERG_API_BASIC_AUTH_PASSWORD" ]; then set -- --api-enable-basic-auth "$$@"; fi; exec gotenberg "$$@"'
-      - gotenberg
-    command:
-      - --api-disable-download-from
-      - --api-timeout=120s
-      - --chromium-deny-private-ips
-      - --chromium-disable-javascript
-      - --webhook-disable
-      - --prometheus-disable-collect
-      - --log-level=warn
     read_only: true
     tmpfs: [/tmp, /home/gotenberg]
     security_opt: ["no-new-privileges:true"]

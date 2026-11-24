@@ -181,9 +181,25 @@ Each optional helper runs in its own container on the `helpers` network, which h
 
 | Helper | Reaches | Sees | Notes |
 |---|---|---|---|
-| `pdf` (Gotenberg) | Nothing; only the app reaches it | The HTML of an export, and office files a reader opens as a preview | Set a long `KENWERK_PDF_PASSWORD` in `.env`: the helper then answers only the app. It fetches no address, runs no script in pages, keeps nothing on disk, and runs read-only without extra rights |
+| `pdf` (Gotenberg) | Nothing; only the app reaches it | The HTML of an export, and office files a reader opens as a preview | Set a long `KENWERK_PDF_PASSWORD` in `.env`: the helper then answers only the app. It fetches no address, runs no script in pages and no macro in files, keeps nothing on disk, and runs read-only without extra rights. These settings are built into its image, `deploy/pdf` |
 | `collab` | The app, to check each connection | The shared draft of a page for people who may edit it | Needs `KENWERK_COLLAB_TOKEN` on both sides |
 | Collabora, draw.io | What you set up | Office files or drawings a person opens | Run them on the same closed network when you can |
+
+**Keeping the PDF helper current.** The `pdf` helper reads files people upload, so it should carry the newest security updates. `docker compose --profile pdf up -d` builds its image from `deploy/pdf` once: Gotenberg, pinned by digest, with Debian's security updates of the day it was built. To take newer ones, build it again without the cache, every week or when a release asks for it:
+
+```sh
+docker compose --profile pdf build --pull --no-cache pdf && docker compose --profile pdf up -d pdf
+```
+
+Or use the image the project builds the same way at every release, scanned and signed: set `KENWERK_PDF_IMAGE` in `.env` to `ghcr.io/dr1ns0menop/kenwerk-pdf:<tag>@sha256:<digest>`, and check it first:
+
+```sh
+cosign verify ghcr.io/dr1ns0menop/kenwerk-pdf:<tag> \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --certificate-identity-regexp '^https://github.com/Dr1nS0menOp/Kenwerk/.github/workflows/pdf-image.yml@refs/(heads/main|tags/v[0-9.]+)$'
+```
+
+A release build is tagged with the release, a build between releases with its date, such as `2026-11-30`, and `current` is always the newest.
 
 **Setting a helper in the administration.** A system administrator sets the PDF helper with its password, the office service and the drawing service under Administration, Instance, General, each with a code from the authenticator app; every node uses a change within 5 seconds, without a restart. The PDF password is stored encrypted with `master.key` and never shown again. A helper set there is reached only on a public address over https, unless `KENWERK_OUTWARD_ALLOW_PRIVATE=true`; the Compose helpers above live on a private network, so keep `KENWERK_PDF_URL` in `.env` for them. A helper whose `KENWERK_PDF_URL`, `KENWERK_COLLABORA_URL` or `KENWERK_DRAWING_URL` is set shows read-only there (spec 101).
 

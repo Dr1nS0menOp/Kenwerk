@@ -291,7 +291,8 @@ func TestPDFGoesThroughTheHelperAndIsAbsentWithoutIt(t *testing.T) {
 	if got := owner.exportFile(run["id"].(string)); string(got) != "%PDF-fake" {
 		t.Fatalf("got %q", got)
 	}
-	for _, want := range []string{"parent words", "child words", "Contents", "generateTaggedPdf", `name="landscape"`} {
+	// Gotenberg 9's names: it refuses 8's generateTaggedPdf and generateDocumentOutline.
+	for _, want := range []string{"parent words", "child words", "Contents", `name="nativeTaggedPdf"`, `name="nativeBookmarks"`, `name="landscape"`} {
 		if !strings.Contains(form, want) {
 			t.Errorf("the helper did not get %s", want)
 		}

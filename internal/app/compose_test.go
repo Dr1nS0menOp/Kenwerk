@@ -30,6 +30,43 @@ func TestHelpersHaveNoWayOut(t *testing.T) {
 	}
 }
 
+// The PDF helper reads hostile files, so its image starts it with only what Kenwerk calls,
+// and compose.yaml runs that image read-only and without rights (ARC-085, ARC-094).
+func TestThePDFHelperStartsLockedDown(t *testing.T) {
+	start, err := os.ReadFile("../../deploy/pdf/start.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, flag := range []string{
+		"--api-disable-download-from", "--chromium-deny-private-ips", "--chromium-deny-public-ips",
+		"--chromium-disable-javascript", "--libreoffice-deny-private-ips", "--libreoffice-deny-public-ips",
+		"--pdf-disable-routes", "--pdf-disable-stages", "--webhook-disable",
+	} {
+		if !regexp.MustCompile(`(?m)^  ` + regexp.QuoteMeta(flag) + ` \\$`).Match(start) {
+			t.Errorf("the helper starts without %s", flag)
+		}
+	}
+	if strings.Contains(string(start), "--libreoffice-enable-macros") {
+		t.Error("the helper runs the macros of files")
+	}
+	raw, err := os.ReadFile("../../compose.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	pdf := regexp.MustCompile(`(?m)^  pdf:\n(?:(?:    .*|\s*)\n)*`).FindString(string(raw))
+	for _, want := range []string{"    build: ./deploy/pdf\n", "    read_only: true\n", "    cap_drop: [ALL]\n",
+		`    security_opt: ["no-new-privileges:true"]` + "\n", "GOTENBERG_API_BASIC_AUTH_PASSWORD: ${KENWERK_PDF_PASSWORD:-}"} {
+		if !strings.Contains(pdf, want) {
+			t.Errorf("the pdf service lacks %q:\n%s", want, pdf)
+		}
+	}
+	for _, own := range []string{"    entrypoint:", "    command:"} {
+		if strings.Contains(pdf, own) {
+			t.Errorf("the pdf service replaces the start of its image with %q", own)
+		}
+	}
+}
+
 // The server holds only the application role; the backup service alone holds the owner of
 // the tables, and migrates (spec 070).
 func TestOnlyTheBackupServiceHoldsTheOwnerOfTheTables(t *testing.T) {

@@ -10,6 +10,8 @@ That is all. There are no manual steps. If you changed a setting or the configur
 
 **Build the backup service too.** Since spec 070 it runs the migrations, so `docker compose up -d --build` must rebuild it with the server. With pulled images, set `KENWERK_BACKUP_IMAGE` to the backup image of the same release. A server whose database waits for a backup service of an older release shows "The database waits for the backup service to migrate it", with the command that fixes it.
 
+**The PDF helper keeps its own pace.** With `--profile pdf`, its image is built once from `deploy/pdf`, and a cached build keeps the security updates of that day. Build it again without the cache now and then, as [install.md](install.md#helpers-and-what-they-may-reach) says, or point `KENWERK_PDF_IMAGE` at the signed image the project publishes with each release.
+
 ### Upgrading to the layout of spec 070
 
 `compose.yaml` no longer gives the server the owner of the tables; the backup service holds it alone, and the server waits until it has migrated. What to do depends on how you upgrade:

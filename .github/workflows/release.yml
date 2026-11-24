@@ -5,6 +5,7 @@
 # as an OCI artifact (spec 099), SBOMs for all of them, signs keylessly with Sigstore,
 # attests SLSA provenance, and leaves a draft
 # release for a maintainer to read and publish. Every action is pinned by commit SHA.
+# The image of the PDF helper is published by pdf-image.yml, on the same tag.
 name: release
 
 on:

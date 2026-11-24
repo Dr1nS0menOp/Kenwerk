@@ -268,8 +268,8 @@ function collectNpm(lockFile, where) {
 }
 
 function collectImages() {
-  const files = ['Dockerfile', 'collab/Dockerfile', 'Dockerfile.dev', 'compose.yaml', 'compose.dev.yaml', '.github/workflows/ci.yml', 'scripts/deploy-check.sh'];
-  const roles = { Dockerfile: 'image build', 'collab/Dockerfile': 'collab image', 'Dockerfile.dev': 'development', 'compose.yaml': 'reference installation', 'compose.dev.yaml': 'development', '.github/workflows/ci.yml': 'CI', 'scripts/deploy-check.sh': 'CI' };
+  const files = ['Dockerfile', 'collab/Dockerfile', 'deploy/pdf/Dockerfile', 'Dockerfile.dev', 'compose.yaml', 'compose.dev.yaml', '.github/workflows/ci.yml', 'scripts/deploy-check.sh'];
+  const roles = { Dockerfile: 'image build', 'collab/Dockerfile': 'collab image', 'deploy/pdf/Dockerfile': 'pdf image', 'Dockerfile.dev': 'development', 'compose.yaml': 'reference installation', 'compose.dev.yaml': 'development', '.github/workflows/ci.yml': 'CI', 'scripts/deploy-check.sh': 'CI' };
   const found = new Map();
   for (const file of files) {
     for (const m of readFileSync(file, 'utf8').matchAll(/(?:^FROM\s+|image:\s+|_IMAGE=)([a-z0-9./-]+):([\w.-]+)(@sha256:[0-9a-f]{12})?/gm)) {
@@ -282,7 +282,7 @@ function collectImages() {
   return [...found.values()].map(({ image, tag, digest, files }) => {
     const facts = IMAGE_FACTS[image] ?? {};
     // Only an image that runs Kenwerk or builds its release can be critical.
-    const shipsOrBuilds = files.has('reference installation') || files.has('image build') || files.has('collab image');
+    const shipsOrBuilds = files.has('reference installation') || files.has('image build') || files.has('collab image') || files.has('pdf image');
     return {
       ecosystem: 'image', name: image, version: `${tag} (${digest})`, tag, licence: facts.licence, repo: facts.repo, hub: facts.hub,
       parent: 'direct', used: [...files].join(', '),

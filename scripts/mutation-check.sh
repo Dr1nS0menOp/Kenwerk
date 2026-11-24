@@ -1446,6 +1446,14 @@ mutate "a worker never notes the drain" internal/app/events.go \
   's.replace("return a.queue.Waiting(ctx, durables)", "return len(durables), nil")' $app -run '^TestARunningWorkerFollowsTheSwitchAndNotesTheDrain$'
 mutate "a helper gets the network of the database" compose.yaml \
   's.replace("    networks: [helpers]\n", "")' $app -run TestHelpersHaveNoWayOut
+mutate "the PDF helper fetches addresses it is given" deploy/pdf/start.sh \
+  's.replace("  --api-disable-download-from \\\n", "")' $app -run TestThePDFHelperStartsLockedDown
+mutate "LibreOffice in the PDF helper reaches the network" deploy/pdf/start.sh \
+  's.replace("  --libreoffice-deny-private-ips \\\n", "")' $app -run TestThePDFHelperStartsLockedDown
+mutate "the PDF helper offers routes Kenwerk never calls" deploy/pdf/start.sh \
+  's.replace("  --pdf-disable-routes \\\n", "")' $app -run TestThePDFHelperStartsLockedDown
+mutate "the PDF helper runs with every right" compose.yaml \
+  's.replace("    cap_drop: [ALL]\n\nnetworks:", "\nnetworks:")' $app -run TestThePDFHelperStartsLockedDown
 mutate "a private saved block reaches everyone" internal/savedblocks/savedblocks.go \
   's.replace("WHERE b.owner_id = $1\n", "WHERE b.owner_id = $1 OR true\n")' $app -run TestASavedBlockStaysPrivateUntilShared
 mutate "a guest sees what members shared" internal/savedblocks/savedblocks.go \

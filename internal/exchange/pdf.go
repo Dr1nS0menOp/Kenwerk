@@ -225,8 +225,10 @@ func (w *exportWriter) pdfForm(page string, design PDFDesign, images map[string]
 		}
 	}
 	size := paperSizes[w.run.Options.Paper]
+	// The names of Gotenberg 9, which refuses those of 8 (generateDocumentOutline and
+	// generateTaggedPdf); Gotenberg 8 ignores these, and makes the PDF without an outline or tags.
 	fields := map[string]string{"paperWidth": size[0], "paperHeight": size[1], "printBackground": "true",
-		"landscape": fmt.Sprint(w.run.Options.Orientation == "landscape"), "generateDocumentOutline": "true", "generateTaggedPdf": "true"}
+		"landscape": fmt.Sprint(w.run.Options.Orientation == "landscape"), "nativeBookmarks": "true", "nativeTaggedPdf": "true"}
 	for key, value := range fields {
 		if err := mw.WriteField(key, value); err != nil {
 			return nil, "", err
