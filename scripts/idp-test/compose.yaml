@@ -3,7 +3,7 @@
 name: dfl-idp
 services:
   ak-db:
-    image: postgres:16
+    image: postgres:19
     environment:
       POSTGRES_USER: authentik
       POSTGRES_PASSWORD: authentik
@@ -42,7 +42,7 @@ services:
       ak-db:
         condition: service_healthy
   db:
-    image: postgres:16
+    image: postgres:19
     environment:
       POSTGRES_USER: kenwerk
       POSTGRES_PASSWORD: kenwerk
