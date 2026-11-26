@@ -26,7 +26,7 @@ RUN mkdir -p /out/data
 # The backup service of compose.yaml (spec 054): pg_dump of the same major version as the
 # database, gpg to encrypt, and the kenwerk binary of this build to note each backup.
 # docker build . skips this stage; compose.yaml builds it with target: backup.
-FROM postgres:16@sha256:3950ad7c3148ca2175ef1b6c36c9efbf78957ae8fbe8b3a5d7c35af50500382f AS backup
+FROM postgres:16@sha256:ce81150802644ddfac1db4da9e63be6f2a3818aa6ee98a7a28838aeea65dc37a AS backup
 # The base is pinned by digest, so Debian's security updates since then come in here. gosu
 # serves the entrypoint of the postgres image, which this stage replaces, so it goes (spec 067).
 # ca-certificates lets pg_dump check a managed database's certificate with sslrootcert=system
