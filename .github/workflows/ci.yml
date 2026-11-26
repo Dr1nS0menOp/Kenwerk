@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16@sha256:3950ad7c3148ca2175ef1b6c36c9efbf78957ae8fbe8b3a5d7c35af50500382f
+        image: postgres:19@sha256:4ea94de574c17f0372722806c949757050fbb1cd7648410fe45d6bba275cc00e
         env:
           POSTGRES_USER: kenwerk
           POSTGRES_PASSWORD: kenwerk
@@ -88,7 +88,7 @@ jobs:
           go-version-file: go.mod
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 22
+          node-version: 26
       - name: install
         run: npm ci --no-fund --no-audit
         working-directory: web
@@ -163,7 +163,7 @@ jobs:
     needs: go
     services:
       postgres:
-        image: postgres:16@sha256:3950ad7c3148ca2175ef1b6c36c9efbf78957ae8fbe8b3a5d7c35af50500382f
+        image: postgres:19@sha256:4ea94de574c17f0372722806c949757050fbb1cd7648410fe45d6bba275cc00e
         env:
           POSTGRES_USER: kenwerk
           POSTGRES_PASSWORD: kenwerk
@@ -199,7 +199,7 @@ jobs:
     timeout-minutes: 20
     services:
       postgres:
-        image: postgres:16@sha256:3950ad7c3148ca2175ef1b6c36c9efbf78957ae8fbe8b3a5d7c35af50500382f
+        image: postgres:19@sha256:4ea94de574c17f0372722806c949757050fbb1cd7648410fe45d6bba275cc00e
         env:
           POSTGRES_USER: kenwerk
           POSTGRES_PASSWORD: kenwerk
@@ -232,7 +232,7 @@ jobs:
     needs: go
     services:
       postgres:
-        image: postgres:16@sha256:3950ad7c3148ca2175ef1b6c36c9efbf78957ae8fbe8b3a5d7c35af50500382f
+        image: postgres:19@sha256:4ea94de574c17f0372722806c949757050fbb1cd7648410fe45d6bba275cc00e
         env:
           POSTGRES_USER: kenwerk
           POSTGRES_PASSWORD: kenwerk
@@ -502,7 +502,7 @@ jobs:
         share: [1, 2, 3, 4, 5, 6]
     services:
       postgres:
-        image: postgres:16@sha256:3950ad7c3148ca2175ef1b6c36c9efbf78957ae8fbe8b3a5d7c35af50500382f
+        image: postgres:19@sha256:4ea94de574c17f0372722806c949757050fbb1cd7648410fe45d6bba275cc00e
         env:
           POSTGRES_USER: kenwerk
           POSTGRES_PASSWORD: kenwerk
@@ -530,7 +530,7 @@ jobs:
           cache: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 22
+          node-version: 26
       # The mutations of frontend rules (mutate_web) run tests that need the web dependencies.
       - name: web dependencies
         run: npm ci --no-fund --no-audit
@@ -567,7 +567,7 @@ jobs:
           go-version-file: go.mod
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 22
+          node-version: 26
       - name: web dependencies
         run: npm ci --no-fund --no-audit
         working-directory: web
