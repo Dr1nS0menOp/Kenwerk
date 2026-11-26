@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16@sha256:3950ad7c3148ca2175ef1b6c36c9efbf78957ae8fbe8b3a5d7c35af50500382f
+        image: postgres:16@sha256:ce81150802644ddfac1db4da9e63be6f2a3818aa6ee98a7a28838aeea65dc37a
         env:
           POSTGRES_USER: kenwerk
           POSTGRES_PASSWORD: kenwerk
@@ -163,7 +163,7 @@ jobs:
     needs: go
     services:
       postgres:
-        image: postgres:16@sha256:3950ad7c3148ca2175ef1b6c36c9efbf78957ae8fbe8b3a5d7c35af50500382f
+        image: postgres:16@sha256:ce81150802644ddfac1db4da9e63be6f2a3818aa6ee98a7a28838aeea65dc37a
         env:
           POSTGRES_USER: kenwerk
           POSTGRES_PASSWORD: kenwerk
@@ -199,7 +199,7 @@ jobs:
     timeout-minutes: 20
     services:
       postgres:
-        image: postgres:16@sha256:3950ad7c3148ca2175ef1b6c36c9efbf78957ae8fbe8b3a5d7c35af50500382f
+        image: postgres:16@sha256:ce81150802644ddfac1db4da9e63be6f2a3818aa6ee98a7a28838aeea65dc37a
         env:
           POSTGRES_USER: kenwerk
           POSTGRES_PASSWORD: kenwerk
@@ -232,7 +232,7 @@ jobs:
     needs: go
     services:
       postgres:
-        image: postgres:16@sha256:3950ad7c3148ca2175ef1b6c36c9efbf78957ae8fbe8b3a5d7c35af50500382f
+        image: postgres:16@sha256:ce81150802644ddfac1db4da9e63be6f2a3818aa6ee98a7a28838aeea65dc37a
         env:
           POSTGRES_USER: kenwerk
           POSTGRES_PASSWORD: kenwerk
@@ -332,7 +332,7 @@ jobs:
   semgrep:
     runs-on: ubuntu-latest
     container:
-      image: semgrep/semgrep:1.186.0@sha256:6e1b04340e60e910fbb4ddbf3c857ab0918f064417ad5ac530014ccb3cf8c8f1
+      image: semgrep/semgrep:1.187.0@sha256:0c8dfa7aa1ca8c50233ec9110e8cd88d139dedd603d56507493f74c6f4b3e062
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: scan
@@ -364,7 +364,7 @@ jobs:
         if: matrix.language == 'go'
         with:
           go-version-file: go.mod
-      - uses: github/codeql-action/init@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4.39.4
+      - uses: github/codeql-action/init@915412ff23e8b7659517e607487dbeae018f2934 # v4.39.5
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
@@ -372,7 +372,7 @@ jobs:
           # The suppression query turns a codeql[rule] comment above a line into a suppression.
           # A query inside a pack is named through packs; queries only takes suites and paths.
           packs: codeql/${{ matrix.pack }}-queries:AlertSuppression.ql
-      - uses: github/codeql-action/analyze@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4.39.4
+      - uses: github/codeql-action/analyze@915412ff23e8b7659517e607487dbeae018f2934 # v4.39.5
         with:
           category: /language:${{ matrix.language }}
           output: codeql-results
@@ -502,7 +502,7 @@ jobs:
         share: [1, 2, 3, 4, 5, 6]
     services:
       postgres:
-        image: postgres:16@sha256:3950ad7c3148ca2175ef1b6c36c9efbf78957ae8fbe8b3a5d7c35af50500382f
+        image: postgres:16@sha256:ce81150802644ddfac1db4da9e63be6f2a3818aa6ee98a7a28838aeea65dc37a
         env:
           POSTGRES_USER: kenwerk
           POSTGRES_PASSWORD: kenwerk
