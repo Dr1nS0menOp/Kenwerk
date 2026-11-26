@@ -9,7 +9,7 @@ services:
   db:
     # Pinned by digest, the same as compose.yaml: a tag that moves would recreate the
     # test database in the middle of a run.
-    image: postgres:16@sha256:3950ad7c3148ca2175ef1b6c36c9efbf78957ae8fbe8b3a5d7c35af50500382f
+    image: postgres:16@sha256:ce81150802644ddfac1db4da9e63be6f2a3818aa6ee98a7a28838aeea65dc37a
     environment:
       POSTGRES_USER: kenwerk
       POSTGRES_PASSWORD: kenwerk
